@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Tahoma, "Vazirmatn", sans-serif;
+}
+
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-slate-200;
+}
+
+.input {
+  @apply w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-300;
+}
+
+.btn {
+  @apply rounded-xl px-4 py-2 font-medium transition;
+}
+
+.btn-primary {
+  @apply btn bg-sky-600 text-white hover:bg-sky-700;
+}
