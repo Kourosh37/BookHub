@@ -6,6 +6,7 @@ import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import { CalendarDays, Clock3, Send } from "lucide-react";
+import Link from "next/link";
 
 function toGregorianYmd(dateObj: any) {
   const g = dateObj.toDate();
@@ -58,6 +59,9 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   return (
     <main className="mx-auto max-w-4xl p-4 md:p-6">
       <div className="card space-y-5 p-4 md:p-6">
+        <div className="flex justify-end">
+          <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
+        </div>
         <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
 
         <div>
