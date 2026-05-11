@@ -4,8 +4,9 @@ import { bookingSchema } from "@/lib/validations";
 import { requireSession } from "@/lib/auth";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
+  let session;
   try {
-    await requireSession();
+    session = await requireSession();
   } catch {
     return NextResponse.json({ error: "نیاز به ورود", details: "برای رزرو باید وارد حساب شوید" }, { status: 401 });
   }
@@ -34,6 +35,7 @@ export async function POST(req: Request, { params }: { params: { shareId: string
         data: {
           timeSlotId: parsed.data.timeSlotId,
           scheduleId: schedule.id,
+          bookedByUserId: session.userId,
           visitorName: parsed.data.name,
           answers: parsed.data.answers,
         },

@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  username  String     @unique
-  password  String
-  schedules Schedule[]
-  createdAt DateTime   @default(now())
+  id            String     @id @default(cuid())
+  username      String     @unique
+  password      String
+  schedules     Schedule[]
+  bookingsMade  Booking[]  @relation("BookingsMadeByUser")
+  createdAt     DateTime   @default(now())
 }
 
 model Schedule {
@@ -43,12 +44,14 @@ model TimeSlot {
 }
 
 model Booking {
-  id          String   @id @default(cuid())
-  timeSlotId  String   @unique
-  timeSlot    TimeSlot @relation(fields: [timeSlotId], references: [id])
-  scheduleId  String
-  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  visitorName String?
-  answers     Json
-  bookedAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  timeSlotId     String   @unique
+  timeSlot       TimeSlot @relation(fields: [timeSlotId], references: [id])
+  scheduleId     String
+  schedule       Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  bookedByUserId String?
+  bookedByUser   User?    @relation("BookingsMadeByUser", fields: [bookedByUserId], references: [id], onDelete: SetNull)
+  visitorName    String?
+  answers        Json
+  bookedAt       DateTime @default(now())
 }

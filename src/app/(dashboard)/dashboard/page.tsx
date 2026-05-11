@@ -52,10 +52,11 @@ function rangesOverlap(ranges: Range[]) {
 }
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"schedules" | "bookings">("schedules");
+  const [tab, setTab] = useState<"schedules" | "bookings" | "sessions">("schedules");
   const [user, setUser] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [mySessions, setMySessions] = useState<any[]>([]);
   const [scheduleFilter, setScheduleFilter] = useState("");
 
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
@@ -77,6 +78,9 @@ export default function DashboardPage() {
 
     const bk = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`, { cache: "no-store" });
     setBookings(await bk.json());
+
+    const mine = await fetch("/api/bookings/mine", { cache: "no-store" });
+    setMySessions(await mine.json());
   }, [scheduleFilter]);
 
   useEffect(() => {
@@ -186,6 +190,9 @@ export default function DashboardPage() {
         </button>
         <button className={`btn ${tab === "bookings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("bookings")}>
           <ListChecks size={16} /> رزروهای من
+        </button>
+        <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
+          <Clock3 size={16} /> جلسات من
         </button>
       </div>
 
@@ -359,6 +366,37 @@ export default function DashboardPage() {
                     ))
                   ) : (
                     <div>پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") || "-" : "-"}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "sessions" && (
+        <section className="card p-4">
+          <div className="space-y-3">
+            {mySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
+            {mySessions.map((s) => (
+              <div key={s.id} className="rounded-xl border border-slate-800 p-3">
+                <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
+                <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || "-"}</div>
+                <div className="text-sm text-slate-400">
+                  زمان شروع: {new Date(s.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+                </div>
+                <div className="text-sm text-slate-400">
+                  زمان پایان: {new Date(s.timeSlot?.endTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+                </div>
+                <div className="mt-2 space-y-1 text-sm text-slate-300 break-words">
+                  {Array.isArray(s.answers) && Array.isArray(s.schedule?.questions) && s.schedule.questions.length > 0 ? (
+                    s.schedule.questions.map((q: any, idx: number) => (
+                      <div key={idx}>
+                        {q?.label || `سوال ${idx + 1}`}: {s.answers[idx] || "-"}
+                      </div>
+                    ))
+                  ) : (
+                    <div>پاسخ‌ها: {Array.isArray(s.answers) ? s.answers.join(" | ") || "-" : "-"}</div>
                   )}
                 </div>
               </div>
