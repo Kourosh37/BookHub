@@ -17,8 +17,9 @@ export default function LoginPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: form.get("username"), password: form.get("password") }),
     });
+    const data = await res.json();
     setLoading(false);
-    if (!res.ok) return toast.error("ورود ناموفق بود");
+    if (!res.ok) return toast.error(data.details || data.error || "ورود ناموفق بود");
     toast.success("خوش آمدید");
     router.push("/dashboard");
   }

@@ -14,13 +14,17 @@ export default function RegisterPage() {
     setLoading(true);
     const payload = { username: form.get("username"), password: form.get("password") };
     const reg = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const regData = await reg.json();
     if (!reg.ok) {
       setLoading(false);
-      return toast.error("ثبت‌نام ناموفق بود");
+      return toast.error(regData.details || regData.error || "ثبت‌نام ناموفق بود");
     }
+
     const login = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const loginData = await login.json();
     setLoading(false);
-    if (!login.ok) return toast.error("ورود خودکار ناموفق بود");
+    if (!login.ok) return toast.error(loginData.details || loginData.error || "ورود خودکار ناموفق بود");
+
     toast.success("حساب ساخته شد");
     router.push("/dashboard");
   }

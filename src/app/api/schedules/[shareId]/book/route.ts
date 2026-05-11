@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { bookingSchema } from "@/lib/validations";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
   const body = await req.json();
   const parsed = bookingSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const path = issue?.path?.join(".") || "payload";
+    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
+  }
 
   const schedule = await prisma.schedule.findUnique({ where: { shareId: params.shareId }, select: { id: true } });
-  if (!schedule) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+  if (!schedule) return NextResponse.json({ error: "برنامه پیدا نشد", details: "لینک رزرو معتبر نیست" }, { status: 404 });
 
   try {
     const booking = await prisma.$transaction(async (tx: any) => {
@@ -32,9 +36,9 @@ export async function POST(req: Request, { params }: { params: { shareId: string
     return NextResponse.json(booking);
   } catch (e) {
     if (e instanceof Error && e.message === "SLOT_TAKEN") {
-      return NextResponse.json({ error: "This slot was just taken, please choose another." }, { status: 409 });
+      return NextResponse.json({ error: "این بازه همین الان رزرو شد", details: "لطفاً یک بازه دیگر انتخاب کنید" }, { status: 409 });
     }
 
-    return NextResponse.json({ error: "Booking failed" }, { status: 500 });
+    return NextResponse.json({ error: "خطا در ثبت رزرو", details: "لطفاً دوباره تلاش کنید" }, { status: 500 });
   }
 }
