@@ -28,15 +28,19 @@ function toYmd(dateObj: any) {
 }
 
 function toJalaliLabel(ymd: string) {
-  const [y, m, day] = ymd.split("-").map((x) => Number(x));
-  if (!y || !m || !day) return ymd;
-  const date = new Date(y, m - 1, day);
-  if (Number.isNaN(date.getTime())) return ymd;
-  return date.toLocaleDateString("fa-IR-u-ca-persian", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  if (!ymd) return "";
+  try {
+    return new DateObject({
+      date: ymd,
+      format: "YYYY-MM-DD",
+      calendar: gregorian,
+      locale: persian_fa,
+    })
+      .convert(persian, persian_fa)
+      .format("D MMMM YYYY");
+  } catch {
+    return ymd;
+  }
 }
 
 function toMinutes(v: string) {
