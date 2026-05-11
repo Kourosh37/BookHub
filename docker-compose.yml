@@ -28,7 +28,7 @@
       NEXTAUTH_URL: http://localhost
     expose:
       - "3000"
-    command: sh -c "until npx prisma migrate deploy; do echo 'waiting for db...'; sleep 2; done; npm run start"
+    command: sh -c "until npx prisma migrate deploy; do echo 'waiting for db...'; sleep 2; done; npx prisma db push; npm run start"
 
   nginx:
     image: nginx:1.27-alpine
