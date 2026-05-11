@@ -29,6 +29,10 @@ export const scheduleSchema = z.object({
   questions: z.array(questionSchema).max(5),
 });
 
+export const updateScheduleTitleSchema = z.object({
+  title: z.string().min(3).max(120),
+});
+
 export const bookingSchema = z.object({
   timeSlotId: z.string(),
   name: z.string().optional(),

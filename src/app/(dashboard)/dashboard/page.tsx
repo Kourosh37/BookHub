@@ -72,6 +72,9 @@ export default function DashboardPage() {
   const [baseUrl, setBaseUrl] = useState("");
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -189,6 +192,37 @@ export default function DashboardPage() {
     toast.success("رزرو با موفقیت کنسل شد");
     setCancelTarget(null);
     await load();
+  }
+
+  function startEditScheduleTitle(schedule: any) {
+    setEditingScheduleId(schedule.id);
+    setEditingTitle(schedule.title || "");
+  }
+
+  function stopEditScheduleTitle() {
+    setEditingScheduleId(null);
+    setEditingTitle("");
+  }
+
+  async function saveScheduleTitle(scheduleId: string) {
+    const title = editingTitle.trim();
+    if (title.length < 3) return toast.error("عنوان برنامه باید حداقل ۳ کاراکتر باشد");
+    if (title.length > 120) return toast.error("عنوان برنامه نمی‌تواند بیشتر از ۱۲۰ کاراکتر باشد");
+
+    setSavingTitle(true);
+    const res = await fetch(`/api/schedules/id/${scheduleId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    const data = await res.json();
+    setSavingTitle(false);
+
+    if (!res.ok) return toast.error(data.details || data.error || "خطا در ویرایش عنوان برنامه");
+
+    setSchedules((prev) => prev.map((s) => (s.id === scheduleId ? { ...s, title: data.title } : s)));
+    toast.success("نام برنامه ویرایش شد");
+    stopEditScheduleTitle();
   }
 
   return (
@@ -343,7 +377,37 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {schedules.map((s) => (
               <div className="card p-4" key={s.id}>
-                <h3 className="font-semibold break-words">{s.title}</h3>
+                {editingScheduleId === s.id ? (
+                  <div className="space-y-2">
+                    <label className="block text-xs text-slate-400">ویرایش نام برنامه</label>
+                    <input
+                      className="input"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      maxLength={120}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn-ghost text-cyan-300"
+                        onClick={() => saveScheduleTitle(s.id)}
+                        disabled={savingTitle}
+                      >
+                        {savingTitle ? "در حال ذخیره..." : "ذخیره"}
+                      </button>
+                      <button type="button" className="btn-ghost" onClick={stopEditScheduleTitle} disabled={savingTitle}>
+                        انصراف
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold break-words">{s.title}</h3>
+                    <button type="button" className="btn-ghost text-xs" onClick={() => startEditScheduleTitle(s)}>
+                      ویرایش نام
+                    </button>
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
                   <a className="text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
                   <button
