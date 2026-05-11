@@ -57,14 +57,14 @@ export default function DashboardPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const load = useCallback(async () => {
-    const me = await fetch("/api/auth/me");
+    const me = await fetch("/api/auth/me", { cache: "no-store" });
     if (!me.ok) return (window.location.href = "/login");
     setUser((await me.json()).user);
 
-    const sch = await fetch("/api/schedules/my");
+    const sch = await fetch("/api/schedules/my", { cache: "no-store" });
     setSchedules(await sch.json());
 
-    const bk = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`);
+    const bk = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`, { cache: "no-store" });
     setBookings(await bk.json());
   }, [scheduleFilter]);
 
