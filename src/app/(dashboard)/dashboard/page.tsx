@@ -22,11 +22,8 @@ type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
 
 function toYmd(dateObj: any) {
-  const g = dateObj.convert(gregorian);
-  const y = String(g.year);
-  const m = String(g.month.number).padStart(2, "0");
-  const d = String(g.day).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  if (!dateObj) return "";
+  return dateObj.convert(gregorian).format("YYYY-MM-DD");
 }
 
 function toJalaliLabel(ymd: string) {

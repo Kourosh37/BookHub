@@ -5,15 +5,13 @@ import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
+import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
 
 function toGregorianYmd(dateObj: any) {
-  const g = dateObj.toDate();
-  const yyyy = g.getFullYear();
-  const mm = String(g.getMonth() + 1).padStart(2, "0");
-  const dd = String(g.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  if (!dateObj) return "";
+  return dateObj.convert(gregorian).format("YYYY-MM-DD");
 }
 
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
