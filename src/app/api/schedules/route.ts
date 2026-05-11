@@ -44,7 +44,12 @@ export async function POST(req: Request) {
     const session = await requireSession();
     const body = await req.json();
     const parsed = scheduleSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "داده نامعتبر است" }, { status: 400 });
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const path = firstIssue?.path?.join(".") || "payload";
+      const message = firstIssue?.message || "Invalid payload";
+      return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${message}` }, { status: 400 });
+    }
 
     const normalizedDays = normalizeDays(parsed.data.daysConfig as DayInput[]);
 

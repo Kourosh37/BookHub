@@ -104,7 +104,11 @@ export default function DashboardPage() {
 
   function removeRange(day: string, index: number) {
     setDayConfigs((prev) =>
-      prev.map((d) => (d.date === day ? { ...d, ranges: d.ranges.filter((_, i) => i !== index) } : d)),
+      prev.map((d) => {
+        if (d.date !== day) return d;
+        if (d.ranges.length <= 1) return d;
+        return { ...d, ranges: d.ranges.filter((_, i) => i !== index) };
+      }),
     );
   }
 
@@ -113,6 +117,7 @@ export default function DashboardPage() {
     const f = new FormData(e.currentTarget);
 
     if (dayConfigs.length === 0) return toast.error("حداقل یک تاریخ انتخاب کنید");
+    if (dayConfigs.some((d) => d.ranges.length === 0)) return toast.error("برای هر تاریخ حداقل یک بازه زمانی لازم است");
     if (isInvalidTimeConfig) return toast.error("تداخل یا نامعتبر بودن بازه‌های زمانی را اصلاح کنید");
 
     const payload = {
@@ -130,7 +135,7 @@ export default function DashboardPage() {
     });
 
     const data = await res.json();
-    if (!res.ok) return toast.error(data.error || "خطا");
+    if (!res.ok) return toast.error(data.details || data.error || "خطا");
 
     toast.success("برنامه ساخته شد");
     setSelectedDates([]);
