@@ -104,9 +104,7 @@ export default function DashboardPage() {
 
   function removeRange(day: string, index: number) {
     setDayConfigs((prev) =>
-      prev.map((d) =>
-        d.date === day ? { ...d, ranges: d.ranges.filter((_, i) => i !== index) || [] } : d,
-      ),
+      prev.map((d) => (d.date === day ? { ...d, ranges: d.ranges.filter((_, i) => i !== index) } : d)),
     );
   }
 
@@ -148,10 +146,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 md:p-6">
       <div className="card p-4 md:p-5">
-        <div className="flex items-center gap-3">
-          <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username} عزیز خوش آمدید` : "..."}</p>
           </div>
@@ -174,7 +172,11 @@ export default function DashboardPage() {
         <section className="grid gap-4 lg:grid-cols-2">
           <form onSubmit={createSchedule} className="card space-y-4 p-4 md:p-5">
             <h2 className="font-bold">ساخت برنامه جدید</h2>
-            <input className="input" name="title" placeholder="عنوان برنامه" required />
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">عنوان برنامه</label>
+              <input className="input" name="title" placeholder="مثلاً مشاوره پایان‌نامه" required />
+            </div>
 
             <div>
               <label className="mb-2 block text-sm text-slate-300">انتخاب تاریخ‌ها</label>
@@ -192,21 +194,34 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <input className="input" name="slotDuration" type="number" min={5} defaultValue={30} placeholder="مدت ارائه" required />
-              <input className="input" name="gapMinutes" type="number" min={0} defaultValue={10} placeholder="فاصله" required />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">مدت هر ارائه (دقیقه)</label>
+                <input className="input" name="slotDuration" type="number" min={5} defaultValue={30} required />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">فاصله بین ارائه‌ها (دقیقه)</label>
+                <input className="input" name="gapMinutes" type="number" min={0} defaultValue={10} required />
+              </div>
             </div>
 
             <div className="space-y-3 rounded-xl border border-slate-800 p-3">
+              <p className="text-sm text-slate-300">بازه‌های زمانی هر تاریخ</p>
               {dayConfigs.map((d) => (
                 <div key={d.date} className="rounded-xl border border-slate-800 p-3">
                   <div className="mb-2 text-sm text-cyan-300">{d.date}</div>
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                        <input className="input" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
-                        <input className="input" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
-                        <button type="button" className="btn-ghost" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
+                      <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-400">شروع</label>
+                          <input className="input" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-400">پایان</label>
+                          <input className="input" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
+                        </div>
+                        <button type="button" className="btn-ghost sm:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
                       </div>
                     ))}
                   </div>
@@ -217,36 +232,45 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2 rounded-xl border border-slate-800 p-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">سوالات فرم رزرو</p>
                 <button type="button" className="btn-ghost" onClick={addQuestion} disabled={questions.length >= 5}><Plus size={16} /> افزودن سوال</button>
               </div>
               {questions.map((q, i) => (
                 <div key={i} className="grid gap-2 rounded-lg border border-slate-800 p-2">
-                  <input
-                    className="input"
-                    placeholder={`متن سوال ${i + 1}`}
-                    value={q.label}
-                    onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, label: e.target.value } : x)))}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">متن سوال</label>
+                    <input
                       className="input"
-                      value={q.type}
-                      onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, type: e.target.value as "text" | "textarea" } : x)))}
-                    >
-                      <option value="text">متن کوتاه</option>
-                      <option value="textarea">متن بلند</option>
-                    </select>
-                    <label className="flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm">
-                      <ShieldCheck size={15} className="text-cyan-300" />
-                      <input
-                        type="checkbox"
-                        checked={q.required}
-                        onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, required: e.target.checked } : x)))}
-                      />
-                      اجباری
-                    </label>
+                      placeholder={`متن سوال ${i + 1}`}
+                      value={q.label}
+                      onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, label: e.target.value } : x)))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">نوع پاسخ</label>
+                      <select
+                        className="input"
+                        value={q.type}
+                        onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, type: e.target.value as "text" | "textarea" } : x)))}
+                      >
+                        <option value="text">متن کوتاه</option>
+                        <option value="textarea">متن بلند</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">الزامی بودن</label>
+                      <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm">
+                        <ShieldCheck size={15} className="text-cyan-300" />
+                        <input
+                          type="checkbox"
+                          checked={q.required}
+                          onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, required: e.target.checked } : x)))}
+                        />
+                        اجباری
+                      </label>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -258,9 +282,9 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {schedules.map((s) => (
               <div className="card p-4" key={s.id}>
-                <h3 className="font-semibold">{s.title}</h3>
+                <h3 className="font-semibold break-words">{s.title}</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                  <a className="text-cyan-300" href={`/schedule/${s.shareId}`}>{`/schedule/${s.shareId}`}</a>
+                  <a className="text-cyan-300 break-all" href={`/schedule/${s.shareId}`}>{`/schedule/${s.shareId}`}</a>
                   <button
                     type="button"
                     className="btn-ghost"
@@ -280,7 +304,8 @@ export default function DashboardPage() {
 
       {tab === "bookings" && (
         <section className="card p-4">
-          <select className="input mb-4 max-w-sm" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
+          <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
+          <select className="input mb-4 w-full sm:max-w-sm" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
             <option value="">همه برنامه‌ها</option>
             {schedules.map((s) => (
               <option key={s.id} value={s.id}>{s.title}</option>
@@ -289,10 +314,10 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {bookings.map((b) => (
               <div key={b.id} className="rounded-xl border border-slate-800 p-3">
-                <div className="font-medium">{b.schedule.title}</div>
+                <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
                 <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
-                <div className="text-sm text-slate-300">پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") : "-"}</div>
+                <div className="text-sm text-slate-300 break-words">پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") : "-"}</div>
               </div>
             ))}
           </div>

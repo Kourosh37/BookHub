@@ -6,6 +6,16 @@
   color-scheme: dark;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   font-family: "Vazirmatn", Tahoma, sans-serif;
   @apply bg-slate-950 text-slate-100;
