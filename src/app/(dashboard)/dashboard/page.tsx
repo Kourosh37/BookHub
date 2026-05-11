@@ -375,6 +375,21 @@ export default function DashboardPage() {
                     <div>پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") || "-" : "-"}</div>
                   )}
                 </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="btn-ghost text-rose-300"
+                    onClick={async () => {
+                      const res = await fetch(`/api/bookings/${b.id}/cancel`, { method: "POST" });
+                      const data = await res.json();
+                      if (!res.ok) return toast.error(data.details || data.error || "خطا در کنسل رزرو");
+                      toast.success("رزرو با موفقیت کنسل شد");
+                      await load();
+                    }}
+                  >
+                    کنسل رزرو
+                  </button>
+                </div>
               </div>
             ))}
           </div>
