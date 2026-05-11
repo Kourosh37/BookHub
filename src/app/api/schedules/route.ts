@@ -36,7 +36,7 @@ function normalizeDays(days: DayInput[]) {
   for (const d of days) {
     map.set(d.date, [...(map.get(d.date) || []), ...d.ranges]);
   }
-  return [...map.entries()].map(([date, ranges]) => ({ date, ranges }));
+  return Array.from(map.entries()).map(([date, ranges]) => ({ date, ranges }));
 }
 
 export async function POST(req: Request) {
