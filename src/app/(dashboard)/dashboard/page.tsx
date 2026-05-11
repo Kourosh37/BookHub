@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
+import gregorian from "react-date-object/calendars/gregorian";
 import {
   CalendarDays,
   Clock3,
@@ -21,11 +22,16 @@ type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
 
 function toYmd(dateObj: any) {
-  const g = dateObj.toDate();
-  const yyyy = g.getFullYear();
-  const mm = String(g.getMonth() + 1).padStart(2, "0");
-  const dd = String(g.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return dateObj.convert(gregorian).format("YYYY-MM-DD");
+}
+
+function toJalaliLabel(ymd: string) {
+  const d = new Date(`${ymd}T00:00:00`);
+  return d.toLocaleDateString("fa-IR-u-ca-persian", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 function toMinutes(v: string) {
@@ -215,7 +221,7 @@ export default function DashboardPage() {
               {selectedDates.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedDates.map((d) => (
-                    <span key={d} className="rounded-full border border-cyan-700 bg-cyan-900/30 px-3 py-1 text-xs text-cyan-200">{d}</span>
+                    <span key={d} className="rounded-full border border-cyan-700 bg-cyan-900/30 px-3 py-1 text-xs text-cyan-200">{toJalaliLabel(d)}</span>
                   ))}
                 </div>
               )}
@@ -236,7 +242,7 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-300">بازه‌های زمانی هر تاریخ</p>
               {dayConfigs.map((d) => (
                 <div key={d.date} className="rounded-xl border border-slate-800 p-3">
-                  <div className="mb-2 text-sm text-cyan-300">{d.date}</div>
+                  <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
                       <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -363,4 +369,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-
