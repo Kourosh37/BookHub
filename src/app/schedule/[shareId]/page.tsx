@@ -79,7 +79,12 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
               }
               return {};
             }}
-            inputClass="input"
+            render={(value, openCalendar) => (
+              <button type="button" onClick={openCalendar} className="btn-ghost w-full justify-between">
+                <span className="flex items-center gap-2"><CalendarDays size={16} /> {selectedDate ? "تاریخ انتخاب شد" : "انتخاب تاریخ"}</span>
+                <span className="text-xs text-slate-400">{value || ""}</span>
+              </button>
+            )}
           />
           <p className="mt-2 text-xs text-slate-500">فقط روزهایی فعال هستند که واقعاً بازه آزاد دارند.</p>
         </div>

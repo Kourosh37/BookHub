@@ -55,13 +55,6 @@ export default function DashboardPage() {
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [baseUrl, setBaseUrl] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setBaseUrl(window.location.origin.replace(/\/$/, ""));
-    }
-  }, []);
 
   const load = useCallback(async () => {
     const me = await fetch("/api/auth/me", { cache: "no-store" });
@@ -157,11 +150,6 @@ export default function DashboardPage() {
     setQuestions((prev) => [...prev, { label: "", type: "text", required: false }]);
   }
 
-  function getShareUrl(shareId: string) {
-    const origin = baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
-    return `${origin}/schedule/${shareId}`;
-  }
-
   return (
     <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 md:p-6">
       <div className="card p-4 md:p-5">
@@ -206,9 +194,21 @@ export default function DashboardPage() {
                   const arr = Array.isArray(v) ? v : v ? [v] : [];
                   setSelectedDates(arr.map((x: any) => toYmd(x)));
                 }}
-                inputClass="input"
+                render={(value, openCalendar) => (
+                  <button type="button" onClick={openCalendar} className="btn-ghost w-full justify-between">
+                    <span className="flex items-center gap-2"><CalendarDays size={16} /> {selectedDates.length > 0 ? `${selectedDates.length} تاریخ انتخاب شده` : "انتخاب تاریخ"}</span>
+                    <span className="text-xs text-slate-400">{value || ""}</span>
+                  </button>
+                )}
                 calendarPosition="bottom-right"
               />
+              {selectedDates.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedDates.map((d) => (
+                    <span key={d} className="rounded-full border border-cyan-700 bg-cyan-900/30 px-3 py-1 text-xs text-cyan-200">{d}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
