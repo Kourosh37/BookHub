@@ -75,6 +75,8 @@ export default function DashboardPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
+  const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -223,6 +225,21 @@ export default function DashboardPage() {
     setSchedules((prev) => prev.map((s) => (s.id === scheduleId ? { ...s, title: data.title } : s)));
     toast.success("نام برنامه ویرایش شد");
     stopEditScheduleTitle();
+  }
+
+  async function deleteSchedule() {
+    if (!deleteScheduleTarget) return;
+    setDeletingSchedule(true);
+    const res = await fetch(`/api/schedules/id/${deleteScheduleTarget.id}`, { method: "DELETE" });
+    const data = await res.json();
+    setDeletingSchedule(false);
+    if (!res.ok) return toast.error(data.details || data.error || "خطا در حذف برنامه");
+
+    setSchedules((prev) => prev.filter((s) => s.id !== deleteScheduleTarget.id));
+    if (scheduleFilter === deleteScheduleTarget.id) setScheduleFilter("");
+    toast.success("برنامه حذف شد");
+    setDeleteScheduleTarget(null);
+    await load();
   }
 
   return (
@@ -420,6 +437,13 @@ export default function DashboardPage() {
                   >
                     <Copy size={14} /> کپی لینک
                   </button>
+                  <button
+                    type="button"
+                    className="btn-ghost text-rose-300"
+                    onClick={() => setDeleteScheduleTarget(s)}
+                  >
+                    <Trash2 size={14} /> حذف برنامه
+                  </button>
                 </div>
               </div>
             ))}
@@ -518,6 +542,38 @@ export default function DashboardPage() {
               </button>
               <button type="button" className="btn-ghost text-rose-300" onClick={cancelBooking} disabled={cancelLoading}>
                 {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteScheduleTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
+          <div className="card w-full max-w-md p-4">
+            <h3 className="text-lg font-bold">تأیید حذف برنامه</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              با حذف برنامه، تمام رزروها و بازه‌های این برنامه هم حذف می‌شوند. ادامه می‌دهید؟
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              عنوان برنامه: {deleteScheduleTarget.title || "-"}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setDeleteScheduleTarget(null)}
+                disabled={deletingSchedule}
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                className="btn-ghost text-rose-300"
+                onClick={deleteSchedule}
+                disabled={deletingSchedule}
+              >
+                {deletingSchedule ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
           </div>

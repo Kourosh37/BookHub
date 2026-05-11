@@ -38,3 +38,29 @@ export async function PATCH(req: Request, { params }: { params: { scheduleId: st
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 }
+
+export async function DELETE(_req: Request, { params }: { params: { scheduleId: string } }) {
+  try {
+    const session = await requireSession();
+
+    const schedule = await prisma.schedule.findFirst({
+      where: {
+        id: params.scheduleId,
+        userId: session.userId,
+      },
+      select: { id: true },
+    });
+
+    if (!schedule) {
+      return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+    }
+
+    await prisma.schedule.delete({
+      where: { id: params.scheduleId },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+}
