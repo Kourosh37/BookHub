@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
+import { CalendarDays, Clock3, Send } from "lucide-react";
 
 function toGregorianYmd(dateObj: any) {
   const g = dateObj.toDate();
@@ -31,10 +32,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   }, [selectedDate, params.shareId]);
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
-  const availableDates = useMemo(() => {
-    const rows = Array.isArray(schedule?.daysConfig) ? schedule.daysConfig : [];
-    return new Set(rows.map((d: any) => d.date));
-  }, [schedule]);
+  const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,44 +50,51 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         if (!res.ok) return toast.error(data.error || "خطا در رزرو");
         toast.success("رزرو با موفقیت ثبت شد");
         setSelectedSlot("");
+        setSlots((prev) => prev.filter((s) => s.id !== selectedSlot));
       })();
     });
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <div className="card space-y-5 p-6">
-        <h1 className="text-2xl font-bold">{schedule?.title || "..."}</h1>
+    <main className="mx-auto max-w-4xl p-4 md:p-6">
+      <div className="card space-y-5 p-4 md:p-6">
+        <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
+
         <div>
-          <label className="mb-2 block">تاریخ را انتخاب کنید</label>
+          <label className="mb-2 flex items-center gap-2 text-sm text-slate-300"><CalendarDays size={16} /> انتخاب روز</label>
           <DatePicker
             calendar={persian}
             locale={persian_fa}
             calendarPosition="bottom-right"
             onChange={(d: any) => {
               if (!d) return setSelectedDate("");
-              setSelectedDate(toGregorianYmd(d));
+              const ymd = toGregorianYmd(d);
+              setSelectedDate(ymd);
               setSelectedSlot("");
             }}
             mapDays={({ date }: any) => {
               const ymd = toGregorianYmd(date);
-              if (!availableDates.has(ymd)) return { disabled: true, style: { color: "#94a3b8" } };
+              if (!availableDates.has(ymd)) {
+                return { disabled: true, style: { color: "#475569", opacity: 0.45 } };
+              }
               return {};
             }}
             inputClass="input"
           />
+          <p className="mt-2 text-xs text-slate-500">فقط روزهایی فعال هستند که واقعاً بازه آزاد دارند.</p>
         </div>
 
         {selectedDate && (
           <div>
-            <p className="mb-2">بازه‌های آزاد</p>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            <p className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Clock3 size={16} /> بازه‌های آزاد</p>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {slots.length === 0 && <div className="col-span-full rounded-xl border border-slate-800 p-3 text-sm text-slate-400">برای این روز، بازه آزادی باقی نمانده است.</div>}
               {slots.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => setSelectedSlot(s.id)}
-                  className={`btn border ${selectedSlot === s.id ? "bg-sky-600 text-white" : ""}`}
+                  className={`btn border border-slate-700 ${selectedSlot === s.id ? "bg-cyan-500 text-slate-950" : "hover:bg-slate-800"}`}
                 >
                   {new Date(s.startTime).toLocaleTimeString("fa-IR", {
                     hour: "2-digit",
@@ -103,7 +108,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         )}
 
         {selectedSlot && (
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-800 p-3">
             <input className="input" name="name" placeholder="نام شما (اختیاری)" />
             {questions.map((q: any, i: number) =>
               q.type === "textarea" ? (
@@ -112,8 +117,8 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
                 <input key={i} className="input" name={`q-${i}`} placeholder={q.label} required={q.required} />
               ),
             )}
-            <button className="btn-primary" disabled={pending}>
-              {pending ? "در حال ثبت..." : "ثبت رزرو"}
+            <button className="btn-primary w-full" disabled={pending}>
+              <Send size={16} /> {pending ? "در حال ثبت..." : "ثبت رزرو"}
             </button>
           </form>
         )}

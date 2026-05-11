@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatInTimeZone } from "date-fns-tz";
 
 export async function GET(_: Request, { params }: { params: { shareId: string } }) {
   const schedule = await prisma.schedule.findUnique({
@@ -8,5 +9,13 @@ export async function GET(_: Request, { params }: { params: { shareId: string } 
   });
 
   if (!schedule) return NextResponse.json({ error: "برنامه پیدا نشد" }, { status: 404 });
-  return NextResponse.json(schedule);
+
+  const availableSlots = await prisma.timeSlot.findMany({
+    where: { scheduleId: schedule.id, isBooked: false, startTime: { gte: new Date() } },
+    select: { startTime: true },
+  });
+
+  const availableDates = [...new Set(availableSlots.map((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd")))];
+
+  return NextResponse.json({ ...schedule, availableDates });
 }

@@ -11,15 +11,19 @@ export const questionSchema = z.object({
   required: z.boolean(),
 });
 
-export const dayConfigSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+export const timeRangeSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 
+export const dayConfigSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  ranges: z.array(timeRangeSchema).min(1),
+});
+
 export const scheduleSchema = z.object({
   title: z.string().min(3).max(120),
-  slotDuration: z.number().min(10).max(180),
+  slotDuration: z.number().min(5).max(180),
   gapMinutes: z.number().min(0).max(120),
   daysConfig: z.array(dayConfigSchema).min(1),
   questions: z.array(questionSchema).max(5),

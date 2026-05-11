@@ -1,4 +1,7 @@
-﻿import { ReactNode } from "react";
+﻿import "@fontsource/vazirmatn/400.css";
+import "@fontsource/vazirmatn/500.css";
+import "@fontsource/vazirmatn/700.css";
+import { ReactNode } from "react";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast-provider";
 
@@ -15,7 +18,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className="min-h-screen bg-slate-50 text-slate-900">
+      <body className="min-h-screen bg-slate-950 text-slate-100">
         {children}
         <ToastProvider />
       </body>

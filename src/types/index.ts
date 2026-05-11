@@ -4,8 +4,12 @@
   required: boolean;
 };
 
-export type DayConfig = {
-  date: string;
+export type TimeRange = {
   startTime: string;
   endTime: string;
+};
+
+export type DayConfig = {
+  date: string;
+  ranges: TimeRange[];
 };

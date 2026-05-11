@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatInTimeZone } from "date-fns-tz";
 
 export async function GET(req: Request, { params }: { params: { shareId: string } }) {
   const url = new URL(req.url);
@@ -14,10 +15,6 @@ export async function GET(req: Request, { params }: { params: { shareId: string 
     orderBy: { startTime: "asc" },
   });
 
-  const filtered = slots.filter((s: any) => {
-    const z = new Date(s.startTime).toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" });
-    return z === date;
-  });
-
+  const filtered = slots.filter((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd") === date);
   return NextResponse.json(filtered);
 }
