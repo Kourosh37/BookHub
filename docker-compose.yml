@@ -21,6 +21,7 @@
       NEXTAUTH_URL: http://localhost
     expose:
       - "3000"
+    command: sh -c "npx prisma migrate deploy && npm run start"
 
   nginx:
     image: nginx:1.27-alpine
