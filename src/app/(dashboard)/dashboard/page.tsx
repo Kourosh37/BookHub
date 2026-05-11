@@ -70,6 +70,8 @@ export default function DashboardPage() {
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [baseUrl, setBaseUrl] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -175,6 +177,18 @@ export default function DashboardPage() {
   function getShareUrl(shareId: string) {
     const origin = baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
     return `${origin}/schedule/${shareId}`;
+  }
+
+  async function cancelBooking() {
+    if (!cancelTarget) return;
+    setCancelLoading(true);
+    const res = await fetch(`/api/bookings/${cancelTarget.id}/cancel`, { method: "POST" });
+    const data = await res.json();
+    setCancelLoading(false);
+    if (!res.ok) return toast.error(data.details || data.error || "خطا در کنسل رزرو");
+    toast.success("رزرو با موفقیت کنسل شد");
+    setCancelTarget(null);
+    await load();
   }
 
   return (
@@ -379,13 +393,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     className="btn-ghost text-rose-300"
-                    onClick={async () => {
-                      const res = await fetch(`/api/bookings/${b.id}/cancel`, { method: "POST" });
-                      const data = await res.json();
-                      if (!res.ok) return toast.error(data.details || data.error || "خطا در کنسل رزرو");
-                      toast.success("رزرو با موفقیت کنسل شد");
-                      await load();
-                    }}
+                    onClick={() => setCancelTarget(b)}
                   >
                     کنسل رزرو
                   </button>
@@ -425,6 +433,31 @@ export default function DashboardPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
+          <div className="card w-full max-w-md p-4">
+            <h3 className="text-lg font-bold">تأیید کنسل رزرو</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              مطمئن هستید که می‌خواهید این رزرو را کنسل کنید؟
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              برنامه: {cancelTarget.schedule?.title || "-"}
+            </p>
+            <p className="text-xs text-slate-400">
+              زمان: {new Date(cancelTarget.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setCancelTarget(null)} disabled={cancelLoading}>
+                انصراف
+              </button>
+              <button type="button" className="btn-ghost text-rose-300" onClick={cancelBooking} disabled={cancelLoading}>
+                {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
