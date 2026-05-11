@@ -1,11 +1,12 @@
 ﻿"use client";
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -26,8 +27,12 @@ export default function RegisterPage() {
     if (!login.ok) return toast.error(loginData.details || loginData.error || "ورود خودکار ناموفق بود");
 
     toast.success("حساب ساخته شد");
-    router.push("/dashboard");
+    const next = searchParams.get("next");
+    router.push(next && next.startsWith("/") ? next : "/dashboard");
   }
 
-  return <main className="mx-auto max-w-md p-6"><form onSubmit={onSubmit} className="card space-y-4 p-6"><h1 className="text-xl font-bold">ثبت‌نام</h1><input className="input" name="username" placeholder="نام کاربری" required/><input className="input" name="password" type="password" minLength={6} placeholder="رمز عبور" required/><button className="btn-primary w-full" disabled={loading}>{loading?"در حال ثبت...":"ایجاد حساب"}</button><p className="text-sm">حساب دارید؟ <Link className="text-sky-600" href="/login">ورود</Link></p></form></main>;
+  const next = searchParams.get("next");
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
+
+  return <main className="mx-auto max-w-md p-6"><form onSubmit={onSubmit} autoComplete="off" className="card space-y-4 p-6"><h1 className="text-xl font-bold">ثبت‌نام</h1><input className="input" name="username" autoComplete="off" placeholder="نام کاربری" required/><input className="input" name="password" type="password" autoComplete="new-password" minLength={6} placeholder="رمز عبور" required/><button className="btn-primary w-full" disabled={loading}>{loading?"در حال ثبت...":"ایجاد حساب"}</button><p className="text-sm">حساب دارید؟ <Link className="text-sky-600" href={loginHref}>ورود</Link></p></form></main>;
 }
