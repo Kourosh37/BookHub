@@ -1,11 +1,11 @@
-export type Question = {
+﻿export type Question = {
   label: string;
   type: "text" | "textarea";
   required: boolean;
 };
 
 export type DayConfig = {
-  dayOfWeek: number;
+  date: string;
   startTime: string;
   endTime: string;
 };

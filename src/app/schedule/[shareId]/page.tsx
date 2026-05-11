@@ -6,6 +6,14 @@ import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 
+function toGregorianYmd(dateObj: any) {
+  const g = dateObj.toDate();
+  const yyyy = g.getFullYear();
+  const mm = String(g.getMonth() + 1).padStart(2, "0");
+  const dd = String(g.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
   const [schedule, setSchedule] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState("");
@@ -23,6 +31,10 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   }, [selectedDate, params.shareId]);
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
+  const availableDates = useMemo(() => {
+    const rows = Array.isArray(schedule?.daysConfig) ? schedule.daysConfig : [];
+    return new Set(rows.map((d: any) => d.date));
+  }, [schedule]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,7 +66,16 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
             calendar={persian}
             locale={persian_fa}
             calendarPosition="bottom-right"
-            onChange={(d: any) => setSelectedDate(d?.format?.("YYYY-MM-DD") || "")}
+            onChange={(d: any) => {
+              if (!d) return setSelectedDate("");
+              setSelectedDate(toGregorianYmd(d));
+              setSelectedSlot("");
+            }}
+            mapDays={({ date }: any) => {
+              const ymd = toGregorianYmd(date);
+              if (!availableDates.has(ymd)) return { disabled: true, style: { color: "#94a3b8" } };
+              return {};
+            }}
             inputClass="input"
           />
         </div>

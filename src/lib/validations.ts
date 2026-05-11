@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export const registerSchema = z.object({
   username: z.string().min(3).max(30),
@@ -12,13 +12,15 @@ export const questionSchema = z.object({
 });
 
 export const dayConfigSchema = z.object({
-  dayOfWeek: z.number().min(0).max(6),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 
 export const scheduleSchema = z.object({
   title: z.string().min(3).max(120),
+  slotDuration: z.number().min(10).max(180),
+  gapMinutes: z.number().min(0).max(120),
   daysConfig: z.array(dayConfigSchema).min(1),
   questions: z.array(questionSchema).max(5),
 });
