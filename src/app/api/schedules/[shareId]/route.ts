@@ -15,7 +15,7 @@ export async function GET(_: Request, { params }: { params: { shareId: string } 
     select: { startTime: true },
   });
 
-  const availableDates = [...new Set(availableSlots.map((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd")))];
+  const availableDates = Array.from(new Set(availableSlots.map((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd"))));
 
   return NextResponse.json({ ...schedule, availableDates });
 }
