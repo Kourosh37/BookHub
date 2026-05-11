@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -19,7 +19,7 @@ model Schedule {
   id           String     @id @default(cuid())
   shareId      String     @unique
   userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: CASCADE)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String
   slotDuration Int        @default(30)
   gapMinutes   Int        @default(10)
@@ -33,7 +33,7 @@ model Schedule {
 model TimeSlot {
   id         String    @id @default(cuid())
   scheduleId String
-  schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: CASCADE)
+  schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   startTime  DateTime
   endTime    DateTime
   isBooked   Boolean   @default(false)
@@ -47,7 +47,7 @@ model Booking {
   timeSlotId  String   @unique
   timeSlot    TimeSlot @relation(fields: [timeSlotId], references: [id])
   scheduleId  String
-  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: CASCADE)
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   visitorName String?
   answers     Json
   bookedAt    DateTime @default(now())
