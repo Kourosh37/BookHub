@@ -55,6 +55,13 @@ export default function DashboardPage() {
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [baseUrl, setBaseUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(window.location.origin.replace(/\/$/, ""));
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const me = await fetch("/api/auth/me", { cache: "no-store" });
@@ -148,6 +155,11 @@ export default function DashboardPage() {
   function addQuestion() {
     if (questions.length >= 5) return;
     setQuestions((prev) => [...prev, { label: "", type: "text", required: false }]);
+  }
+
+  function getShareUrl(shareId: string) {
+    const origin = baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+    return `${origin}/schedule/${shareId}`;
   }
 
   return (
@@ -289,12 +301,12 @@ export default function DashboardPage() {
               <div className="card p-4" key={s.id}>
                 <h3 className="font-semibold break-words">{s.title}</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                  <a className="text-cyan-300 break-all" href={`/schedule/${s.shareId}`}>{`/schedule/${s.shareId}`}</a>
+                  <a className="text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
                   <button
                     type="button"
                     className="btn-ghost"
                     onClick={async () => {
-                      await navigator.clipboard.writeText(`${window.location.origin}/schedule/${s.shareId}`);
+                      await navigator.clipboard.writeText(getShareUrl(s.shareId));
                       toast.success("لینک کپی شد");
                     }}
                   >
