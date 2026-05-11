@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
+import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
@@ -11,7 +12,7 @@ import Link from "next/link";
 
 function toGregorianYmd(dateObj: any) {
   if (!dateObj) return "";
-  return dateObj.convert(gregorian).format("YYYY-MM-DD");
+  return new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD");
 }
 
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
