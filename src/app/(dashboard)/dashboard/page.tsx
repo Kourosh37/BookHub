@@ -22,12 +22,19 @@ type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
 
 function toYmd(dateObj: any) {
-  return dateObj.convert(gregorian).format("YYYY-MM-DD");
+  const g = dateObj.convert(gregorian);
+  const y = String(g.year);
+  const m = String(g.month.number).padStart(2, "0");
+  const d = String(g.day).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function toJalaliLabel(ymd: string) {
-  const d = new Date(`${ymd}T00:00:00`);
-  return d.toLocaleDateString("fa-IR-u-ca-persian", {
+  const [y, m, day] = ymd.split("-").map((x) => Number(x));
+  if (!y || !m || !day) return ymd;
+  const date = new Date(y, m - 1, day);
+  if (Number.isNaN(date.getTime())) return ymd;
+  return date.toLocaleDateString("fa-IR-u-ca-persian", {
     year: "numeric",
     month: "long",
     day: "numeric",
