@@ -334,7 +334,17 @@ export default function DashboardPage() {
                 <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
                 <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
-                <div className="text-sm text-slate-300 break-words">پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") : "-"}</div>
+                <div className="mt-2 space-y-1 text-sm text-slate-300 break-words">
+                  {Array.isArray(b.answers) && Array.isArray(b.schedule?.questions) && b.schedule.questions.length > 0 ? (
+                    b.schedule.questions.map((q: any, idx: number) => (
+                      <div key={idx}>
+                        {q?.label || `سوال ${idx + 1}`}: {b.answers[idx] || "-"}
+                      </div>
+                    ))
+                  ) : (
+                    <div>پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") || "-" : "-"}</div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
