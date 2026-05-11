@@ -1,8 +1,15 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { bookingSchema } from "@/lib/validations";
+import { requireSession } from "@/lib/auth";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: "نیاز به ورود", details: "برای رزرو باید وارد حساب شوید" }, { status: 401 });
+  }
+
   const body = await req.json();
   const parsed = bookingSchema.safeParse(body);
   if (!parsed.success) {

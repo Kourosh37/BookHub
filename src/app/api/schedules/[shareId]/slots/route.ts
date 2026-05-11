@@ -1,8 +1,15 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatInTimeZone } from "date-fns-tz";
+import { requireSession } from "@/lib/auth";
 
 export async function GET(req: Request, { params }: { params: { shareId: string } }) {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: "نیاز به ورود", details: "برای مشاهده بازه‌ها باید وارد حساب شوید" }, { status: 401 });
+  }
+
   const url = new URL(req.url);
   const date = url.searchParams.get("date");
   if (!date) return NextResponse.json({ error: "تاریخ لازم است" }, { status: 400 });

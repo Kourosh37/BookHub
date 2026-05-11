@@ -1,8 +1,15 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatInTimeZone } from "date-fns-tz";
+import { requireSession } from "@/lib/auth";
 
 export async function GET(_: Request, { params }: { params: { shareId: string } }) {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: "نیاز به ورود", details: "برای مشاهده برنامه باید وارد حساب شوید" }, { status: 401 });
+  }
+
   const schedule = await prisma.schedule.findUnique({
     where: { shareId: params.shareId },
     select: { id: true, title: true, questions: true, daysConfig: true, slotDuration: true, gapMinutes: true },
