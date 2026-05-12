@@ -10,9 +10,15 @@ import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
 
+function toEnglishDigits(value: string) {
+  return value
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+}
+
 function toGregorianYmd(dateObj: any) {
   if (!dateObj) return "";
-  return new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD");
+  return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
 }
 
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {

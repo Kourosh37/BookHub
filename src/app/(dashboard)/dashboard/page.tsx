@@ -22,9 +22,15 @@ type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
 
+function toEnglishDigits(value: string) {
+  return value
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+}
+
 function toYmd(dateObj: any) {
   if (!dateObj) return "";
-  return new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD");
+  return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
 }
 
 function ymdToPersianDateObject(ymd: string) {

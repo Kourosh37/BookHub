@@ -40,8 +40,9 @@ function normalizeDays(days: DayInput[]) {
 }
 
 export async function POST(req: Request) {
+  let session: { userId: string } | null = null;
   try {
-    const session = await requireSession();
+    session = await requireSession();
     const body = await req.json();
     const parsed = scheduleSchema.safeParse(body);
     if (!parsed.success) {
@@ -104,7 +105,13 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ shareId: schedule.shareId });
-  } catch {
-    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
+  } catch (error: any) {
+    if (!session) {
+      return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: "خطا در ساخت برنامه", details: error?.message || "خطای ناشناخته در پردازش فرم" },
+      { status: 500 },
+    );
   }
 }
