@@ -27,6 +27,15 @@ function toYmd(dateObj: any) {
   return new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD");
 }
 
+function ymdToPersianDateObject(ymd: string) {
+  return new DateObject({
+    date: ymd,
+    format: "YYYY-MM-DD",
+    calendar: gregorian,
+    locale: persian_fa,
+  }).convert(persian, persian_fa);
+}
+
 function toJalaliLabel(ymd: string) {
   if (!ymd) return "";
   try {
@@ -111,6 +120,7 @@ export default function DashboardPage() {
   }, [selectedDates]);
 
   const isInvalidTimeConfig = useMemo(() => dayConfigs.some((d) => rangesOverlap(d.ranges)), [dayConfigs]);
+  const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -286,10 +296,25 @@ export default function DashboardPage() {
                 multiple
                 calendar={persian}
                 locale={persian_fa}
-                value={selectedDates}
+                value={pickerValue}
                 onChange={(v: any) => {
                   const arr = Array.isArray(v) ? v : v ? [v] : [];
-                  setSelectedDates(arr.map((x: any) => toYmd(x)));
+                  const normalized = Array.from(new Set(arr.map((x: any) => toYmd(x)).filter(Boolean)));
+                  setSelectedDates(normalized);
+                }}
+                mapDays={({ date }: any) => {
+                  const ymd = toYmd(date);
+                  if (selectedDates.includes(ymd)) {
+                    return {
+                      style: {
+                        backgroundColor: "#0ea5e9",
+                        color: "#082f49",
+                        borderRadius: "10px",
+                        fontWeight: "700",
+                      },
+                    };
+                  }
+                  return {};
                 }}
                 render={(value, openCalendar) => (
                   <button type="button" onClick={openCalendar} className="btn-ghost w-full justify-between">
