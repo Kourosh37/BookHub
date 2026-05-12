@@ -2,11 +2,18 @@
   "name": "bookhubtmp",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": ">=20 <23",
+    "npm": ">=10 <12"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "prisma:generate": "prisma generate",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "npm run prisma:generate"
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
