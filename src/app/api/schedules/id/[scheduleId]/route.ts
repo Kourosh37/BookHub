@@ -12,7 +12,7 @@ export async function PATCH(req: Request, { params }: { params: { scheduleId: st
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];
       const message = firstIssue?.message || "Invalid payload";
-      return NextResponse.json({ error: "Invalid data", details: message }, { status: 400 });
+      return NextResponse.json({ error: "داده نامعتبر است", details: message }, { status: 400 });
     }
 
     const schedule = await prisma.schedule.findFirst({
@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: { scheduleId: st
     });
 
     if (!schedule) {
-      return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+      return NextResponse.json({ error: "برنامه پیدا نشد" }, { status: 404 });
     }
 
     const updated = await prisma.schedule.update({
@@ -35,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: { scheduleId: st
 
     return NextResponse.json(updated);
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
   }
 }
 
@@ -52,7 +52,7 @@ export async function DELETE(_req: Request, { params }: { params: { scheduleId: 
     });
 
     if (!schedule) {
-      return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+      return NextResponse.json({ error: "برنامه پیدا نشد" }, { status: 404 });
     }
 
     await prisma.schedule.delete({
@@ -61,6 +61,6 @@ export async function DELETE(_req: Request, { params }: { params: { scheduleId: 
 
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
   }
 }

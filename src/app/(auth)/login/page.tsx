@@ -1,17 +1,29 @@
 ﻿"use client";
-import { FormEvent, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
+function resolveNextPath(raw: string) {
+  if (!raw || !raw.startsWith("/")) return "/dashboard";
+  if (raw === "/login" || raw.startsWith("/login?")) return "/dashboard";
+  if (raw === "/register" || raw.startsWith("/register?")) return "/dashboard";
+  return raw;
+}
+
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("next") || "";
   }, []);
+  const nextPath = useMemo(() => resolveNextPath(nextParam), [nextParam]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" }).then((r) => {
+      if (r.ok) window.location.replace(nextPath);
+    });
+  }, [nextPath]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,7 +38,7 @@ export default function LoginPage() {
     setLoading(false);
     if (!res.ok) return toast.error(data.details || data.error || "ورود ناموفق بود");
     toast.success("خوش آمدید");
-    router.push(nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard");
+    window.location.replace(nextPath);
   }
 
   const registerHref = nextParam ? `/register?next=${encodeURIComponent(nextParam)}` : "/register";

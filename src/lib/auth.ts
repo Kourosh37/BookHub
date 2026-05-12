@@ -4,6 +4,13 @@ import { cookies } from "next/headers";
 const COOKIE_NAME = "bookhub_session";
 const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "dev_secret");
 
+function shouldUseSecureCookie() {
+  const url = process.env.NEXTAUTH_URL || "";
+  if (url.startsWith("https://")) return true;
+  if (url.startsWith("http://")) return false;
+  return process.env.NODE_ENV === "production";
+}
+
 export type SessionPayload = {
   userId: string;
   username: string;
@@ -19,7 +26,7 @@ export async function createSession(payload: SessionPayload) {
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(),
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
