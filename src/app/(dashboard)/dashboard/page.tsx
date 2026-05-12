@@ -119,6 +119,19 @@ export default function DashboardPage() {
   }, [load]);
 
   useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === "hidden") return;
+      void load();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [load]);
+
+  useEffect(() => {
     setDayConfigs((prev) => {
       const map = new Map(prev.map((d) => [d.date, d]));
       return selectedDates.map((d) => map.get(d) || { date: d, ranges: [{ startTime: "10:00", endTime: "13:00" }] });

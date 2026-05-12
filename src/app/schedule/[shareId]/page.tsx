@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
@@ -28,14 +28,32 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const [selectedSlot, setSelectedSlot] = useState("");
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    fetch(`/api/schedules/${params.shareId}`).then((r) => r.json()).then(setSchedule);
+  const loadSchedule = useCallback(async () => {
+    const res = await fetch(`/api/schedules/${params.shareId}`, { cache: "no-store" });
+    const data = await res.json();
+    setSchedule(data);
+    return data;
+  }, [params.shareId]);
+
+  const loadSlots = useCallback(async (date: string) => {
+    if (!date) {
+      setSlots([]);
+      return [];
+    }
+    const res = await fetch(`/api/schedules/${params.shareId}/slots?date=${date}`, { cache: "no-store" });
+    const data = await res.json();
+    setSlots(Array.isArray(data) ? data : []);
+    return data;
   }, [params.shareId]);
 
   useEffect(() => {
+    void loadSchedule();
+  }, [loadSchedule]);
+
+  useEffect(() => {
     if (!selectedDate) return;
-    fetch(`/api/schedules/${params.shareId}/slots?date=${selectedDate}`).then((r) => r.json()).then(setSlots);
-  }, [selectedDate, params.shareId]);
+    void loadSlots(selectedDate);
+  }, [selectedDate, loadSlots]);
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
   const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
@@ -56,7 +74,8 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         if (!res.ok) return toast.error(data.error || "خطا در رزرو");
         toast.success("رزرو با موفقیت ثبت شد");
         setSelectedSlot("");
-        setSlots((prev) => prev.filter((s) => s.id !== selectedSlot));
+        await loadSchedule();
+        await loadSlots(selectedDate);
       })();
     });
   }

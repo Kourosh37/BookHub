@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { formatInTimeZone } from "date-fns-tz";
 import { requireSession } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request, { params }: { params: { shareId: string } }) {
   try {
     await requireSession();
@@ -23,5 +25,9 @@ export async function GET(req: Request, { params }: { params: { shareId: string 
   });
 
   const filtered = slots.filter((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd") === date);
-  return NextResponse.json(filtered);
+  return NextResponse.json(filtered, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
+  });
 }
