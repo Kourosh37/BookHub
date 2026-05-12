@@ -307,8 +307,8 @@ export default function DashboardPage() {
                   if (selectedDates.includes(ymd)) {
                     return {
                       style: {
-                        backgroundColor: "#0ea5e9",
-                        color: "#082f49",
+                        backgroundColor: "rgb(223, 208, 184)",
+                        color: "rgb(34, 40, 49)",
                         borderRadius: "10px",
                         fontWeight: "700",
                       },

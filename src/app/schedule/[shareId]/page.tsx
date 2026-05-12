@@ -78,7 +78,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
             mapDays={({ date }: any) => {
               const ymd = toGregorianYmd(date);
               if (!availableDates.has(ymd)) {
-                return { disabled: true, style: { color: "#475569", opacity: 0.45 } };
+                return { disabled: true, style: { color: "rgb(148, 137, 121)", opacity: 0.45 } };
               }
               return {};
             }}
