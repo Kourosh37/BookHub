@@ -1,8 +1,11 @@
 ﻿import { z } from "zod";
 
 export const registerSchema = z.object({
-  username: z.string().min(3).max(30),
-  password: z.string().min(6),
+  username: z
+    .string()
+    .min(3, "نام کاربری باید حداقل ۳ کاراکتر باشد")
+    .max(30, "نام کاربری نمی‌تواند بیشتر از ۳۰ کاراکتر باشد"),
+  password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
 });
 
 export const questionSchema = z.object({
