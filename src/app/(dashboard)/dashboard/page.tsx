@@ -178,6 +178,10 @@ export default function DashboardPage() {
 
   const isInvalidTimeConfig = useMemo(() => dayConfigs.some((d) => rangesOverlap(d.ranges)), [dayConfigs]);
   const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
+  const todayTehranYmd = useMemo(
+    () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(new Date()),
+    [],
+  );
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -215,6 +219,7 @@ export default function DashboardPage() {
     const f = new FormData(e.currentTarget);
 
     if (dayConfigs.length === 0) return toast.error("حداقل یک تاریخ انتخاب کنید");
+    if (dayConfigs.some((d) => d.date < todayTehranYmd)) return toast.error("تاریخ برنامه نباید قبل از امروز باشد");
     if (dayConfigs.some((d) => d.ranges.length === 0)) return toast.error("برای هر تاریخ حداقل یک بازه زمانی لازم است");
     if (isInvalidTimeConfig) return toast.error("تداخل یا نامعتبر بودن بازه‌های زمانی را اصلاح کنید");
 
@@ -433,16 +438,16 @@ export default function DashboardPage() {
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
-                      <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                        <div>
+                      <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">شروع</label>
-                          <input className="input" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
+                          <input className="input min-w-0" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">پایان</label>
-                          <input className="input" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
+                          <input className="input min-w-0" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
                         </div>
-                        <button type="button" className="btn-ghost sm:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
+                        <button type="button" className="btn-ghost w-full sm:w-auto sm:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
                       </div>
                     ))}
                   </div>

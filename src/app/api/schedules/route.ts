@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { scheduleSchema } from "@/lib/validations";
-import { fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { randomBytes } from "crypto";
 
 type Range = { startTime: string; endTime: string };
@@ -53,6 +53,16 @@ export async function POST(req: Request) {
     }
 
     const normalizedDays = normalizeDays(parsed.data.daysConfig as DayInput[]);
+    const todayInTehran = formatInTimeZone(new Date(), "Asia/Tehran", "yyyy-MM-dd");
+
+    for (const day of normalizedDays) {
+      if (day.date < todayInTehran) {
+        return NextResponse.json(
+          { error: `تاریخ ${day.date} گذشته است`, details: "تاریخ برنامه نباید قبل از تاریخ امروز باشد" },
+          { status: 400 },
+        );
+      }
+    }
 
     for (const day of normalizedDays) {
       const err = validateRanges(day.ranges);

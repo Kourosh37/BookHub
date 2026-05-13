@@ -28,6 +28,23 @@ html[data-theme="light"] {
   --btn-primary-text: rgb(22, 49, 74);
 }
 
+html[data-theme="light"] .text-slate-300 {
+  color: rgb(68, 88, 110) !important;
+}
+
+html[data-theme="light"] .text-slate-400 {
+  color: rgb(74, 96, 120) !important;
+}
+
+html[data-theme="light"] .text-slate-500 {
+  color: rgb(84, 106, 130) !important;
+}
+
+html[data-theme="light"] .text-cyan-200,
+html[data-theme="light"] .text-cyan-300 {
+  color: rgb(30, 102, 158) !important;
+}
+
 html,
 body {
   max-width: 100%;
