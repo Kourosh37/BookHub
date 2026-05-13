@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Clock3,
   Copy,
+  Pencil,
   ListChecks,
   LogOut,
   Moon,
@@ -18,6 +19,7 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
+  XCircle,
 } from "lucide-react";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
@@ -297,7 +299,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-24 md:p-6 md:pb-6">
+    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0">
@@ -305,11 +307,12 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button onClick={logout} className="btn-ghost text-rose-300">
-              <LogOut size={16} /> خروج
-            </button>
             <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button onClick={logout} className="btn-ghost text-rose-300" aria-label="خروج" title="خروج">
+              <LogOut size={16} />
+              <span className="hidden md:inline">خروج</span>
             </button>
           </div>
         </div>
@@ -523,8 +526,9 @@ export default function DashboardPage() {
                   <a className="block text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
                   <div className="flex flex-wrap gap-2">
                     {editingScheduleId !== s.id && (
-                      <button type="button" className="btn-ghost" onClick={() => startEditScheduleTitle(s)}>
-                        ویرایش نام
+                      <button type="button" className="btn-ghost" onClick={() => startEditScheduleTitle(s)} aria-label="ویرایش نام برنامه" title="ویرایش نام برنامه">
+                        <Pencil size={14} />
+                        <span className="hidden md:inline">ویرایش نام</span>
                       </button>
                     )}
                     <button
@@ -534,15 +538,21 @@ export default function DashboardPage() {
                         await navigator.clipboard.writeText(getShareUrl(s.shareId));
                         toast.success("لینک کپی شد");
                       }}
+                      aria-label="کپی لینک برنامه"
+                      title="کپی لینک برنامه"
                     >
-                      <Copy size={14} /> کپی لینک
+                      <Copy size={14} />
+                      <span className="hidden md:inline">کپی لینک</span>
                     </button>
                     <button
                       type="button"
                       className="btn-ghost text-rose-300"
                       onClick={() => setDeleteScheduleTarget(s)}
+                      aria-label="حذف برنامه"
+                      title="حذف برنامه"
                     >
-                      <Trash2 size={14} /> حذف برنامه
+                      <Trash2 size={14} />
+                      <span className="hidden md:inline">حذف برنامه</span>
                     </button>
                   </div>
                 </div>
@@ -583,8 +593,11 @@ export default function DashboardPage() {
                     type="button"
                     className="btn-ghost text-rose-300"
                     onClick={() => setCancelTarget(b)}
+                    aria-label="کنسل رزرو"
+                    title="کنسل رزرو"
                   >
-                    کنسل رزرو
+                    <XCircle size={14} />
+                    <span className="hidden md:inline">کنسل رزرو</span>
                   </button>
                 </div>
               </div>
@@ -681,7 +694,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <nav className="fixed bottom-3 left-0 right-0 z-40 px-3 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
         <div className="card mx-auto grid max-w-md grid-cols-3 gap-2 p-2">
           <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
             <CalendarDays size={15} />
