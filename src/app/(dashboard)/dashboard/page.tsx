@@ -9,6 +9,7 @@ import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
 import {
   CalendarDays,
+  ChevronDown,
   Clock3,
   Copy,
   Pencil,
@@ -571,20 +572,19 @@ export default function DashboardPage() {
           <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
-          <select
-            className="input mb-4 w-full appearance-none bg-[position:right_0.9rem_center] bg-[length:0.9rem] bg-no-repeat pe-10 sm:max-w-sm"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
-            }}
-            value={scheduleFilter}
-            onChange={(e) => setScheduleFilter(e.target.value)}
-          >
-            <option value="">همه برنامه‌ها</option>
-            {schedules.map((s) => (
-              <option key={s.id} value={s.id}>{s.title}</option>
-            ))}
-          </select>
+          <div className="relative mb-4 w-full sm:max-w-sm">
+            <select
+              className="input w-full appearance-none pe-10"
+              value={scheduleFilter}
+              onChange={(e) => setScheduleFilter(e.target.value)}
+            >
+              <option value="">همه برنامه‌ها</option>
+              {schedules.map((s) => (
+                <option key={s.id} value={s.id}>{s.title}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
           <div className="space-y-3">
             {bookings.map((b) => (
               <div key={b.id} className="rounded-xl border border-slate-800 p-3">
