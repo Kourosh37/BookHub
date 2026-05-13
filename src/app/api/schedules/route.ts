@@ -104,7 +104,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ shareId: schedule.shareId });
+    return NextResponse.json({
+      id: schedule.id,
+      shareId: schedule.shareId,
+      title: schedule.title,
+      createdAt: schedule.createdAt,
+    });
   } catch (error: any) {
     if (!session) {
       return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });

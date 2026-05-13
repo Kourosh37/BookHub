@@ -13,8 +13,10 @@ import {
   Copy,
   ListChecks,
   LogOut,
+  Moon,
   Plus,
   ShieldCheck,
+  Sun,
   Trash2,
 } from "lucide-react";
 
@@ -94,9 +96,18 @@ export default function DashboardPage() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("theme");
+    const nextTheme = saved === "light" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
   }, []);
 
   const load = useCallback(async () => {
@@ -137,6 +148,15 @@ export default function DashboardPage() {
       return selectedDates.map((d) => map.get(d) || { date: d, ranges: [{ startTime: "10:00", endTime: "13:00" }] });
     });
   }, [selectedDates]);
+
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("theme", nextTheme);
+    }
+  }
 
   const isInvalidTimeConfig = useMemo(() => dayConfigs.some((d) => rangesOverlap(d.ranges)), [dayConfigs]);
   const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
@@ -197,6 +217,7 @@ export default function DashboardPage() {
     const data = await res.json();
     if (!res.ok) return toast.error(data.details || data.error || "خطا");
 
+    setSchedules((prev) => [data, ...prev]);
     toast.success("برنامه ساخته شد");
     setSelectedDates([]);
     setDayConfigs([]);
@@ -277,6 +298,9 @@ export default function DashboardPage() {
     <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 md:p-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username} عزیز خوش آمدید` : "..."}</p>
@@ -287,7 +311,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="hidden flex-wrap gap-2 md:flex">
         <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
           <CalendarDays size={16} /> برنامه‌های من
         </button>
@@ -437,9 +461,9 @@ export default function DashboardPage() {
             <button className="btn-primary w-full"><Clock3 size={16} /> ایجاد برنامه</button>
           </form>
 
-          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             {schedules.map((s) => (
-              <div className="card p-4" key={s.id}>
+              <div className="card p-4 transition hover:-translate-y-0.5 hover:border-cyan-700" key={s.id}>
                 {editingScheduleId === s.id ? (
                   <div className="space-y-2">
                     <label className="block text-xs text-slate-400">ویرایش نام برنامه</label>
@@ -471,25 +495,27 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 )}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                  <a className="text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(getShareUrl(s.shareId));
-                      toast.success("لینک کپی شد");
-                    }}
-                  >
-                    <Copy size={14} /> کپی لینک
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost text-rose-300"
-                    onClick={() => setDeleteScheduleTarget(s)}
-                  >
-                    <Trash2 size={14} /> حذف برنامه
-                  </button>
+                <div className="mt-3 space-y-2 text-sm text-slate-400">
+                  <a className="block text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(getShareUrl(s.shareId));
+                        toast.success("لینک کپی شد");
+                      }}
+                    >
+                      <Copy size={14} /> کپی لینک
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost text-rose-300"
+                      onClick={() => setDeleteScheduleTarget(s)}
+                    >
+                      <Trash2 size={14} /> حذف برنامه
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -625,6 +651,20 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <nav className="fixed bottom-3 left-0 right-0 z-40 px-3 md:hidden">
+        <div className="card mx-auto grid max-w-md grid-cols-3 gap-2 p-2">
+          <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
+            <CalendarDays size={15} />
+          </button>
+          <button className={`btn ${tab === "bookings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("bookings")}>
+            <ListChecks size={15} />
+          </button>
+          <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
+            <Clock3 size={15} />
+          </button>
+        </div>
+      </nav>
     </main>
   );
 }

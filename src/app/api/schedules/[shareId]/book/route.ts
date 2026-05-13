@@ -22,6 +22,21 @@ export async function POST(req: Request, { params }: { params: { shareId: string
   const schedule = await prisma.schedule.findUnique({ where: { shareId: params.shareId }, select: { id: true } });
   if (!schedule) return NextResponse.json({ error: "برنامه پیدا نشد", details: "لینک رزرو معتبر نیست" }, { status: 404 });
 
+  const existing = await prisma.booking.findFirst({
+    where: {
+      scheduleId: schedule.id,
+      bookedByUserId: session.userId,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "قبلا رزرو انجام شده است", details: "هر کاربر برای هر برنامه فقط یک نوبت می‌تواند رزرو کند" },
+      { status: 409 },
+    );
+  }
+
   try {
     const booking = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.timeSlot.updateMany({

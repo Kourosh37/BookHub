@@ -12,7 +12,7 @@ npm install
 ```bash
 cp .env.example .env.local
 ```
-3. Run database and app locally (Docker + Nginx):
+3. Run database and app locally (Docker):
 ```bash
 docker compose up --build
 ```
@@ -45,3 +45,4 @@ npm run dev
 
 - Booking uses transaction-safe `updateMany` with `isBooked=false` guard to prevent double booking.
 - Slot uniqueness is enforced by Prisma unique index on `(scheduleId, startTime)`.
+- App is exposed directly on `http://localhost:3000` in Docker Compose.

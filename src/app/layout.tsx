@@ -18,7 +18,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className="min-h-screen bg-slate-950 text-slate-100">
+      <body className="min-h-screen">
         {children}
         <ToastProvider />
       </body>

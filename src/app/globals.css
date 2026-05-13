@@ -4,6 +4,28 @@
 
 :root {
   color-scheme: dark;
+  --bg: rgb(2, 6, 23);
+  --text: rgb(241, 245, 249);
+  --card-bg: rgba(15, 23, 42, 0.85);
+  --card-border: rgb(51, 65, 85);
+  --input-bg: rgb(15, 23, 42);
+  --input-border: rgb(71, 85, 105);
+  --muted-text: rgb(148, 163, 184);
+  --btn-primary-bg: rgb(34, 211, 238);
+  --btn-primary-text: rgb(15, 23, 42);
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: rgb(255, 249, 210);
+  --text: rgb(48, 59, 72);
+  --card-bg: rgb(255, 235, 204);
+  --card-border: rgb(191, 221, 240);
+  --input-bg: rgb(255, 249, 210);
+  --input-border: rgb(140, 192, 235);
+  --muted-text: rgb(88, 106, 127);
+  --btn-primary-bg: rgb(140, 192, 235);
+  --btn-primary-text: rgb(22, 49, 74);
 }
 
 html,
@@ -18,15 +40,21 @@ body {
 
 body {
   font-family: "Vazirmatn", Tahoma, sans-serif;
-  @apply bg-slate-950 text-slate-100;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .card {
-  @apply rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-slate-950/30 backdrop-blur;
+  @apply rounded-2xl shadow-xl backdrop-blur;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
 }
 
 .input {
-  @apply w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500;
+  @apply w-full rounded-xl px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 .btn {
@@ -34,9 +62,13 @@ body {
 }
 
 .btn-primary {
-  @apply btn bg-cyan-500 text-slate-950 hover:bg-cyan-400;
+  @apply btn;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
 }
 
 .btn-ghost {
-  @apply btn border border-slate-700 bg-slate-900 hover:bg-slate-800;
+  @apply btn;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
 }
