@@ -9,6 +9,22 @@ type SmsIrVerifyPayload = {
   parameters: Array<{ name: string; value: string }>;
 };
 
+type SmsIrVerifyResponse = {
+  status: number;
+  message: string;
+  data?: {
+    messageId?: number;
+    cost?: number;
+  };
+};
+
+export type SendOtpSmsResult = {
+  ok: boolean;
+  providerMessage: string;
+  messageId?: number;
+  cost?: number;
+};
+
 function normalizeMobile(phone: string) {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("09") && digits.length === 11) return digits.slice(1);
@@ -21,7 +37,7 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
   const templateIdRaw = process.env.SMS_TEMPLATE_ID;
 
   if (!apiKey || !templateIdRaw) {
-    return;
+    throw new Error("SMS provider configuration is missing");
   }
 
   const templateId = Number(templateIdRaw);
@@ -53,4 +69,16 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
     const text = await res.text();
     throw new Error(`SMS request failed: ${res.status} ${text}`);
   }
+
+  const responseJson = (await res.json()) as SmsIrVerifyResponse;
+  if (responseJson.status !== 1) {
+    throw new Error(`SMS provider rejected request: ${responseJson.message || "unknown error"}`);
+  }
+
+  return {
+    ok: true,
+    providerMessage: responseJson.message,
+    messageId: responseJson.data?.messageId,
+    cost: responseJson.data?.cost,
+  } satisfies SendOtpSmsResult;
 }

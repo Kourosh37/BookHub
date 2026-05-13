@@ -44,10 +44,19 @@ export async function POST(req: Request) {
     },
   });
 
-  void sendOtpSms({ phone, code }).catch(() => {});
+  let smsResult;
+  try {
+    smsResult = await sendOtpSms({ phone, code });
+  } catch {
+    return NextResponse.json(
+      { error: "ارسال پیامک ناموفق بود", details: "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
     expiresInSeconds: getOtpExpiryMinutes() * 60,
+    sms: smsResult,
   });
 }
