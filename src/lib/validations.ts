@@ -1,11 +1,20 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
-export const registerSchema = z.object({
-  username: z
+export const phoneSchema = z
+  .string()
+  .transform((value) => value.replace(/\s|-/g, ""))
+  .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر نیست");
+
+export const requestOtpSchema = z.object({
+  phone: phoneSchema,
+});
+
+export const verifyOtpSchema = z.object({
+  phone: phoneSchema,
+  code: z
     .string()
-    .min(3, "نام کاربری باید حداقل ۳ کاراکتر باشد")
-    .max(30, "نام کاربری نمی‌تواند بیشتر از ۳۰ کاراکتر باشد"),
-  password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
+    .transform((value) => value.trim())
+    .refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
 });
 
 export const questionSchema = z.object({

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -12,6 +12,9 @@ function resolveNextPath(raw: string) {
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -25,23 +28,76 @@ export default function LoginPage() {
     });
   }, [nextPath]);
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function requestOtp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
     setLoading(true);
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch("/api/auth/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: form.get("username"), password: form.get("password") }),
+      body: JSON.stringify({ phone }),
     });
     const data = await res.json();
     setLoading(false);
-    if (!res.ok) return toast.error(data.details || data.error || "ورود ناموفق بود");
+    if (!res.ok) return toast.error(data.details || data.error || "ارسال کد ناموفق بود");
+    setCodeSent(true);
+    toast.success("کد تایید ارسال شد");
+  }
+
+  async function verifyOtp(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, code }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) return toast.error(data.details || data.error || "کد تایید نامعتبر است");
     toast.success("خوش آمدید");
     window.location.replace(nextPath);
   }
 
   const registerHref = nextParam ? `/register?next=${encodeURIComponent(nextParam)}` : "/register";
 
-  return <main className="mx-auto max-w-md p-6"><form onSubmit={onSubmit} autoComplete="off" className="card space-y-4 p-6"><h1 className="text-xl font-bold">ورود</h1><input className="input" name="username" autoComplete="off" placeholder="نام کاربری" required/><input className="input" name="password" type="password" autoComplete="new-password" placeholder="رمز عبور" required/><button className="btn-primary w-full" disabled={loading}>{loading?"در حال ورود...":"ورود"}</button><p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href={registerHref}>ثبت‌نام</Link></p></form></main>;
+  return (
+    <main className="mx-auto max-w-md p-6">
+      {!codeSent ? (
+        <form onSubmit={requestOtp} autoComplete="off" className="card space-y-4 p-6">
+          <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
+          <input
+            className="input"
+            name="phone"
+            inputMode="numeric"
+            dir="ltr"
+            placeholder="09xxxxxxxxx"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required
+          />
+          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
+          <p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href={registerHref}>ثبت‌نام</Link></p>
+        </form>
+      ) : (
+        <form onSubmit={verifyOtp} autoComplete="off" className="card space-y-4 p-6">
+          <h1 className="text-xl font-bold">تایید کد ورود</h1>
+          <p className="text-sm text-slate-400" dir="ltr">{phone}</p>
+          <input
+            className="input"
+            name="code"
+            inputMode="numeric"
+            dir="ltr"
+            placeholder="کد ۶ رقمی"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
+          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال بررسی..." : "ورود"}</button>
+          <button type="button" className="btn-ghost w-full" onClick={() => setCodeSent(false)} disabled={loading}>
+            تغییر شماره
+          </button>
+        </form>
+      )}
+    </main>
+  );
 }

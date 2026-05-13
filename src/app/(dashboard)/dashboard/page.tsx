@@ -324,7 +324,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
-            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username} عزیز خوش آمدید` : "..."}</p>
+            <p className="mt-1 text-sm text-slate-400">{user ? `${user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
             <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
@@ -683,7 +683,7 @@ export default function DashboardPage() {
             {mySessions.map((s) => (
               <div key={s.id} className="rounded-xl border border-slate-800 p-3">
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
-                <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || "-"}</div>
+                <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.phone || "-"}</div>
                 <div className="text-sm text-slate-400">
                   زمان شروع: {new Date(s.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
                 </div>

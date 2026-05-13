@@ -13,7 +13,7 @@ function shouldUseSecureCookie() {
 
 export type SessionPayload = {
   userId: string;
-  username: string;
+  phone: string;
 };
 
 export async function createSession(payload: SessionPayload) {
