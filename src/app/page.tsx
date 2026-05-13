@@ -14,7 +14,7 @@ export default function Home() {
           priority
         />
         <h1 className="text-3xl font-bold">بوک هاب</h1>
-        <p className="mt-3 text-slate-600">سامانه فارسی رزرو زمان با تقویم جلالی</p>
+        <p className="mt-3 text-slate-600">سامانه رزرو زمان با تقویم جلالی</p>
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/login" className="btn-primary">ورود</Link>
           <Link href="/register" className="btn border border-slate-300">ثبت‌نام</Link>

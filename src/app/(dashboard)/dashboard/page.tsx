@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -222,6 +223,7 @@ export default function DashboardPage() {
     setSelectedDates([]);
     setDayConfigs([]);
     setQuestions([]);
+    setShowCreateFormMobile(false);
     (e.currentTarget as HTMLFormElement).reset();
     await load();
   }
@@ -295,19 +297,21 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 md:p-6">
+    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-24 md:p-6 md:pb-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username} عزیز خوش آمدید` : "..."}</p>
           </div>
-          <button onClick={logout} className="btn-ghost ms-auto text-rose-300">
-            <LogOut size={16} /> خروج
-          </button>
+          <div className="ms-auto flex items-center gap-2">
+            <button onClick={logout} className="btn-ghost text-rose-300">
+              <LogOut size={16} /> خروج
+            </button>
+            <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -325,7 +329,20 @@ export default function DashboardPage() {
 
       {tab === "schedules" && (
         <section className="grid gap-4 lg:grid-cols-2">
-          <form onSubmit={createSchedule} className="card space-y-4 p-4 md:p-5">
+          <div className="md:hidden">
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => setShowCreateFormMobile((prev) => !prev)}
+            >
+              <Plus size={16} /> {showCreateFormMobile ? "بستن فرم برنامه جدید" : "برنامه جدید"}
+            </button>
+          </div>
+
+          <form
+            onSubmit={createSchedule}
+            className={`card space-y-4 p-4 md:p-5 ${showCreateFormMobile ? "block" : "hidden md:block"}`}
+          >
             <h2 className="font-bold">ساخت برنامه جدید</h2>
 
             <div>
@@ -488,16 +505,28 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold break-words">{s.title}</h3>
-                    <button type="button" className="btn-ghost text-xs" onClick={() => startEditScheduleTitle(s)}>
-                      ویرایش نام
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold break-words text-base">{s.title}</h3>
+                      <span className="rounded-full border border-cyan-700/60 bg-cyan-900/20 px-2 py-1 text-xs text-cyan-200">
+                        برنامه
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {s.createdAt
+                        ? new Date(s.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })
+                        : "تاریخ نامشخص"}
+                    </p>
                   </div>
                 )}
                 <div className="mt-3 space-y-2 text-sm text-slate-400">
                   <a className="block text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
                   <div className="flex flex-wrap gap-2">
+                    {editingScheduleId !== s.id && (
+                      <button type="button" className="btn-ghost" onClick={() => startEditScheduleTitle(s)}>
+                        ویرایش نام
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn-ghost"
