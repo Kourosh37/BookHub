@@ -50,7 +50,7 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
     templateId,
     parameters: [
       {
-        name: "Code",
+        name: "OTP",
         value: payload.code,
       },
     ],
