@@ -565,7 +565,15 @@ export default function DashboardPage() {
       {tab === "bookings" && (
         <section className="card p-4">
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
-          <select className="input mb-4 w-full sm:max-w-sm" value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)}>
+          <select
+            className="input mb-4 w-full appearance-none bg-[position:right_0.9rem_center] bg-[length:0.9rem] bg-no-repeat pe-10 sm:max-w-sm"
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+            }}
+            value={scheduleFilter}
+            onChange={(e) => setScheduleFilter(e.target.value)}
+          >
             <option value="">همه برنامه‌ها</option>
             {schedules.map((s) => (
               <option key={s.id} value={s.id}>{s.title}</option>
