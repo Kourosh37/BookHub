@@ -574,7 +574,7 @@ export default function DashboardPage() {
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
           <div className="relative mb-4 w-full sm:max-w-sm">
             <select
-              className="input w-full appearance-none pe-10"
+              className="w-full appearance-none rounded-2xl border border-slate-700 bg-slate-900/90 py-2.5 pe-12 ps-3 text-slate-100 shadow-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
               value={scheduleFilter}
               onChange={(e) => setScheduleFilter(e.target.value)}
             >
@@ -583,7 +583,9 @@ export default function DashboardPage() {
                 <option key={s.id} value={s.id}>{s.title}</option>
               ))}
             </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-xl border border-slate-600 bg-slate-800 p-1 text-slate-200">
+              <ChevronDown size={14} />
+            </div>
           </div>
           <div className="space-y-3">
             {bookings.map((b) => (
