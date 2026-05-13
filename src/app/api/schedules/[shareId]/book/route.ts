@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { bookingSchema } from "@/lib/validations";
 import { requireSession } from "@/lib/auth";
+import { notifyBookingCreated, scheduleTenMinuteReminderForBooking } from "@/lib/notifications";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
   let session;
@@ -56,6 +57,32 @@ export async function POST(req: Request, { params }: { params: { shareId: string
         },
       });
     });
+
+    const bookingDetails = await prisma.booking.findUnique({
+      where: { id: booking.id },
+      include: {
+        schedule: {
+          select: { id: true, title: true, userId: true },
+        },
+        timeSlot: {
+          select: { startTime: true },
+        },
+      },
+    });
+
+    if (bookingDetails) {
+      const ctx = {
+        bookingId: bookingDetails.id,
+        scheduleId: bookingDetails.scheduleId,
+        scheduleTitle: bookingDetails.schedule?.title,
+        hostUserId: bookingDetails.schedule.userId,
+        guestUserId: bookingDetails.bookedByUserId,
+        slotStartIso: bookingDetails.timeSlot?.startTime?.toISOString?.() || null,
+      };
+
+      void notifyBookingCreated(ctx).catch(() => {});
+      void scheduleTenMinuteReminderForBooking(ctx).catch(() => {});
+    }
 
     return NextResponse.json(booking);
   } catch (e) {

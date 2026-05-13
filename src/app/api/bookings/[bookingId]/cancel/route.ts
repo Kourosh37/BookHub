@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { cancelScheduledRemindersForBooking, notifyBookingCanceledByHost } from "@/lib/notifications";
 
 export async function POST(_: Request, { params }: { params: { bookingId: string } }) {
   try {
@@ -10,7 +11,7 @@ export async function POST(_: Request, { params }: { params: { bookingId: string
       where: { id: params.bookingId },
       include: {
         schedule: {
-          select: { userId: true },
+          select: { userId: true, title: true },
         },
       },
     });
@@ -30,6 +31,15 @@ export async function POST(_: Request, { params }: { params: { bookingId: string
         data: { isBooked: false },
       });
     });
+
+    void notifyBookingCanceledByHost({
+      bookingId: booking.id,
+      scheduleId: booking.scheduleId,
+      scheduleTitle: booking.schedule.title,
+      hostUserId: booking.schedule.userId,
+      guestUserId: booking.bookedByUserId,
+    }).catch(() => {});
+    void cancelScheduledRemindersForBooking(booking.id).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch {
