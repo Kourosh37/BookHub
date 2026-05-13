@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
@@ -101,6 +101,8 @@ export default function DashboardPage() {
   const [deletingSchedule, setDeletingSchedule] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
+  const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
+  const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -152,6 +154,18 @@ export default function DashboardPage() {
       return selectedDates.map((d) => map.get(d) || { date: d, ranges: [{ startTime: "10:00", endTime: "13:00" }] });
     });
   }, [selectedDates]);
+
+  useEffect(() => {
+    function onPointerDown(e: MouseEvent) {
+      if (!scheduleMenuRef.current) return;
+      if (!scheduleMenuRef.current.contains(e.target as Node)) {
+        setIsScheduleMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
 
   function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -572,21 +586,52 @@ export default function DashboardPage() {
           <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
-          <div className="relative mb-4 w-full sm:max-w-sm">
-            <select
-              className="w-full appearance-none rounded-3xl border border-slate-700 bg-slate-900/90 py-2.5 pr-3 pl-12 text-slate-100 shadow-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
-              value={scheduleFilter}
-              onChange={(e) => setScheduleFilter(e.target.value)}
+          <div ref={scheduleMenuRef} className="relative mb-4 w-full sm:max-w-sm">
+            <button
+              type="button"
+              onClick={() => setIsScheduleMenuOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-3xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-right text-slate-100 shadow-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
+              aria-haspopup="listbox"
+              aria-expanded={isScheduleMenuOpen}
             >
-              <option value="">همه برنامه‌ها</option>
+              <span className="truncate">
+                {scheduleFilter ? schedules.find((s) => s.id === scheduleFilter)?.title || "همه برنامه‌ها" : "همه برنامه‌ها"}
+              </span>
+              <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isScheduleMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            <div
+              className={`absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/95 shadow-xl transition-all duration-200 ${
+                isScheduleMenuOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
+              }`}
+            >
+              <button
+                type="button"
+                className={`block w-full px-3 py-2 text-right text-sm transition hover:bg-slate-800 ${scheduleFilter === "" ? "bg-slate-800 text-cyan-300" : "text-slate-100"}`}
+                onClick={() => {
+                  setScheduleFilter("");
+                  setIsScheduleMenuOpen(false);
+                }}
+                role="option"
+                aria-selected={scheduleFilter === ""}
+              >
+                همه برنامه‌ها
+              </button>
               {schedules.map((s) => (
-                <option key={s.id} value={s.id} className="rounded-xl bg-slate-900 text-slate-100">
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`block w-full px-3 py-2 text-right text-sm transition hover:bg-slate-800 ${scheduleFilter === s.id ? "bg-slate-800 text-cyan-300" : "text-slate-100"}`}
+                  onClick={() => {
+                    setScheduleFilter(s.id);
+                    setIsScheduleMenuOpen(false);
+                  }}
+                  role="option"
+                  aria-selected={scheduleFilter === s.id}
+                >
                   {s.title}
-                </option>
+                </button>
               ))}
-            </select>
-            <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded-xl border border-slate-600 bg-slate-800 p-1 text-slate-200">
-              <ChevronDown size={14} />
             </div>
           </div>
           <div className="space-y-3">
