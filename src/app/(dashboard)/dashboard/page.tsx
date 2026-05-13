@@ -332,6 +332,10 @@ export default function DashboardPage() {
 
       {tab === "schedules" && (
         <section className="grid gap-4 lg:grid-cols-2">
+          <div className="lg:col-span-2">
+            <h2 className="text-lg font-bold md:text-xl">برنامه‌های من</h2>
+            <p className="mt-1 text-sm text-slate-400">برنامه‌های زمانی خود را بسازید، ویرایش کنید و لینک رزرو هر برنامه را مدیریت کنید.</p>
+          </div>
           <div className="md:hidden">
             <button
               type="button"
@@ -564,6 +568,8 @@ export default function DashboardPage() {
 
       {tab === "bookings" && (
         <section className="card p-4">
+          <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
+          <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
           <select
             className="input mb-4 w-full appearance-none bg-[position:right_0.9rem_center] bg-[length:0.9rem] bg-no-repeat pe-10 sm:max-w-sm"
@@ -605,7 +611,7 @@ export default function DashboardPage() {
                     title="کنسل رزرو"
                   >
                     <XCircle size={14} />
-                    <span className="hidden md:inline">کنسل رزرو</span>
+                    <span>کنسل رزرو</span>
                   </button>
                 </div>
               </div>
@@ -616,6 +622,8 @@ export default function DashboardPage() {
 
       {tab === "sessions" && (
         <section className="card p-4">
+          <h2 className="mb-4 text-lg font-bold md:text-xl">جلسات من</h2>
+          <p className="-mt-2 mb-4 text-sm text-slate-400">جلسه‌هایی که خودتان رزرو کرده‌اید همراه با زمان و پاسخ‌های ثبت‌شده نمایش داده می‌شوند.</p>
           <div className="space-y-3">
             {mySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
             {mySessions.map((s) => (
