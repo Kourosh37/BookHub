@@ -7,8 +7,9 @@ import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
-import { CalendarDays, Clock3, Send, User } from "lucide-react";
+import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
+import { UserAvatar } from "@/components/user-avatar";
 
 function toEnglishDigits(value: string) {
   return value
@@ -58,6 +59,18 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
   const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
+  const previewAvatarUrl = useMemo(() => {
+    const src = schedule?.user?.avatarUrl;
+    if (!src) return "";
+    if (src.startsWith("/")) return src;
+    try {
+      const url = new URL(src);
+      if (url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/api/profile/avatar")) {
+        return `${url.pathname}${url.search}`;
+      }
+    } catch {}
+    return src;
+  }, [schedule?.user?.avatarUrl]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -88,11 +101,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
         </div>
         <div className="flex items-center gap-3">
-          {schedule?.user?.avatarUrl ? (
-            <img src={schedule.user.avatarUrl} alt="host avatar" className="h-12 w-12 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreviewOpen(true)} />
-          ) : (
-            <div className="h-12 w-12 rounded-full border border-slate-700 grid place-items-center"><User size={18} /></div>
-          )}
+          <UserAvatar src={schedule?.user?.avatarUrl} alt="host avatar" sizeClassName="h-12 w-12" iconSize={18} onClick={() => previewAvatarUrl && setAvatarPreviewOpen(true)} />
           <div className="text-sm text-slate-400">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</div>
         </div>
         <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
@@ -165,11 +174,11 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           </form>
         )}
       </div>
-      {avatarPreviewOpen && schedule?.user?.avatarUrl && (
+      {avatarPreviewOpen && previewAvatarUrl && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreviewOpen(false)}>
           <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-bold">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</h3>
-            <img src={schedule.user.avatarUrl} alt="host avatar preview" className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
+            <img src={previewAvatarUrl} alt="host avatar preview" className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
             <div className="mt-4 flex justify-end">
               <button type="button" className="btn-ghost" onClick={() => setAvatarPreviewOpen(false)}>بستن</button>
             </div>

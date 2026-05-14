@@ -20,13 +20,13 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
-  User,
   UserCircle2,
   XCircle,
   Eye,
   EyeOff,
 } from "lucide-react";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { UserAvatar } from "@/components/user-avatar";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -83,6 +83,18 @@ function rangesOverlap(ranges: Range[]) {
     if (i > 0 && sorted[i].s < sorted[i - 1].e) return true;
   }
   return false;
+}
+
+function normalizePreviewUrl(src?: string | null) {
+  if (!src) return "";
+  if (src.startsWith("/")) return src;
+  try {
+    const url = new URL(src);
+    if (url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/api/profile/avatar")) {
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {}
+  return src;
 }
 
 export default function DashboardPage() {
@@ -338,21 +350,27 @@ export default function DashboardPage() {
     <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
-          {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="avatar" className="h-10 w-10 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: user.avatarUrl, name: user.username || user.phone || "کاربر" })} />
-          ) : (
-            <div className="h-10 w-10 rounded-full border border-slate-700 grid place-items-center text-xs text-slate-400"><User size={16} /></div>
-          )}
+          <UserAvatar
+            src={user?.avatarUrl}
+            alt="avatar"
+            sizeClassName="h-10 w-10"
+            iconSize={16}
+            onClick={() => {
+              const url = normalizePreviewUrl(user?.avatarUrl);
+              if (!url) return;
+              setAvatarPreview({ url, name: user.username || user.phone || "کاربر" });
+            }}
+          />
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button onClick={logout} className="btn-danger" aria-label="خروج" title="خروج">
-              <LogOut size={16} />
+            <button onClick={logout} className="btn-ghost h-10" aria-label="خروج" title="خروج">
+              <LogOut size={16} className="icon-danger" />
               <span className="hidden md:inline">خروج</span>
             </button>
           </div>
@@ -370,7 +388,7 @@ export default function DashboardPage() {
           <Clock3 size={16} /> جلسات من
         </button>
         <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
-          پروفایل
+          <UserCircle2 size={16} /> پروفایل
         </button>
       </div>
 
@@ -594,12 +612,12 @@ export default function DashboardPage() {
                     </button>
                     <button
                       type="button"
-                      className="btn-ghost text-rose-300"
+                      className="btn-ghost"
                       onClick={() => setDeleteScheduleTarget(s)}
                       aria-label="حذف برنامه"
                       title="حذف برنامه"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} className="icon-danger" />
                       <span className="hidden md:inline">حذف برنامه</span>
                     </button>
                   </div>
@@ -669,11 +687,17 @@ export default function DashboardPage() {
                 <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
-                  {b.bookedByUser?.avatarUrl ? (
-                    <img src={b.bookedByUser.avatarUrl} alt="booker avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: b.bookedByUser.avatarUrl, name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر" })} />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full border border-slate-700 grid place-items-center"><User size={14} /></div>
-                  )}
+                  <UserAvatar
+                    src={b.bookedByUser?.avatarUrl}
+                    alt="booker avatar"
+                    sizeClassName="h-8 w-8"
+                    iconSize={14}
+                    onClick={() => {
+                      const url = normalizePreviewUrl(b.bookedByUser?.avatarUrl);
+                      if (!url) return;
+                      setAvatarPreview({ url, name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر" });
+                    }}
+                  />
                   <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
                 </div>
                 <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
@@ -691,12 +715,12 @@ export default function DashboardPage() {
                 <div className="mt-3">
                   <button
                     type="button"
-                    className="btn-danger"
+                    className="btn-ghost"
                     onClick={() => setCancelTarget(b)}
                     aria-label="کنسل رزرو"
                     title="کنسل رزرو"
                   >
-                    <XCircle size={14} />
+                    <XCircle size={14} className="icon-danger" />
                     <span>کنسل رزرو</span>
                   </button>
                 </div>
@@ -716,11 +740,17 @@ export default function DashboardPage() {
               <div key={s.id} className="rounded-xl border border-slate-800 p-3">
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
-                  {s.schedule?.user?.avatarUrl ? (
-                    <img src={s.schedule.user.avatarUrl} alt="host avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: s.schedule.user.avatarUrl, name: s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده" })} />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full border border-slate-700 grid place-items-center"><User size={14} /></div>
-                  )}
+                  <UserAvatar
+                    src={s.schedule?.user?.avatarUrl}
+                    alt="host avatar"
+                    sizeClassName="h-8 w-8"
+                    iconSize={14}
+                    onClick={() => {
+                      const url = normalizePreviewUrl(s.schedule?.user?.avatarUrl);
+                      if (!url) return;
+                      setAvatarPreview({ url, name: s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده" });
+                    }}
+                  />
                   <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
                 </div>
                 <div className="text-sm text-slate-400">
@@ -824,7 +854,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
+          <button className="btn-ghost" onClick={() => setDeleteAccountOpen(true)}>
             حذف حساب کاربری
           </button>
         </section>
@@ -847,7 +877,7 @@ export default function DashboardPage() {
               <button type="button" className="btn-ghost" onClick={() => setCancelTarget(null)} disabled={cancelLoading}>
                 انصراف
               </button>
-              <button type="button" className="btn-danger" onClick={cancelBooking} disabled={cancelLoading}>
+              <button type="button" className="btn-ghost" onClick={cancelBooking} disabled={cancelLoading}>
                 {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
               </button>
             </div>
@@ -874,7 +904,7 @@ export default function DashboardPage() {
               >
                 انصراف
               </button>
-              <button type="button" className="btn-danger" onClick={deleteSchedule} disabled={deletingSchedule}>
+              <button type="button" className="btn-ghost" onClick={deleteSchedule} disabled={deletingSchedule}>
                 {deletingSchedule ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
@@ -920,7 +950,7 @@ export default function DashboardPage() {
               <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
               <button
                 type="button"
-                className="btn-danger"
+                className="btn-ghost"
                 onClick={async () => {
                   const res = await fetch("/api/profile", { method: "DELETE" });
                   if (!res.ok) return toast.error("حذف حساب ناموفق بود");

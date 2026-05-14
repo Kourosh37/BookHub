@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { User } from "lucide-react";
+import { UserAvatar } from "@/components/user-avatar";
 
 type Props = {
   currentAvatarUrl?: string | null;
@@ -20,7 +20,6 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [previewErrored, setPreviewErrored] = useState(false);
 
   const baseScale = useMemo(() => {
     if (!natural.w || !natural.h) return 1;
@@ -98,7 +97,6 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
 
       setProgress(100);
       if (result?.avatarUrl) {
-        setPreviewErrored(false);
         onUploaded(`${result.avatarUrl}?v=${Date.now()}`);
         toast.success("عکس پروفایل ذخیره شد");
       }
@@ -117,18 +115,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
     <div className="space-y-2">
       <label className="block text-sm text-slate-300">عکس پروفایل</label>
       <div className="flex items-center gap-3">
-        {currentAvatarUrl && !previewErrored ? (
-          <img
-            src={currentAvatarUrl}
-            alt="avatar preview"
-            className="h-12 w-12 rounded-full border border-slate-700 object-cover"
-            onError={() => setPreviewErrored(true)}
-          />
-        ) : (
-          <div className="h-12 w-12 rounded-full border border-slate-700 grid place-items-center">
-            <User size={16} />
-          </div>
-        )}
+        <UserAvatar src={currentAvatarUrl} alt="avatar preview" sizeClassName="h-12 w-12" iconSize={16} />
         <label className="btn-ghost cursor-pointer">
           انتخاب عکس
           <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
