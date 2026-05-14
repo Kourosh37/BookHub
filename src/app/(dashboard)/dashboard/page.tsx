@@ -389,8 +389,8 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
-              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            <button type="button" className="btn-ghost h-11 w-11 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+              {theme === "dark" ? <Sun size={24} strokeWidth={2.25} /> : <Moon size={24} strokeWidth={2.25} />}
             </button>
             <button onClick={logout} className="btn-ghost h-10 px-3" aria-label="خروج" title="خروج">
               <LogOut size={18} className="icon-danger" />
