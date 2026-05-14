@@ -119,7 +119,7 @@ export default function LoginPage() {
       ) : (
         <form onSubmit={loginWithPassword} className="card space-y-4 p-6">
           <h1 className="text-xl font-bold">ورود با نام کاربری یا شماره موبایل و رمز عبور</h1>
-          <input className="input" placeholder="نام کاربری یا شماره موبایل" dir="ltr" {...passwordForm.register("identifier")} />
+          <input className="input" placeholder="نام کاربری یا شماره موبایل" dir="rtl" {...passwordForm.register("identifier")} />
           {passwordForm.formState.errors.identifier && <p className="text-xs text-rose-400">{passwordForm.formState.errors.identifier.message}</p>}
           <div className="relative">
             <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" {...passwordForm.register("password")} />
