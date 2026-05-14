@@ -1,5 +1,5 @@
 ﻿import { prisma } from "@/lib/prisma";
-import { enqueueNotificationSms, enqueueReminder } from "@/lib/jobs";
+import { cancelReminderByBookingId, enqueueNotificationSms, enqueueReminder } from "@/lib/jobs";
 
 type BookingNotificationContext = {
   bookingId: string;
@@ -62,8 +62,8 @@ export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificati
   });
 }
 
-export async function cancelScheduledRemindersForBooking(_bookingId: string) {
-  // TODO: add lookup key and remove delayed reminder jobs for booking.
+export async function cancelScheduledRemindersForBooking(bookingId: string) {
+  await cancelReminderByBookingId(bookingId);
 }
 
 export async function smokeTestNotificationModule() {

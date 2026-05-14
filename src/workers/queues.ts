@@ -1,6 +1,7 @@
 import { createWorker, QUEUE_NAMES } from "@/lib/queue";
 import { sendOtpSms, sendTextSms } from "@/lib/sms";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 async function start() {
   const smsWorker = createWorker<any>(QUEUE_NAMES.sms, async (job) => {
@@ -18,7 +19,33 @@ async function start() {
   });
 
   const reminderWorker = createWorker<any>(QUEUE_NAMES.reminder, async (job) => {
-    logger.info({ jobId: job.id, data: job.data }, "reminder job reached schedule time");
+    const data = job.data as { bookingId: string; audience: "host" | "guest" | "both" };
+    const booking = await prisma.booking.findUnique({
+      where: { id: data.bookingId },
+      include: {
+        schedule: { select: { title: true, userId: true } },
+        bookedByUser: { select: { phone: true } },
+      },
+    });
+    if (!booking) {
+      logger.warn({ jobId: job.id, bookingId: data.bookingId }, "reminder booking not found");
+      return;
+    }
+
+    const host = await prisma.user.findUnique({
+      where: { id: booking.schedule.userId },
+      select: { phone: true },
+    });
+
+    const text = `یادآوری: کمتر از ۱۰ دقیقه تا ارائه «${booking.schedule.title || "برنامه"}» باقی مانده است.`;
+    if ((data.audience === "host" || data.audience === "both") && host?.phone) {
+      await sendTextSms({ to: host.phone, text });
+    }
+    if ((data.audience === "guest" || data.audience === "both") && booking.bookedByUser?.phone) {
+      await sendTextSms({ to: booking.bookedByUser.phone, text });
+    }
+
+    logger.info({ jobId: job.id, bookingId: data.bookingId }, "reminder job processed");
   });
 
   smsWorker.on("failed", (job, err) => {
@@ -36,4 +63,3 @@ start().catch((err) => {
   logger.error({ err: err?.message }, "queue workers failed to start");
   process.exit(1);
 });
-
