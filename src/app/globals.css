@@ -15,6 +15,9 @@
   --btn-primary-text: #ecdfcc;
   --focus-ring: #697565;
   --link-text: #ecdfcc;
+  --danger-bg: #6f3a3a;
+  --danger-text: #f6dede;
+  --danger-border: #8f4b4b;
 }
 
 html[data-theme="light"] {
@@ -30,6 +33,9 @@ html[data-theme="light"] {
   --btn-primary-text: #f6f0d7;
   --focus-ring: #9cab84;
   --link-text: #4b5a36;
+  --danger-bg: #d88c8c;
+  --danger-text: #5a1f1f;
+  --danger-border: #b86767;
 }
 
 html .text-slate-300 {
@@ -107,4 +113,29 @@ body {
   @apply btn;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
+}
+
+.btn-danger {
+  @apply btn;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.dropdown-panel {
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+
+.dropdown-option {
+  color: var(--text);
+}
+
+.dropdown-option:hover {
+  background: color-mix(in srgb, var(--card-bg) 78%, var(--card-border));
+}
+
+.dropdown-option-active {
+  background: color-mix(in srgb, var(--btn-primary-bg) 30%, var(--card-bg));
+  color: var(--text);
 }

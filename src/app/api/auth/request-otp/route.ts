@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
   const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 12) : null;
 
-  await prisma.otpCode.create({
+  const createdOtp = await prisma.otpCode.create({
     data: {
       phone,
       codeHash: hashOtp(phone, code),
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
   try {
     smsResult = await sendOtpSms({ phone, code });
   } catch {
+    await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
     return NextResponse.json(
       { error: "ارسال پیامک ناموفق بود", details: "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
       { status: 502 },

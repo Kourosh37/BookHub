@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { User } from "lucide-react";
 
 type Props = {
   currentAvatarUrl?: string | null;
@@ -19,6 +20,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const [previewErrored, setPreviewErrored] = useState(false);
 
   const baseScale = useMemo(() => {
     if (!natural.w || !natural.h) return 1;
@@ -96,14 +98,15 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
 
       setProgress(100);
       if (result?.avatarUrl) {
-        onUploaded(result.avatarUrl);
+        setPreviewErrored(false);
+        onUploaded(`${result.avatarUrl}?v=${Date.now()}`);
         toast.success("عکس پروفایل ذخیره شد");
       }
       setTimeout(() => {
         setSourceUrl(null);
         setUploading(false);
         setProgress(0);
-      }, 350);
+      }, 300);
     } catch (e: any) {
       setUploading(false);
       toast.error(e?.message || "خطا در آپلود عکس");
@@ -114,10 +117,17 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
     <div className="space-y-2">
       <label className="block text-sm text-slate-300">عکس پروفایل</label>
       <div className="flex items-center gap-3">
-        {currentAvatarUrl ? (
-          <img src={currentAvatarUrl} alt="avatar preview" className="h-12 w-12 rounded-full border border-slate-700 object-cover" />
+        {currentAvatarUrl && !previewErrored ? (
+          <img
+            src={currentAvatarUrl}
+            alt="avatar preview"
+            className="h-12 w-12 rounded-full border border-slate-700 object-cover"
+            onError={() => setPreviewErrored(true)}
+          />
         ) : (
-          <div className="h-12 w-12 rounded-full border border-slate-700" />
+          <div className="h-12 w-12 rounded-full border border-slate-700 grid place-items-center">
+            <User size={16} />
+          </div>
         )}
         <label className="btn-ghost cursor-pointer">
           انتخاب عکس
@@ -129,7 +139,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/80 p-4">
           <div className="card w-full max-w-xl p-4">
             <h3 className="text-lg font-bold">برش عکس پروفایل</h3>
-            <p className="mt-1 text-xs text-slate-400">محدوده مربعی انتخاب می‌شود و خروجی دایره‌ای نمایش داده خواهد شد.</p>
+            <p className="mt-1 text-xs text-slate-400">خروجی نهایی برای نمایش دایره‌ای آماده می‌شود.</p>
             <div className="mt-3 grid place-items-center">
               <div className="relative overflow-hidden rounded-2xl border border-slate-700" style={{ width: CROP_SIZE, height: CROP_SIZE }}>
                 <img

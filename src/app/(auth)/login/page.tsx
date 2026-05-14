@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -112,7 +114,12 @@ export default function LoginPage() {
         <form onSubmit={loginWithPassword} className="card space-y-4 p-6">
           <h1 className="text-xl font-bold">ورود با نام کاربری و رمز عبور</h1>
           <input className="input" placeholder="نام کاربری" value={username} onChange={(e) => setUsername(e.target.value)} required />
-          <input className="input" type="password" placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="relative">
+            <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowPassword((p) => !p)}>
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
           <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ورود..." : "ورود"}</button>
         </form>
       )}

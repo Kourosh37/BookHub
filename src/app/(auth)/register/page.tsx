@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -14,6 +15,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ username: "", phone: "", password: "", confirmPassword: "", code: "" });
   const [codeSent, setCodeSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -84,8 +87,18 @@ export default function RegisterPage() {
             required
             dir="ltr"
           />
-          <input className="input" type="password" placeholder="رمز عبور" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
-          <input className="input" type="password" placeholder="تکرار رمز عبور" value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} required />
+          <div className="relative">
+            <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
+            <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowPassword((p) => !p)}>
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          <div className="relative">
+            <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="تکرار رمز عبور" value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} required />
+            <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowConfirmPassword((p) => !p)}>
+              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
           <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
           <p className="text-sm">حساب دارید؟ <Link className="text-sky-600" href="/login">ورود</Link></p>
         </form>

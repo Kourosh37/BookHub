@@ -7,7 +7,7 @@ import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
-import { CalendarDays, Clock3, Send } from "lucide-react";
+import { CalendarDays, Clock3, Send, User } from "lucide-react";
 import Link from "next/link";
 
 function toEnglishDigits(value: string) {
@@ -91,7 +91,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           {schedule?.user?.avatarUrl ? (
             <img src={schedule.user.avatarUrl} alt="host avatar" className="h-12 w-12 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreviewOpen(true)} />
           ) : (
-            <div className="h-12 w-12 rounded-full border border-slate-700" />
+            <div className="h-12 w-12 rounded-full border border-slate-700 grid place-items-center"><User size={18} /></div>
           )}
           <div className="text-sm text-slate-400">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</div>
         </div>

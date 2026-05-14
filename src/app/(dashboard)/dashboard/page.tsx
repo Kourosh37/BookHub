@@ -20,7 +20,11 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
+  User,
+  UserCircle2,
   XCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { AvatarUploader } from "@/components/avatar-uploader";
 
@@ -110,6 +114,9 @@ export default function DashboardPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<{ url: string; name: string } | null>(null);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -334,7 +341,7 @@ export default function DashboardPage() {
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt="avatar" className="h-10 w-10 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: user.avatarUrl, name: user.username || user.phone || "کاربر" })} />
           ) : (
-            <div className="h-10 w-10 rounded-full border border-slate-700 grid place-items-center text-xs text-slate-400">بدون عکس</div>
+            <div className="h-10 w-10 rounded-full border border-slate-700 grid place-items-center text-xs text-slate-400"><User size={16} /></div>
           )}
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
@@ -344,7 +351,7 @@ export default function DashboardPage() {
             <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button onClick={logout} className="btn-ghost text-rose-300" aria-label="خروج" title="خروج">
+            <button onClick={logout} className="btn-danger" aria-label="خروج" title="خروج">
               <LogOut size={16} />
               <span className="hidden md:inline">خروج</span>
             </button>
@@ -623,13 +630,13 @@ export default function DashboardPage() {
             </button>
 
             <div
-              className={`absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/95 shadow-xl transition-all duration-200 ${
+              className={`dropdown-panel absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-2xl shadow-xl transition-all duration-200 ${
                 isScheduleMenuOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
               }`}
             >
               <button
                 type="button"
-                className={`block w-full px-3 py-2 text-right text-sm transition hover:bg-slate-800 ${scheduleFilter === "" ? "bg-slate-800 text-cyan-300" : "text-slate-100"}`}
+                className={`dropdown-option block w-full px-3 py-2 text-right text-sm transition ${scheduleFilter === "" ? "dropdown-option-active" : ""}`}
                 onClick={() => {
                   setScheduleFilter("");
                   setIsScheduleMenuOpen(false);
@@ -643,7 +650,7 @@ export default function DashboardPage() {
                 <button
                   key={s.id}
                   type="button"
-                  className={`block w-full px-3 py-2 text-right text-sm transition hover:bg-slate-800 ${scheduleFilter === s.id ? "bg-slate-800 text-cyan-300" : "text-slate-100"}`}
+                  className={`dropdown-option block w-full px-3 py-2 text-right text-sm transition ${scheduleFilter === s.id ? "dropdown-option-active" : ""}`}
                   onClick={() => {
                     setScheduleFilter(s.id);
                     setIsScheduleMenuOpen(false);
@@ -665,7 +672,7 @@ export default function DashboardPage() {
                   {b.bookedByUser?.avatarUrl ? (
                     <img src={b.bookedByUser.avatarUrl} alt="booker avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: b.bookedByUser.avatarUrl, name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر" })} />
                   ) : (
-                    <div className="h-8 w-8 rounded-full border border-slate-700" />
+                    <div className="h-8 w-8 rounded-full border border-slate-700 grid place-items-center"><User size={14} /></div>
                   )}
                   <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
                 </div>
@@ -684,7 +691,7 @@ export default function DashboardPage() {
                 <div className="mt-3">
                   <button
                     type="button"
-                    className="btn-ghost text-rose-300"
+                    className="btn-danger"
                     onClick={() => setCancelTarget(b)}
                     aria-label="کنسل رزرو"
                     title="کنسل رزرو"
@@ -712,7 +719,7 @@ export default function DashboardPage() {
                   {s.schedule?.user?.avatarUrl ? (
                     <img src={s.schedule.user.avatarUrl} alt="host avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: s.schedule.user.avatarUrl, name: s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده" })} />
                   ) : (
-                    <div className="h-8 w-8 rounded-full border border-slate-700" />
+                    <div className="h-8 w-8 rounded-full border border-slate-700 grid place-items-center"><User size={14} /></div>
                   )}
                   <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
                 </div>
@@ -785,8 +792,18 @@ export default function DashboardPage() {
               ارسال کد تایید
             </button>
             <input className="input" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
-            <input className="input" type="password" placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-            <input className="input" type="password" placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+            <div className="relative">
+              <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+              <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowNewPassword((p) => !p)}>
+                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div className="relative">
+              <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+              <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowConfirmPassword((p) => !p)}>
+                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             <button
               className="btn-primary"
               onClick={async () => {
@@ -807,16 +824,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <button
-            className="btn-ghost text-rose-300"
-            onClick={async () => {
-              if (!confirm("حساب کاربری شما حذف شود؟")) return;
-              const res = await fetch("/api/profile", { method: "DELETE" });
-              if (!res.ok) return toast.error("حذف حساب ناموفق بود");
-              await fetch("/api/auth/logout", { method: "POST" });
-              window.location.href = "/login";
-            }}
-          >
+          <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
             حذف حساب کاربری
           </button>
         </section>
@@ -839,7 +847,7 @@ export default function DashboardPage() {
               <button type="button" className="btn-ghost" onClick={() => setCancelTarget(null)} disabled={cancelLoading}>
                 انصراف
               </button>
-              <button type="button" className="btn-ghost text-rose-300" onClick={cancelBooking} disabled={cancelLoading}>
+              <button type="button" className="btn-danger" onClick={cancelBooking} disabled={cancelLoading}>
                 {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
               </button>
             </div>
@@ -866,12 +874,7 @@ export default function DashboardPage() {
               >
                 انصراف
               </button>
-              <button
-                type="button"
-                className="btn-ghost text-rose-300"
-                onClick={deleteSchedule}
-                disabled={deletingSchedule}
-              >
+              <button type="button" className="btn-danger" onClick={deleteSchedule} disabled={deletingSchedule}>
                 {deletingSchedule ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
@@ -891,7 +894,7 @@ export default function DashboardPage() {
             <Clock3 size={15} />
           </button>
           <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
-            پروفایل
+            <UserCircle2 size={15} />
           </button>
         </div>
       </nav>
@@ -903,6 +906,30 @@ export default function DashboardPage() {
             <img src={avatarPreview.url} alt={avatarPreview.name} className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
             <div className="mt-4 flex justify-end">
               <button type="button" className="btn-ghost" onClick={() => setAvatarPreview(null)}>بستن</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteAccountOpen && (
+        <div className="fixed inset-0 z-[82] grid place-items-center bg-slate-950/80 p-4">
+          <div className="card w-full max-w-md p-4">
+            <h3 className="text-lg font-bold">حذف حساب کاربری</h3>
+            <p className="mt-2 text-sm text-slate-300">این عملیات قابل بازگشت نیست. ادامه می‌دهید؟</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={async () => {
+                  const res = await fetch("/api/profile", { method: "DELETE" });
+                  if (!res.ok) return toast.error("حذف حساب ناموفق بود");
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  window.location.href = "/login";
+                }}
+              >
+                تایید حذف
+              </button>
             </div>
           </div>
         </div>
