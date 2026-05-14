@@ -18,7 +18,7 @@ function resolveNextPath(raw: string) {
   return raw;
 }
 
-const registerFormSchema = requestOtpSchema.extend({ mode: z.literal("register") });
+const registerFormSchema = requestOtpSchema.safeExtend({ mode: z.literal("register") });
 type RegisterInput = z.infer<typeof registerFormSchema>;
 type VerifyInput = z.infer<typeof verifyOtpSchema>;
 
