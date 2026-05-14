@@ -84,7 +84,7 @@ services:
       DB_RESET_ON_SCHEMA_CHANGE: ${DB_RESET_ON_SCHEMA_CHANGE:-true}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       TZ: ${TZ:-Asia/Tehran}
-    command: ["npm", "run", "worker:queues"]
+    command: ["sh", "-lc", "if [ -f pnpm-lock.yaml ]; then pnpm run worker:queues; else npm run worker:queues; fi"]
 
 volumes:
   pgdata:

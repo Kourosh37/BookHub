@@ -6,6 +6,14 @@ SCHEMA_HASH_FILE="$RUNTIME_DIR/prisma-schema.sha256"
 
 mkdir -p "$RUNTIME_DIR"
 
+run_pm() {
+  if [ -f "/app/pnpm-lock.yaml" ] && command -v pnpm >/dev/null 2>&1; then
+    pnpm "$@"
+  else
+    npm "$@"
+  fi
+}
+
 if command -v sha256sum >/dev/null 2>&1; then
   CURRENT_SCHEMA_HASH="$(sha256sum /app/prisma/schema.prisma | awk '{print $1}')"
 else
@@ -38,4 +46,4 @@ else
 fi
 
 echo "[entrypoint] starting next server..."
-exec npm run start
+exec run_pm run start
