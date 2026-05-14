@@ -53,7 +53,7 @@ export const verifyOtpSchema = z.object({
 });
 
 export const passwordLoginSchema = z.object({
-  username: usernameSchema,
+  identifier: z.string().trim().min(3, "نام کاربری یا شماره موبایل را وارد کنید"),
   password: passwordSchema,
 });
 

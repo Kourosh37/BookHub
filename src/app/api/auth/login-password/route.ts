@@ -6,6 +6,14 @@ import { passwordLoginSchema } from "@/lib/validations";
 import { checkSlidingWindowLimit } from "@/lib/rate-limit";
 import { withRequestId } from "@/lib/logger";
 
+function normalizeLoginPhone(value: string) {
+  const digits = value.replace(/[^\d]/g, "");
+  if (digits.startsWith("09") && digits.length === 11) return digits;
+  if (digits.startsWith("9") && digits.length === 10) return `0${digits}`;
+  if (digits.startsWith("98") && digits.length === 12) return `0${digits.slice(2)}`;
+  return null;
+}
+
 export async function POST(req: Request) {
   const log = withRequestId(req.headers.get("x-request-id"));
 
@@ -32,9 +40,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
   }
 
-  const user = await prisma.user.findFirst({ where: { username: parsed.data.username } });
+  const rawIdentifier = parsed.data.identifier;
+  const normalizedPhone = normalizeLoginPhone(rawIdentifier);
+  const user = await prisma.user.findFirst({
+    where: normalizedPhone
+      ? { OR: [{ phone: normalizedPhone }, { username: rawIdentifier }] }
+      : { username: rawIdentifier },
+  });
   if (!user?.password || !user.phone) {
-    log.warn({ username: parsed.data.username }, "password login user not found");
+    log.warn({ identifier: rawIdentifier }, "password login user not found");
     return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 });
   }
 

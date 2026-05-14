@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   const phoneForm = useForm<PhoneLoginInput>({ resolver: zodResolver(phoneLoginSchema), defaultValues: { phone: "" } });
   const verifyForm = useForm<VerifyInput>({ resolver: zodResolver(verifyOtpSchema), defaultValues: { phone: "", code: "" } });
-  const passwordForm = useForm<PasswordInput>({ resolver: zodResolver(passwordLoginSchema), defaultValues: { username: "", password: "" } });
+  const passwordForm = useForm<PasswordInput>({ resolver: zodResolver(passwordLoginSchema), defaultValues: { identifier: "", password: "" } });
 
   useEffect(() => {
     apiFetch("/api/auth/me", { cache: "no-store" }, authMeResponseSchema)
@@ -118,9 +118,9 @@ export default function LoginPage() {
         )
       ) : (
         <form onSubmit={loginWithPassword} className="card space-y-4 p-6">
-          <h1 className="text-xl font-bold">ورود با نام کاربری و رمز عبور</h1>
-          <input className="input" placeholder="نام کاربری" {...passwordForm.register("username")} />
-          {passwordForm.formState.errors.username && <p className="text-xs text-rose-400">{passwordForm.formState.errors.username.message}</p>}
+          <h1 className="text-xl font-bold">ورود با نام کاربری یا شماره موبایل و رمز عبور</h1>
+          <input className="input" placeholder="نام کاربری یا شماره موبایل" dir="ltr" {...passwordForm.register("identifier")} />
+          {passwordForm.formState.errors.identifier && <p className="text-xs text-rose-400">{passwordForm.formState.errors.identifier.message}</p>}
           <div className="relative">
             <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" {...passwordForm.register("password")} />
             <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowPassword((p) => !p)}>

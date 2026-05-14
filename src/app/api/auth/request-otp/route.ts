@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requestOtpSchema } from "@/lib/validations";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
 import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
 import { withRequestId } from "@/lib/logger";
-import { enqueueOtpSms } from "@/lib/jobs";
+import { sendOtpSms } from "@/lib/sms";
 import { checkSlidingWindowLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     limit: Number(process.env.OTP_RATE_LIMIT_IP_MAX || "10"),
     windowSeconds: Number(process.env.OTP_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
   });
+
   if (!ipRate.allowed) {
     return NextResponse.json(
       { error: "تعداد درخواست بیش از حد مجاز است", details: `لطفا ${ipRate.retryAfterSeconds} ثانیه دیگر تلاش کنید` },
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
   if (mode === "register") {
     const userByPhone = await prisma.user.findFirst({ where: { phone } });
     if (userByPhone) return NextResponse.json({ error: "این شماره قبلاً ثبت شده است" }, { status: 409 });
+
     if (parsed.data.username) {
       const userByUsername = await prisma.user.findFirst({ where: { username: parsed.data.username } });
       if (userByUsername) return NextResponse.json({ error: "این نام کاربری قبلاً ثبت شده است" }, { status: 409 });
@@ -95,12 +97,11 @@ export async function POST(req: Request) {
     },
   });
 
-  let smsResult;
   try {
-    smsResult = await enqueueOtpSms({ phone, code });
-    log.info({ phone, mode, purpose, queueJobId: smsResult.id }, "otp sms enqueued");
-  } catch {
-    log.error({ phone, mode, purpose }, "otp sms failed");
+    const smsResult = await sendOtpSms({ phone, code });
+    log.info({ phone, mode, purpose, providerMessageId: smsResult.messageId }, "otp sms sent");
+  } catch (error: any) {
+    log.error({ phone, mode, purpose, error: error?.message }, "otp sms failed");
     await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
     return NextResponse.json(
       { error: "ارسال پیامک ناموفق بود", details: "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
@@ -114,6 +115,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     expiresInSeconds: getOtpExpiryMinutes() * 60,
-    sms: { queued: true, jobId: smsResult.id },
+    sms: { sent: true },
   });
 }
