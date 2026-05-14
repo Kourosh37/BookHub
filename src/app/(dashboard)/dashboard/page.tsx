@@ -275,6 +275,13 @@ export default function DashboardPage() {
     const data = await res.json();
     if (!res.ok) return toast.error(data.details || data.error || "خطا");
 
+    queryClient.setQueryData(["schedules", "my"], (prev: any) => {
+      const prevList = Array.isArray(prev) ? prev : [];
+      const exists = prevList.some((item: any) => item?.id === data?.id);
+      if (exists) return prevList;
+      return [data, ...prevList];
+    });
+
     toast.success("برنامه ساخته شد");
     setSelectedDates([]);
     setDayConfigs([]);
