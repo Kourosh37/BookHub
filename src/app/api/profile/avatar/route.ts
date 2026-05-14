@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { withRequestId } from "@/lib/logger";
 
 function getMaxAvatarBytes() {
   const mb = Number(process.env.MAX_PROFILE_IMAGE_MB || "2");
@@ -12,6 +13,7 @@ function getMaxAvatarBytes() {
 }
 
 export async function POST(req: Request) {
+  const log = withRequestId(req.headers.get("x-request-id"));
   try {
     const session = await requireSession();
     const form = await req.formData();
@@ -38,8 +40,10 @@ export async function POST(req: Request) {
       select: { avatarUrl: true },
     });
 
+    log.info({ userId: session.userId, avatarUrl: updated.avatarUrl }, "avatar updated");
     return NextResponse.json({ ok: true, avatarUrl: updated.avatarUrl });
   } catch {
+    log.error("avatar update unauthorized");
     return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
   }
 }

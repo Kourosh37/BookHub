@@ -1,19 +1,20 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith("/dashboard") || req.nextUrl.pathname.startsWith("/schedule/")) {
-    const session = req.cookies.get("bookhub_session")?.value;
-    if (!session) {
-      const next = `${req.nextUrl.pathname}${req.nextUrl.search}`;
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("next", next);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-  return NextResponse.next();
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const reqHeaders = new Headers(req.headers);
+  reqHeaders.set("x-request-id", requestId);
+
+  const res = NextResponse.next({
+    request: {
+      headers: reqHeaders,
+    },
+  });
+  res.headers.set("x-request-id", requestId);
+  return res;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/schedule/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+

@@ -5,8 +5,10 @@ import { requestOtpSchema } from "@/lib/validations";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
 import { sendOtpSms } from "@/lib/sms";
 import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
+import { withRequestId } from "@/lib/logger";
 
 export async function POST(req: Request) {
+  const log = withRequestId(req.headers.get("x-request-id"));
   const body = await req.json();
   const parsed = requestOtpSchema.safeParse(body);
 
@@ -83,7 +85,9 @@ export async function POST(req: Request) {
   let smsResult;
   try {
     smsResult = await sendOtpSms({ phone, code });
+    log.info({ phone, mode, purpose }, "otp sms sent");
   } catch {
+    log.error({ phone, mode, purpose }, "otp sms failed");
     await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
     return NextResponse.json(
       { error: "ارسال پیامک ناموفق بود", details: "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
@@ -92,6 +96,7 @@ export async function POST(req: Request) {
   }
 
   await cacheSetCooldown(cooldownKey, cooldownSeconds);
+  log.info({ phone, mode, purpose }, "otp requested");
 
   return NextResponse.json({
     ok: true,
