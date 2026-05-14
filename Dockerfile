@@ -6,6 +6,7 @@ RUN sh -c 'for i in 1 2 3 4 5; do apt-get update -y && apt-get install -y --no-i
 
 COPY package.json package-lock.json* pnpm-lock.yaml* ./
 RUN corepack enable \
+ && corepack prepare pnpm@9.15.4 --activate \
  && npm config set fetch-retries 8 \
  && npm config set fetch-retry-factor 2 \
  && npm config set fetch-retry-mintimeout 10000 \

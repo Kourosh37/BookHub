@@ -30,6 +30,7 @@ import {
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUIStore } from "@/store/ui-store";
+import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -843,6 +844,7 @@ export default function DashboardPage() {
             >
               ارسال کد تایید
             </button>
+            <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <input className="input" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
             <div className="relative">
               <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />

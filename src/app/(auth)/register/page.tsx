@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { requestOtpSchema, verifyOtpSchema } from "@/lib/validations";
 import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
+import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -103,6 +104,7 @@ export default function RegisterPage() {
           </div>
           {registerForm.formState.errors.confirmPassword && <p className="text-xs text-rose-400">{registerForm.formState.errors.confirmPassword.message as string}</p>}
 
+          <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
           <button className="btn-primary w-full" disabled={registerForm.formState.isSubmitting}>{registerForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
           <p className="text-sm">حساب دارید؟ <Link className="text-sky-600" href="/login">ورود</Link></p>
         </form>
@@ -112,6 +114,7 @@ export default function RegisterPage() {
           <input type="hidden" {...verifyForm.register("phone")} />
           <input className="input" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
           {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
+          <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
           <button className="btn-primary w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "تایید و ورود"}</button>
         </form>
       )}

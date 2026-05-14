@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { passwordLoginSchema, phoneSchema, verifyOtpSchema } from "@/lib/validations";
 import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
+import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -100,6 +101,7 @@ export default function LoginPage() {
             <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
             <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
             {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
+            <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <button className="btn-primary w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
           </form>
         ) : (
@@ -108,6 +110,7 @@ export default function LoginPage() {
             <input type="hidden" {...verifyForm.register("phone")} />
             <input className="input" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
             {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
+            <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <button className="btn-primary w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "ورود"}</button>
           </form>
         )
