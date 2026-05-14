@@ -12,7 +12,7 @@
     "prisma:generate": "prisma generate",
     "build": "npm run prisma:generate && next build",
     "start": "next start",
-    "worker:queues": "node -r ts-node/register/transpile-only -r tsconfig-paths/register -e \"require('./src/workers/queues.ts')\"",
+    "worker:queues": "ts-node --project tsconfig.worker.json --transpile-only -r tsconfig-paths/register src/workers/queues.ts",
     "openapi:generate": "node -r ts-node/register/transpile-only scripts/generate-openapi.ts",
     "test:unit": "npx vitest@1.6.0 run --config vitest.config.ts",
     "test:e2e": "npx playwright@1.54.2 test --config playwright.config.ts",

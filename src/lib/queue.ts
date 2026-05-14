@@ -1,6 +1,6 @@
 import { Queue, Worker, type JobsOptions, type Processor, type WorkerOptions } from "bullmq";
 import type IORedis from "ioredis";
-import { getRedis } from "@/lib/redis";
+import { getRedis } from "./redis";
 
 export const QUEUE_NAMES = {
   sms: "sms-jobs",

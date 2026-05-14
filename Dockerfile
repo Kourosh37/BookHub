@@ -40,6 +40,7 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./package.json
 COPY tsconfig.json ./tsconfig.json
+COPY tsconfig.worker.json ./tsconfig.worker.json
 COPY prisma ./prisma
 COPY src ./src
 CMD ["npm", "run", "worker:queues"]
