@@ -127,6 +127,7 @@ export default function DashboardPage() {
   const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
   const [profileUsername, setProfileUsername] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+  const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -281,9 +282,9 @@ export default function DashboardPage() {
     setShowCreateFormMobile(false);
     (e.currentTarget as HTMLFormElement).reset();
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
-      queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
-      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+      queryClient.refetchQueries({ queryKey: ["schedules", "my"] }),
+      queryClient.refetchQueries({ queryKey: ["bookings", "my"] }),
+      queryClient.refetchQueries({ queryKey: ["bookings", "mine"] }),
     ]);
   }
 
@@ -381,11 +382,11 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost h-11 w-11 p-0" onClick={toggleTheme} aria-label="تغییر تم">
-              {theme === "dark" ? <Sun size={22} /> : <Moon size={22} />}
+            <button type="button" className="btn-ghost h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button onClick={logout} className="btn-ghost h-10" aria-label="خروج" title="خروج">
-              <LogOut size={16} className="icon-danger" />
+            <button onClick={logout} className="btn-ghost h-10 px-3" aria-label="خروج" title="خروج">
+              <LogOut size={18} className="icon-danger" />
               <span className="hidden md:inline">خروج</span>
             </button>
           </div>
@@ -644,7 +645,7 @@ export default function DashboardPage() {
       )}
 
       {tab === "bookings" && (
-        <section className="card p-4">
+        <section className="card relative overflow-visible p-4">
           <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
           <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
@@ -663,7 +664,7 @@ export default function DashboardPage() {
             </button>
 
             <div
-              className={`dropdown-panel absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-2xl shadow-xl transition-all duration-200 ${
+              className={`dropdown-panel absolute z-50 mt-2 max-h-64 w-full origin-top overflow-y-auto rounded-2xl shadow-xl transition-all duration-200 ${
                 isScheduleMenuOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
               }`}
             >
@@ -697,6 +698,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="space-y-3">
+            {bookings.length === 0 && <div className="text-sm text-slate-400">برای این برنامه رزروی ثبت نشده است.</div>}
             {bookings.map((b) => (
               <div key={b.id} className="rounded-xl border border-slate-800 p-3">
                 <div className="font-medium break-words">{b.schedule.title}</div>
@@ -834,15 +836,23 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-slate-800 p-3 space-y-2">
             <h3 className="font-medium">تغییر رمز عبور</h3>
             <button
+              type="button"
               className="btn-ghost"
               onClick={async () => {
-                const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
-                const data = await res.json();
-                if (!res.ok) return toast.error(data.details || data.error || "خطا");
-                toast.success("کد تایید ارسال شد");
+                if (requestingPasswordOtp) return;
+                try {
+                  setRequestingPasswordOtp(true);
+                  const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
+                  const data = await res.json();
+                  if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                  toast.success("کد تایید ارسال شد");
+                } finally {
+                  setRequestingPasswordOtp(false);
+                }
               }}
+              disabled={requestingPasswordOtp}
             >
-              ارسال کد تایید
+              {requestingPasswordOtp ? "در حال ارسال..." : "ارسال کد تایید"}
             </button>
             <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <input className="input" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />

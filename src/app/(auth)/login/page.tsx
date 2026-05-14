@@ -103,6 +103,7 @@ export default function LoginPage() {
             {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
             <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <button className="btn-primary w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
+            <p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
           </form>
         ) : (
           <form onSubmit={verifyOtp} className="card space-y-4 p-6">
@@ -112,6 +113,7 @@ export default function LoginPage() {
             {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
             <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <button className="btn-primary w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "ورود"}</button>
+            <p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
           </form>
         )
       ) : (
@@ -127,10 +129,9 @@ export default function LoginPage() {
           </div>
           {passwordForm.formState.errors.password && <p className="text-xs text-rose-400">{passwordForm.formState.errors.password.message}</p>}
           <button className="btn-primary w-full" disabled={passwordForm.formState.isSubmitting}>{passwordForm.formState.isSubmitting ? "در حال ورود..." : "ورود"}</button>
+          <p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
         </form>
       )}
-
-      <p className="mt-4 text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
     </main>
   );
 }

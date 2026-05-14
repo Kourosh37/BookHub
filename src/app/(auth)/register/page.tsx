@@ -116,6 +116,7 @@ export default function RegisterPage() {
           {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
           <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
           <button className="btn-primary w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "تایید و ورود"}</button>
+          <p className="text-sm">حساب دارید؟ <Link className="text-sky-600" href="/login">ورود</Link></p>
         </form>
       )}
     </main>

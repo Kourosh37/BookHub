@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
@@ -35,7 +35,13 @@ export async function POST() {
     });
     await sendOtpSms({ phone: user.phone, code });
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
+  } catch (error: any) {
+    if (error?.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: "ارسال کد ناموفق بود", details: error?.message || "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
+      { status: 500 },
+    );
   }
 }
