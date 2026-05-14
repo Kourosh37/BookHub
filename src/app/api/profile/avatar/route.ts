@@ -1,5 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -57,6 +57,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, avatarUrl: updated.avatarUrl });
   } catch {
     log.error("avatar update unauthorized");
+    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const log = withRequestId(req.headers.get("x-request-id"));
+  try {
+    const session = await requireSession();
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { avatarUrl: true },
+    });
+
+    const avatarUrl = user?.avatarUrl || "";
+    if (avatarUrl) {
+      const fileName = avatarUrl.split("/").pop()?.split("?")[0];
+      if (fileName) {
+        const filePath = path.join(process.cwd(), "public", "uploads", "avatars", fileName);
+        await unlink(filePath).catch(() => {});
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { avatarUrl: null },
+    });
+
+    log.info({ userId: session.userId }, "avatar removed");
+    return NextResponse.json({ ok: true, avatarUrl: null });
+  } catch {
+    log.error("avatar remove unauthorized");
     return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
   }
 }

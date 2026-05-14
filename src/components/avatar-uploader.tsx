@@ -8,17 +8,19 @@ import { UserAvatar } from "@/components/user-avatar";
 type Props = {
   currentAvatarUrl?: string | null;
   onUploaded: (avatarUrl: string) => void;
+  onRemoved: () => void;
 };
 
 const CROP_SIZE = 320;
 
-export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
+export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Props) {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [natural, setNatural] = useState({ w: 0, h: 0 });
   const [uploading, setUploading] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -112,6 +114,22 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
     }
   }
 
+  async function removeAvatar() {
+    if (removing) return;
+    try {
+      setRemoving(true);
+      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.details || data?.error || "REMOVE_FAILED");
+      onRemoved();
+      toast.success("عکس پروفایل حذف شد");
+    } catch (e: any) {
+      toast.error(e?.message || "خطا در حذف عکس پروفایل");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <label className="block text-sm text-slate-300">عکس پروفایل</label>
@@ -121,6 +139,9 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
           انتخاب عکس
           <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
         </label>
+        <button type="button" className="btn-ghost" onClick={removeAvatar} disabled={removing || !currentAvatarUrl}>
+          {removing ? "در حال حذف..." : "حذف عکس"}
+        </button>
       </div>
 
       {sourceUrl && (

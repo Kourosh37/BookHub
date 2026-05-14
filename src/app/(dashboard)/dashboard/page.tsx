@@ -831,6 +831,15 @@ export default function DashboardPage() {
                 queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
               ]);
             }}
+            onRemoved={() => {
+              queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl: null }));
+              bumpAvatarRefreshToken();
+              void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+                queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+                queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+              ]);
+            }}
           />
 
           <div className="rounded-xl border border-slate-800 p-3 space-y-2">
