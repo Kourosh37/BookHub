@@ -129,6 +129,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded }: Props) {
             <p className="mt-1 text-xs text-slate-400">خروجی نهایی برای نمایش دایره‌ای آماده می‌شود.</p>
             <div className="mt-3 grid place-items-center">
               <div className="relative overflow-hidden rounded-2xl border border-slate-700" style={{ width: CROP_SIZE, height: CROP_SIZE }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   ref={imgRef}
                   src={sourceUrl}
