@@ -4,6 +4,7 @@ import "@fontsource/vazirmatn/700.css";
 import { ReactNode } from "react";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast-provider";
+import { ServiceWorkerCleanup } from "@/components/sw-cleanup";
 
 export const metadata = {
   title: "بوک هاب",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
       <body className="min-h-screen">
+        <ServiceWorkerCleanup />
         {children}
         <ToastProvider />
       </body>

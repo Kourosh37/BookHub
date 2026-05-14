@@ -8,9 +8,9 @@ export function ToastProvider() {
       position="top-center"
       toastOptions={{
         style: {
-          background: "rgb(57, 62, 70)",
-          color: "rgb(223, 208, 184)",
-          border: "1px solid rgb(148, 137, 121)",
+          background: "var(--card-bg)",
+          color: "var(--text)",
+          border: "1px solid var(--card-border)",
         },
       }}
     />

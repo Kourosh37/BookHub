@@ -367,7 +367,7 @@ export default function DashboardPage() {
           </div>
           <div className="ms-auto flex items-center gap-2">
             <button type="button" className="btn-ghost h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </button>
             <button onClick={logout} className="btn-ghost h-10" aria-label="خروج" title="خروج">
               <LogOut size={16} className="icon-danger" />
@@ -637,7 +637,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setIsScheduleMenuOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between rounded-3xl border border-slate-700 bg-slate-900/90 px-3 py-2.5 text-right text-slate-100 shadow-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
+              className="dropdown-trigger flex w-full items-center justify-between rounded-3xl px-3 py-2.5 text-right shadow-sm outline-none transition"
               aria-haspopup="listbox"
               aria-expanded={isScheduleMenuOpen}
             >

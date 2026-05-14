@@ -56,8 +56,10 @@ services:
       - "3000:3000"
     volumes:
       - appmeta:/app/.runtime
+      - appuploads:/app/public/uploads
 
 volumes:
   pgdata:
   appmeta:
+  appuploads:
   redisdata:
