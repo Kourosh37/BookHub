@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { withRequestId } from "@/lib/logger";
+import { checkSlidingWindowLimit } from "@/lib/rate-limit";
 
 function getMaxAvatarBytes() {
   const mb = Number(process.env.MAX_PROFILE_IMAGE_MB || "2");
@@ -16,6 +17,18 @@ export async function POST(req: Request) {
   const log = withRequestId(req.headers.get("x-request-id"));
   try {
     const session = await requireSession();
+    const userRate = await checkSlidingWindowLimit({
+      key: `rate:avatar-upload:user:${session.userId}`,
+      limit: Number(process.env.AVATAR_UPLOAD_RATE_LIMIT_USER_MAX || "10"),
+      windowSeconds: Number(process.env.AVATAR_UPLOAD_RATE_LIMIT_USER_WINDOW_SECONDS || "3600"),
+    });
+    if (!userRate.allowed) {
+      return NextResponse.json(
+        { error: "تعداد آپلود بیش از حد مجاز است", details: `لطفا ${userRate.retryAfterSeconds} ثانیه دیگر تلاش کنید` },
+        { status: 429 },
+      );
+    }
+
     const form = await req.formData();
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "فایل ارسال نشده است" }, { status: 400 });

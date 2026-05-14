@@ -3,9 +3,10 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requestOtpSchema } from "@/lib/validations";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
-import { sendOtpSms } from "@/lib/sms";
 import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
 import { withRequestId } from "@/lib/logger";
+import { enqueueOtpSms } from "@/lib/jobs";
+import { checkSlidingWindowLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const log = withRequestId(req.headers.get("x-request-id"));
@@ -19,6 +20,18 @@ export async function POST(req: Request) {
   }
 
   const { phone, mode } = parsed.data;
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ipRate = await checkSlidingWindowLimit({
+    key: `rate:otp:ip:${ip}`,
+    limit: Number(process.env.OTP_RATE_LIMIT_IP_MAX || "10"),
+    windowSeconds: Number(process.env.OTP_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
+  });
+  if (!ipRate.allowed) {
+    return NextResponse.json(
+      { error: "تعداد درخواست بیش از حد مجاز است", details: `لطفا ${ipRate.retryAfterSeconds} ثانیه دیگر تلاش کنید` },
+      { status: 429 },
+    );
+  }
 
   if (mode === "register") {
     const userByPhone = await prisma.user.findFirst({ where: { phone } });
@@ -84,8 +97,8 @@ export async function POST(req: Request) {
 
   let smsResult;
   try {
-    smsResult = await sendOtpSms({ phone, code });
-    log.info({ phone, mode, purpose }, "otp sms sent");
+    smsResult = await enqueueOtpSms({ phone, code });
+    log.info({ phone, mode, purpose, queueJobId: smsResult.id }, "otp sms enqueued");
   } catch {
     log.error({ phone, mode, purpose }, "otp sms failed");
     await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
@@ -101,6 +114,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     expiresInSeconds: getOtpExpiryMinutes() * 60,
-    sms: smsResult,
+    sms: { queued: true, jobId: smsResult.id },
   });
 }
