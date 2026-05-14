@@ -18,8 +18,8 @@ RUN npm config set fetch-retries 8 \
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN sh -c 'for i in 1 2 3 4 5; do npx prisma generate && exit 0; echo "prisma generate failed (attempt $i), retrying in 8s..."; sleep 8; done; exit 1'
+RUN sh -c 'for i in 1 2 3; do npm run build && exit 0; echo "app build failed (attempt $i), retrying in 10s..."; sleep 10; done; exit 1'
 
 FROM base AS runner
 ENV NODE_ENV=production

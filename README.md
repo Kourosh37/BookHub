@@ -11,7 +11,6 @@ This repository is production-oriented and supports:
 - Host/guest notifications and reminder queues via Redis + BullMQ
 - Rate limiting on sensitive APIs
 - Structured logging with request IDs
-- Sentry integration for frontend/backend error reporting
 - OpenAPI generation from Zod schemas
 
 ## 1) Tech Stack
@@ -34,7 +33,6 @@ This repository is production-oriented and supports:
 ### Observability & Reliability
 - Pino logger
 - Request ID middleware (`x-request-id`)
-- Sentry (client/server/global error boundary)
 - Retry-aware Docker build stages
 
 ### API Contracts
@@ -92,15 +90,6 @@ Use `.env.example` as the canonical reference.
 
 ### Logging
 - `LOG_LEVEL`
-
-### Sentry
-- `NEXT_PUBLIC_SENTRY_DSN`
-- `SENTRY_TRACES_SAMPLE_RATE`
-- `SENTRY_REPLAY_SAMPLE_RATE`
-- `SENTRY_REPLAY_ERROR_SAMPLE_RATE`
-- `SENTRY_ORG`
-- `SENTRY_PROJECT`
-- `SENTRY_AUTH_TOKEN`
 
 ### Rate limits
 - `OTP_RATE_LIMIT_IP_MAX`
@@ -266,14 +255,12 @@ docker compose --profile test up --build test
 - structured logs + request IDs
 
 ### Errors
-- Sentry client config
-- Sentry server config
-- App Router global error capture (`src/app/global-error.tsx`)
+- App Router global error boundary (`src/app/global-error.tsx`)
 
 ## 16) Production Notes
 
 - Rotate all secrets before deployment
-- Never commit real SMS/Sentry credentials
+- Never commit real SMS credentials
 - Keep Redis and DB on private networks
 - Set `NEXTAUTH_URL` to actual public URL in production
 - Keep `DB_RESET_ON_SCHEMA_CHANGE=false` in production unless intentional reset policy exists
@@ -312,6 +299,6 @@ pnpm run test:e2e
 - OpenAPI generation: enabled
 - Queue workers: enabled
 - Rate limits: enabled
-- Sentry wiring: enabled
+- Sentry wiring: disabled
 - Docker app/db/redis/worker: configured
 
