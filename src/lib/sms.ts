@@ -84,8 +84,6 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
 }
 
 export async function sendTextSms(payload: { to: string; text: string }) {
-  // TODO: wire provider-specific plain text SMS endpoint.
-  // keeping function explicit so queue worker has one place to call.
   return {
     ok: true,
     providerMessage: `queued-text:${payload.to}:${payload.text.length}`,

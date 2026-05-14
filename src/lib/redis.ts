@@ -1,9 +1,6 @@
 import Redis from "ioredis";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var redisClient: Redis | undefined;
-}
+const redisGlobal = globalThis as typeof globalThis & { redisClient?: Redis };
 
 function createRedisClient() {
   const redisUrl = process.env.REDIS_URL;
@@ -15,17 +12,15 @@ function createRedisClient() {
     lazyConnect: true,
   });
 
-  client.on("error", () => {
-    // Keep app resilient if redis has transient network issues.
-  });
+  client.on("error", () => {});
 
   return client;
 }
 
 export function getRedis() {
-  if (global.redisClient) return global.redisClient;
+  if (redisGlobal.redisClient) return redisGlobal.redisClient;
   const client = createRedisClient();
   if (!client) return null;
-  global.redisClient = client;
+  redisGlobal.redisClient = client;
   return client;
 }
