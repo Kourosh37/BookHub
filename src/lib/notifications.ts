@@ -1,5 +1,5 @@
 ﻿import { prisma } from "@/lib/prisma";
-import { cancelReminderByBookingId, enqueueNotificationSms, enqueueReminder } from "@/lib/jobs";
+import { sendTextSms } from "@/lib/sms";
 
 type BookingNotificationContext = {
   bookingId: string;
@@ -22,14 +22,14 @@ export async function notifyBookingCreated(ctx: BookingNotificationContext) {
   const { hostPhone, guestPhone } = await resolvePhones(ctx.hostUserId, ctx.guestUserId);
 
   if (hostPhone) {
-    await enqueueNotificationSms({
+    await sendTextSms({
       to: hostPhone,
       text: `رزرو جدید برای برنامه «${ctx.scheduleTitle || "برنامه"}» ثبت شد.`,
     });
   }
 
   if (guestPhone) {
-    await enqueueNotificationSms({
+    await sendTextSms({
       to: guestPhone,
       text: `رزرو شما برای برنامه «${ctx.scheduleTitle || "برنامه"}» ثبت شد.`,
     });
@@ -40,32 +40,22 @@ export async function notifyBookingCanceledByHost(ctx: BookingNotificationContex
   const { guestPhone } = await resolvePhones(ctx.hostUserId, ctx.guestUserId);
   if (!guestPhone) return;
 
-  await enqueueNotificationSms({
+  await sendTextSms({
     to: guestPhone,
     text: `رزرو شما برای برنامه «${ctx.scheduleTitle || "برنامه"}» توسط میزبان لغو شد.`,
   });
 }
 
 export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificationContext) {
-  if (!ctx.slotStartIso) return;
-
-  const slotStartMs = new Date(ctx.slotStartIso).getTime();
-  if (Number.isNaN(slotStartMs)) return;
-
-  const tenMinutesBefore = new Date(slotStartMs - 10 * 60 * 1000);
-  if (tenMinutesBefore.getTime() <= Date.now()) return;
-
-  await enqueueReminder({
-    bookingId: ctx.bookingId,
-    sendAtIso: tenMinutesBefore.toISOString(),
-    audience: "both",
-  });
+  void ctx;
+  return;
 }
 
 export async function cancelScheduledRemindersForBooking(bookingId: string) {
-  await cancelReminderByBookingId(bookingId);
+  void bookingId;
+  return;
 }
 
 export async function smokeTestNotificationModule() {
-  await enqueueNotificationSms({ to: "00000000000", text: "notification queue smoke test" });
+  await sendTextSms({ to: "00000000000", text: "notification smoke test" });
 }
