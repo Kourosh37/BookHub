@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     where: {
       phone,
       codeHash,
+      purpose: "AUTH",
       consumedAt: null,
       expiresAt: { gt: new Date() },
     },
@@ -36,11 +37,16 @@ export async function POST(req: Request) {
     data: { consumedAt: new Date() },
   });
 
-  const user = await prisma.user.upsert({
-    where: { phone },
-    update: {},
-    create: { phone },
-  });
+  let user = await prisma.user.findFirst({ where: { phone } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        phone,
+        username: otp.username || null,
+        password: otp.passwordHash || null,
+      },
+    });
+  }
 
   await createSession({ userId: user.id, phone: user.phone || phone });
   return NextResponse.json({ id: user.id, phone: user.phone || phone });

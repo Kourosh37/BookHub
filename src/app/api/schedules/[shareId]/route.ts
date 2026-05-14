@@ -14,7 +14,15 @@ export async function GET(_: Request, { params }: { params: { shareId: string } 
 
   const schedule = await prisma.schedule.findUnique({
     where: { shareId: params.shareId },
-    select: { id: true, title: true, questions: true, daysConfig: true, slotDuration: true, gapMinutes: true },
+    select: {
+      id: true,
+      title: true,
+      questions: true,
+      daysConfig: true,
+      slotDuration: true,
+      gapMinutes: true,
+      user: { select: { id: true, username: true, phone: true, avatarUrl: true } },
+    },
   });
 
   if (!schedule) return NextResponse.json({ error: "برنامه پیدا نشد" }, { status: 404 });

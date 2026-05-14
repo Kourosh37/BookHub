@@ -12,15 +12,24 @@ model User {
   phone         String?    @unique
   username      String?    @unique
   password      String?
+  avatarUrl     String?
   schedules     Schedule[]
   bookingsMade  Booking[]  @relation("BookingsMadeByUser")
   createdAt     DateTime   @default(now())
+}
+
+enum OtpPurpose {
+  AUTH
+  PASSWORD_RESET
 }
 
 model OtpCode {
   id         String   @id @default(cuid())
   phone      String
   codeHash   String
+  purpose    OtpPurpose @default(AUTH)
+  username   String?
+  passwordHash String?
   expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime @default(now())

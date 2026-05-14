@@ -14,7 +14,7 @@ export async function GET() {
         schedule: {
           include: {
             user: {
-              select: { phone: true },
+              select: { phone: true, username: true, avatarUrl: true },
             },
           },
         },

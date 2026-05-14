@@ -12,8 +12,11 @@ function resolveNextPath(raw: string) {
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"phone" | "password">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [codeSent, setCodeSent] = useState(false);
 
   const nextParam = useMemo(() => {
@@ -34,7 +37,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ mode: "login_phone", phone }),
     });
     const data = await res.json();
     setLoading(false);
@@ -54,50 +57,52 @@ export default function LoginPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) return toast.error(data.details || data.error || "کد تایید نامعتبر است");
-    toast.success("خوش آمدید");
     window.location.replace(nextPath);
   }
 
-  const registerHref = nextParam ? `/register?next=${encodeURIComponent(nextParam)}` : "/register";
+  async function loginWithPassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    const res = await fetch("/api/auth/login-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) return toast.error(data.details || data.error || "ورود ناموفق بود");
+    window.location.replace(nextPath);
+  }
 
   return (
     <main className="mx-auto max-w-md p-6">
-      {!codeSent ? (
-        <form onSubmit={requestOtp} autoComplete="off" className="card space-y-4 p-6">
-          <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
-          <input
-            className="input"
-            name="phone"
-            inputMode="numeric"
-            dir="ltr"
-            placeholder="09xxxxxxxxx"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-          />
-          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
-          <p className="text-sm">حساب ندارید؟ <Link className="text-sky-600" href={registerHref}>ثبت‌نام</Link></p>
-        </form>
+      <div className="mb-3 flex gap-2">
+        <button className={`btn ${mode === "phone" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("phone")} type="button">ورود با موبایل</button>
+        <button className={`btn ${mode === "password" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("password")} type="button">ورود با رمز</button>
+      </div>
+      {mode === "phone" ? (
+        !codeSent ? (
+          <form onSubmit={requestOtp} className="card space-y-4 p-6">
+            <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
+            <input className="input" placeholder="09xxxxxxxxx" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
+          </form>
+        ) : (
+          <form onSubmit={verifyOtp} className="card space-y-4 p-6">
+            <h1 className="text-xl font-bold">تایید کد ورود</h1>
+            <input className="input" placeholder="کد ۶ رقمی" dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} required />
+            <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال بررسی..." : "ورود"}</button>
+          </form>
+        )
       ) : (
-        <form onSubmit={verifyOtp} autoComplete="off" className="card space-y-4 p-6">
-          <h1 className="text-xl font-bold">تایید کد ورود</h1>
-          <p className="text-sm text-slate-400" dir="ltr">{phone}</p>
-          <input
-            className="input"
-            name="code"
-            inputMode="numeric"
-            dir="ltr"
-            placeholder="کد ۶ رقمی"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-          />
-          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال بررسی..." : "ورود"}</button>
-          <button type="button" className="btn-ghost w-full" onClick={() => setCodeSent(false)} disabled={loading}>
-            تغییر شماره
-          </button>
+        <form onSubmit={loginWithPassword} className="card space-y-4 p-6">
+          <h1 className="text-xl font-bold">ورود با نام کاربری و رمز عبور</h1>
+          <input className="input" placeholder="نام کاربری" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          <input className="input" type="password" placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ورود..." : "ورود"}</button>
         </form>
       )}
+      <p className="mt-4 text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
     </main>
   );
 }

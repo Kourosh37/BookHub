@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requestOtpSchema } from "@/lib/validations";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
@@ -14,10 +15,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
   }
 
-  const phone = parsed.data.phone;
+  const { phone, mode } = parsed.data;
+
+  if (mode === "register") {
+    const userByPhone = await prisma.user.findFirst({ where: { phone } });
+    if (userByPhone) return NextResponse.json({ error: "این شماره قبلاً ثبت شده است" }, { status: 409 });
+    if (parsed.data.username) {
+      const userByUsername = await prisma.user.findFirst({ where: { username: parsed.data.username } });
+      if (userByUsername) return NextResponse.json({ error: "این نام کاربری قبلاً ثبت شده است" }, { status: 409 });
+    }
+  }
+
   const cooldownSeconds = getOtpResendCooldownSeconds();
   const latest = await prisma.otpCode.findFirst({
-    where: { phone },
+    where: { phone, purpose: mode === "password_reset" ? "PASSWORD_RESET" : "AUTH" },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
@@ -36,11 +47,16 @@ export async function POST(req: Request) {
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
 
+  const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 12) : null;
+
   await prisma.otpCode.create({
     data: {
       phone,
       codeHash: hashOtp(phone, code),
       expiresAt,
+      purpose: mode === "password_reset" ? "PASSWORD_RESET" : "AUTH",
+      username: parsed.data.username || null,
+      passwordHash,
     },
   });
 

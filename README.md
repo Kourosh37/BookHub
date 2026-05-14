@@ -27,6 +27,7 @@ npm run dev
 
 - POST `/api/auth/request-otp`
 - POST `/api/auth/verify-otp`
+- POST `/api/auth/login-password`
 - GET `/api/auth/me`
 - POST `/api/schedules`
 - GET `/api/schedules/my`
@@ -48,3 +49,4 @@ npm run dev
 - App is exposed directly on `http://localhost:3000` in Docker Compose.
 - SMS notification scaffolding exists in `src/lib/notifications.ts` (provider integration is intentionally TODO).
 - Auth flow uses mobile phone + OTP (SMS sending function is scaffolded in `src/lib/sms.ts`).
+- Profile APIs exist for username update, avatar upload, password change (with OTP), and account deletion.

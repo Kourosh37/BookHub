@@ -81,7 +81,7 @@ function rangesOverlap(ranges: Range[]) {
 }
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"schedules" | "bookings" | "sessions">("schedules");
+  const [tab, setTab] = useState<"schedules" | "bookings" | "sessions" | "profile">("schedules");
   const [user, setUser] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
@@ -103,6 +103,11 @@ export default function DashboardPage() {
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
   const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
   const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordCode, setPasswordCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -119,7 +124,9 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     const me = await fetch("/api/auth/me", { cache: "no-store" });
     if (!me.ok) return (window.location.href = "/login");
-    setUser((await me.json()).user);
+    const meData = (await me.json()).user;
+    setUser(meData);
+    setProfileUsername(meData?.username || "");
 
     const sch = await fetch("/api/schedules/my", { cache: "no-store" });
     setSchedules(await sch.json());
@@ -322,9 +329,14 @@ export default function DashboardPage() {
     <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="avatar" className="h-10 w-10 rounded-full object-cover border border-slate-700" />
+          ) : (
+            <div className="h-10 w-10 rounded-full border border-slate-700 grid place-items-center text-xs text-slate-400">بدون عکس</div>
+          )}
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
-            <p className="mt-1 text-sm text-slate-400">{user ? `${user.phone} عزیز خوش آمدید` : "..."}</p>
+            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
             <button type="button" className="btn-ghost" onClick={toggleTheme} aria-label="تغییر تم">
@@ -347,6 +359,9 @@ export default function DashboardPage() {
         </button>
         <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
           <Clock3 size={16} /> جلسات من
+        </button>
+        <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
+          پروفایل
         </button>
       </div>
 
@@ -644,6 +659,14 @@ export default function DashboardPage() {
               <div key={b.id} className="rounded-xl border border-slate-800 p-3">
                 <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  {b.bookedByUser?.avatarUrl ? (
+                    <img src={b.bookedByUser.avatarUrl} alt="booker avatar" className="h-8 w-8 rounded-full object-cover border border-slate-700" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full border border-slate-700" />
+                  )}
+                  <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
+                </div>
                 <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
                 <div className="mt-2 space-y-1 text-sm text-slate-300 break-words">
                   {Array.isArray(b.answers) && Array.isArray(b.schedule?.questions) && b.schedule.questions.length > 0 ? (
@@ -683,7 +706,14 @@ export default function DashboardPage() {
             {mySessions.map((s) => (
               <div key={s.id} className="rounded-xl border border-slate-800 p-3">
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
-                <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.phone || "-"}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  {s.schedule?.user?.avatarUrl ? (
+                    <img src={s.schedule.user.avatarUrl} alt="host avatar" className="h-8 w-8 rounded-full object-cover border border-slate-700" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full border border-slate-700" />
+                  )}
+                  <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
+                </div>
                 <div className="text-sm text-slate-400">
                   زمان شروع: {new Date(s.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
                 </div>
@@ -704,6 +734,104 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {tab === "profile" && (
+        <section className="card space-y-4 p-4">
+          <h2 className="text-lg font-bold md:text-xl">پروفایل</h2>
+          <p className="text-sm text-slate-400">مدیریت نام کاربری، رمز عبور، عکس پروفایل و حذف حساب کاربری.</p>
+
+          <form
+            className="space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setProfileLoading(true);
+              const res = await fetch("/api/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: profileUsername }),
+              });
+              const data = await res.json();
+              setProfileLoading(false);
+              if (!res.ok) return toast.error(data.details || data.error || "خطا");
+              setUser(data);
+              toast.success("پروفایل به‌روزرسانی شد");
+            }}
+          >
+            <label className="block text-sm text-slate-300">نام کاربری</label>
+            <input className="input" value={profileUsername} onChange={(e) => setProfileUsername(e.target.value)} />
+            <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
+          </form>
+
+          <form
+            className="space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const file = (e.currentTarget.elements.namedItem("avatar") as HTMLInputElement)?.files?.[0];
+              if (!file) return toast.error("فایل انتخاب نشده است");
+              const fd = new FormData();
+              fd.append("file", file);
+              const res = await fetch("/api/profile/avatar", { method: "POST", body: fd });
+              const data = await res.json();
+              if (!res.ok) return toast.error(data.details || data.error || "خطا");
+              setUser((prev: any) => ({ ...prev, avatarUrl: data.avatarUrl }));
+              toast.success("عکس پروفایل ذخیره شد");
+            }}
+          >
+            <label className="block text-sm text-slate-300">عکس پروفایل</label>
+            <input className="input" type="file" name="avatar" accept="image/*" />
+            <button className="btn-ghost">آپلود عکس</button>
+          </form>
+
+          <div className="rounded-xl border border-slate-800 p-3 space-y-2">
+            <h3 className="font-medium">تغییر رمز عبور</h3>
+            <button
+              className="btn-ghost"
+              onClick={async () => {
+                const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                toast.success("کد تایید ارسال شد");
+              }}
+            >
+              ارسال کد تایید
+            </button>
+            <input className="input" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
+            <input className="input" type="password" placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <input className="input" type="password" placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                const res = await fetch("/api/profile/password/confirm", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ code: passwordCode, newPassword, confirmPassword: confirmNewPassword }),
+                });
+                const data = await res.json();
+                if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                toast.success("رمز عبور تغییر کرد");
+                setPasswordCode("");
+                setNewPassword("");
+                setConfirmNewPassword("");
+              }}
+            >
+              تایید تغییر رمز
+            </button>
+          </div>
+
+          <button
+            className="btn-ghost text-rose-300"
+            onClick={async () => {
+              if (!confirm("حساب کاربری شما حذف شود؟")) return;
+              const res = await fetch("/api/profile", { method: "DELETE" });
+              if (!res.ok) return toast.error("حذف حساب ناموفق بود");
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+          >
+            حذف حساب کاربری
+          </button>
         </section>
       )}
 
@@ -765,7 +893,7 @@ export default function DashboardPage() {
       )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
-        <div className="card mx-auto grid max-w-md grid-cols-3 gap-2 p-2">
+        <div className="card mx-auto grid max-w-md grid-cols-4 gap-2 p-2">
           <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
             <CalendarDays size={15} />
           </button>
@@ -774,6 +902,9 @@ export default function DashboardPage() {
           </button>
           <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
             <Clock3 size={15} />
+          </button>
+          <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
+            پروفایل
           </button>
         </div>
       </nav>

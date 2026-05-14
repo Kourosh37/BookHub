@@ -86,6 +86,14 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         <div className="flex justify-end">
           <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
         </div>
+        <div className="flex items-center gap-3">
+          {schedule?.user?.avatarUrl ? (
+            <img src={schedule.user.avatarUrl} alt="host avatar" className="h-12 w-12 rounded-full object-cover border border-slate-700" />
+          ) : (
+            <div className="h-12 w-12 rounded-full border border-slate-700" />
+          )}
+          <div className="text-sm text-slate-400">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</div>
+        </div>
         <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
 
         <div>

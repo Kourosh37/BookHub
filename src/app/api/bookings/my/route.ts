@@ -18,8 +18,17 @@ export async function GET(req: Request) {
         ...(scheduleId ? { scheduleId } : {}),
       },
       include: {
-        schedule: true,
+        schedule: {
+          include: {
+            user: {
+              select: { id: true, username: true, phone: true, avatarUrl: true },
+            },
+          },
+        },
         timeSlot: true,
+        bookedByUser: {
+          select: { id: true, username: true, phone: true, avatarUrl: true },
+        },
       },
       orderBy: { bookedAt: "desc" },
     });
