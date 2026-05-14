@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
@@ -954,7 +955,14 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreview(null)}>
           <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-bold">{avatarPreview.name}</h3>
-            <img src={avatarPreview.url} alt={avatarPreview.name} className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
+            <Image
+              src={avatarPreview.url}
+              alt={avatarPreview.name}
+              width={1200}
+              height={900}
+              className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain"
+              unoptimized
+            />
             <div className="mt-4 flex justify-end">
               <button type="button" className="btn-ghost" onClick={() => setAvatarPreview(null)}>بستن</button>
             </div>

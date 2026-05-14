@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { User } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
+import Image from "next/image";
 
 type Props = {
   src?: string | null;
@@ -67,12 +68,16 @@ export function UserAvatar({
   }
 
   return (
-    <img
-      src={finalSrc}
-      alt={alt}
-      className={`${sizeClassName} ${clickableClass} rounded-full border border-slate-700 object-cover ${className}`.trim()}
-      onClick={onClick}
-      onError={() => setErrored(true)}
-    />
+    <div className={`${sizeClassName} ${clickableClass} relative overflow-hidden rounded-full border border-slate-700 ${className}`.trim()} onClick={onClick}>
+      <Image
+        src={finalSrc}
+        alt={alt}
+        fill
+        sizes="64px"
+        className="object-cover"
+        unoptimized
+        onError={() => setErrored(true)}
+      />
+    </div>
   );
 }

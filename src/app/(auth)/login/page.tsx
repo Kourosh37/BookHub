@@ -1,8 +1,14 @@
-"use client";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { passwordLoginSchema, phoneSchema, verifyOtpSchema } from "@/lib/validations";
+import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -11,13 +17,13 @@ function resolveNextPath(raw: string) {
   return raw;
 }
 
+const phoneLoginSchema = z.object({ phone: phoneSchema });
+type PhoneLoginInput = z.infer<typeof phoneLoginSchema>;
+type VerifyInput = z.infer<typeof verifyOtpSchema>;
+type PasswordInput = z.infer<typeof passwordLoginSchema>;
+
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"phone" | "password">("phone");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -27,54 +33,56 @@ export default function LoginPage() {
   }, []);
   const nextPath = useMemo(() => resolveNextPath(nextParam), [nextParam]);
 
+  const phoneForm = useForm<PhoneLoginInput>({ resolver: zodResolver(phoneLoginSchema), defaultValues: { phone: "" } });
+  const verifyForm = useForm<VerifyInput>({ resolver: zodResolver(verifyOtpSchema), defaultValues: { phone: "", code: "" } });
+  const passwordForm = useForm<PasswordInput>({ resolver: zodResolver(passwordLoginSchema), defaultValues: { username: "", password: "" } });
+
   useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" }).then((r) => {
-      if (r.ok) window.location.replace(nextPath);
-    });
+    apiFetch("/api/auth/me", { cache: "no-store" }, authMeResponseSchema)
+      .then(() => window.location.replace(nextPath))
+      .catch(() => undefined);
   }, [nextPath]);
 
-  async function requestOtp(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const res = await fetch("/api/auth/request-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "login_phone", phone }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) return toast.error(data.details || data.error || "ارسال کد ناموفق بود");
-    setCodeSent(true);
-    toast.success("کد تایید ارسال شد");
-  }
+  const requestOtp = phoneForm.handleSubmit(async (values) => {
+    try {
+      await apiFetch(
+        "/api/auth/request-otp",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "login_phone", phone: values.phone }) },
+        simpleOkSchema,
+      );
+      verifyForm.setValue("phone", values.phone);
+      setCodeSent(true);
+      toast.success("کد تایید ارسال شد");
+    } catch (e: any) {
+      toast.error(e?.message || "ارسال کد ناموفق بود");
+    }
+  });
 
-  async function verifyOtp(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const res = await fetch("/api/auth/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, code }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) return toast.error(data.details || data.error || "کد تایید نامعتبر است");
-    window.location.replace(nextPath);
-  }
+  const verifyOtp = verifyForm.handleSubmit(async (values) => {
+    try {
+      await apiFetch(
+        "/api/auth/verify-otp",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) },
+        z.object({ ok: z.boolean().optional() }).passthrough(),
+      );
+      window.location.replace(nextPath);
+    } catch (e: any) {
+      toast.error(e?.message || "کد تایید نامعتبر است");
+    }
+  });
 
-  async function loginWithPassword(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const res = await fetch("/api/auth/login-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) return toast.error(data.details || data.error || "ورود ناموفق بود");
-    window.location.replace(nextPath);
-  }
+  const loginWithPassword = passwordForm.handleSubmit(async (values) => {
+    try {
+      await apiFetch(
+        "/api/auth/login-password",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) },
+        z.object({ ok: z.boolean().optional() }).passthrough(),
+      );
+      window.location.replace(nextPath);
+    } catch (e: any) {
+      toast.error(e?.message || "ورود ناموفق بود");
+    }
+  });
 
   return (
     <main className="mx-auto max-w-md p-6">
@@ -85,44 +93,40 @@ export default function LoginPage() {
         <button className={`btn ${mode === "phone" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("phone")} type="button">ورود با موبایل</button>
         <button className={`btn ${mode === "password" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("password")} type="button">ورود با رمز</button>
       </div>
+
       {mode === "phone" ? (
         !codeSent ? (
           <form onSubmit={requestOtp} className="card space-y-4 p-6">
             <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
-            <input
-              className="input"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              enterKeyHint="next"
-              placeholder="09xxxxxxxxx"
-              dir="ltr"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-            <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
+            <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
+            {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
+            <button className="btn-primary w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
           </form>
         ) : (
           <form onSubmit={verifyOtp} className="card space-y-4 p-6">
             <h1 className="text-xl font-bold">تایید کد ورود</h1>
-            <input className="input" placeholder="کد ۶ رقمی" dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} required />
-            <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال بررسی..." : "ورود"}</button>
+            <input type="hidden" {...verifyForm.register("phone")} />
+            <input className="input" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
+            {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
+            <button className="btn-primary w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "ورود"}</button>
           </form>
         )
       ) : (
         <form onSubmit={loginWithPassword} className="card space-y-4 p-6">
           <h1 className="text-xl font-bold">ورود با نام کاربری و رمز عبور</h1>
-          <input className="input" placeholder="نام کاربری" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          <input className="input" placeholder="نام کاربری" {...passwordForm.register("username")} />
+          {passwordForm.formState.errors.username && <p className="text-xs text-rose-400">{passwordForm.formState.errors.username.message}</p>}
           <div className="relative">
-            <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input className="input ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" {...passwordForm.register("password")} />
             <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowPassword((p) => !p)}>
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ورود..." : "ورود"}</button>
+          {passwordForm.formState.errors.password && <p className="text-xs text-rose-400">{passwordForm.formState.errors.password.message}</p>}
+          <button className="btn-primary w-full" disabled={passwordForm.formState.isSubmitting}>{passwordForm.formState.isSubmitting ? "در حال ورود..." : "ورود"}</button>
         </form>
       )}
+
       <p className="mt-4 text-sm">حساب ندارید؟ <Link className="text-sky-600" href="/register">ثبت‌نام</Link></p>
     </main>
   );

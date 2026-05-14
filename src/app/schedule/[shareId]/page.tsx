@@ -11,6 +11,7 @@ import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
 import { UserAvatar } from "@/components/user-avatar";
+import Image from "next/image";
 
 function toEnglishDigits(value: string) {
   return value
@@ -187,7 +188,14 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreviewOpen(false)}>
           <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-bold">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</h3>
-            <img src={previewAvatarUrl} alt="host avatar preview" className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
+            <Image
+              src={previewAvatarUrl}
+              alt="host avatar preview"
+              width={1200}
+              height={900}
+              className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain"
+              unoptimized
+            />
             <div className="mt-4 flex justify-end">
               <button type="button" className="btn-ghost" onClick={() => setAvatarPreviewOpen(false)}>بستن</button>
             </div>
