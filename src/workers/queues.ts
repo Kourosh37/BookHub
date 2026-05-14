@@ -1,7 +1,7 @@
-import { createWorker, QUEUE_NAMES } from "@/lib/queue";
-import { sendOtpSms, sendTextSms } from "@/lib/sms";
-import { logger } from "@/lib/logger";
-import { prisma } from "@/lib/prisma";
+import { createWorker, QUEUE_NAMES } from "../lib/queue";
+import { sendOtpSms, sendTextSms } from "../lib/sms";
+import { logger } from "../lib/logger";
+import { prisma } from "../lib/prisma";
 
 async function start() {
   const smsWorker = createWorker<any>(QUEUE_NAMES.sms, async (job) => {
