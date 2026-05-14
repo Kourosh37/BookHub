@@ -13,7 +13,8 @@ RUN npm config set fetch-retries 8 \
  && npm config set fetch-retry-mintimeout 10000 \
  && npm config set fetch-retry-maxtimeout 120000 \
  && npm config set fetch-timeout 300000 \
- && sh -c 'for i in 1 2 3 4 5; do npm ci --ignore-scripts && exit 0; echo "npm ci failed (attempt $i), retrying in 12s..."; sleep 12; done; exit 1'
+ && npm config set omit "" \
+ && sh -c 'for i in 1 2 3 4 5; do npm ci --ignore-scripts --include=optional && exit 0; echo "npm ci failed (attempt $i), retrying in 12s..."; sleep 12; done; exit 1'
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
