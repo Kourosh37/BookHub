@@ -2,7 +2,7 @@
   "name": "bookhubtmp",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=20 <23",
     "npm": ">=10 <12"
@@ -10,14 +10,14 @@
   "scripts": {
     "dev": "next dev",
     "prisma:generate": "prisma generate",
-    "build": "pnpm run prisma:generate && next build",
+    "build": "npm run prisma:generate && next build",
     "start": "next start",
     "worker:queues": "node -r ts-node/register/transpile-only -r tsconfig-paths/register src/workers/queues.ts",
     "openapi:generate": "node -r ts-node/register/transpile-only scripts/generate-openapi.ts",
-    "test:unit": "pnpm dlx vitest@1.6.0 run --config vitest.config.ts",
-    "test:e2e": "pnpm dlx playwright@1.54.2 test --config playwright.config.ts",
+    "test:unit": "npx vitest@1.6.0 run --config vitest.config.ts",
+    "test:e2e": "npx playwright@1.54.2 test --config playwright.config.ts",
     "lint": "next lint",
-    "postinstall": "pnpm run prisma:generate"
+    "postinstall": "npm run prisma:generate"
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
