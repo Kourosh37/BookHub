@@ -19,6 +19,7 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN sh -c 'for i in 1 2 3 4 5; do apt-get update -y && apt-get install -y --no-install-recommends --fix-missing openssl ca-certificates && rm -rf /var/lib/apt/lists/* && exit 0; echo "apt install failed (attempt $i), retrying..."; sleep 6; done; exit 1'
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
