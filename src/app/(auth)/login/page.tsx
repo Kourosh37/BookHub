@@ -76,6 +76,9 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto max-w-md p-6">
+      <div className="mb-4 text-center">
+        <div className="text-sm text-slate-400">بوک هاب</div>
+      </div>
       <div className="mb-3 flex gap-2">
         <button className={`btn ${mode === "phone" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("phone")} type="button">ورود با موبایل</button>
         <button className={`btn ${mode === "password" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("password")} type="button">ورود با رمز</button>
@@ -84,7 +87,19 @@ export default function LoginPage() {
         !codeSent ? (
           <form onSubmit={requestOtp} className="card space-y-4 p-6">
             <h1 className="text-xl font-bold">ورود با شماره موبایل</h1>
-            <input className="input" placeholder="09xxxxxxxxx" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <input
+              className="input"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="tel"
+              enterKeyHint="next"
+              placeholder="09xxxxxxxxx"
+              dir="ltr"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
             <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>
           </form>
         ) : (

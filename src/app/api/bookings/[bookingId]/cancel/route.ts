@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { cancelScheduledRemindersForBooking, notifyBookingCanceledByHost } from "@/lib/notifications";
+import { cacheDelByPattern } from "@/lib/cache";
 
 export async function POST(_: Request, { params }: { params: { bookingId: string } }) {
   try {
@@ -11,7 +12,7 @@ export async function POST(_: Request, { params }: { params: { bookingId: string
       where: { id: params.bookingId },
       include: {
         schedule: {
-          select: { userId: true, title: true },
+          select: { userId: true, title: true, shareId: true },
         },
       },
     });
@@ -40,6 +41,7 @@ export async function POST(_: Request, { params }: { params: { bookingId: string
       guestUserId: booking.bookedByUserId,
     }).catch(() => {});
     void cancelScheduledRemindersForBooking(booking.id).catch(() => {});
+    void cacheDelByPattern(`schedule:${booking.schedule.shareId}:*`).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch {

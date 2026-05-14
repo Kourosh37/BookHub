@@ -14,12 +14,26 @@ services:
       timeout: 5s
       retries: 30
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
   app:
     build:
       context: .
     restart: unless-stopped
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     env_file:
       - .env
@@ -35,9 +49,15 @@ services:
       SMS_TEMPLATE_ID: ${SMS_TEMPLATE_ID:-839779}
       SMS_SENDER: ${SMS_SENDER:-}
       MAX_PROFILE_IMAGE_MB: ${MAX_PROFILE_IMAGE_MB:-2}
+      DB_RESET_ON_SCHEMA_CHANGE: ${DB_RESET_ON_SCHEMA_CHANGE:-true}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       TZ: ${TZ:-Asia/Tehran}
     ports:
       - "3000:3000"
+    volumes:
+      - appmeta:/app/.runtime
 
 volumes:
   pgdata:
+  appmeta:
+  redisdata:

@@ -65,11 +65,26 @@ export default function RegisterPage() {
 
   return (
     <main className="mx-auto max-w-md p-6">
+      <div className="mb-4 text-center">
+        <div className="text-sm text-slate-400">بوک هاب</div>
+      </div>
       {!codeSent ? (
         <form onSubmit={requestOtp} autoComplete="off" className="card space-y-4 p-6">
           <h1 className="text-xl font-bold">ثبت‌نام</h1>
           <input className="input" placeholder="نام کاربری" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} required />
-          <input className="input" placeholder="09xxxxxxxxx" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} required dir="ltr" />
+          <input
+            className="input"
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="tel"
+            enterKeyHint="next"
+            placeholder="09xxxxxxxxx"
+            value={form.phone}
+            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+            required
+            dir="ltr"
+          />
           <input className="input" type="password" placeholder="رمز عبور" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} required />
           <input className="input" type="password" placeholder="تکرار رمز عبور" value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} required />
           <button className="btn-primary w-full" disabled={loading}>{loading ? "در حال ارسال..." : "ارسال کد تایید"}</button>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requestOtpSchema } from "@/lib/validations";
 import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
 import { sendOtpSms } from "@/lib/sms";
+import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -26,9 +27,27 @@ export async function POST(req: Request) {
     }
   }
 
+  if (mode === "login_phone") {
+    const userByPhone = await prisma.user.findFirst({ where: { phone } });
+    if (!userByPhone) {
+      return NextResponse.json({ error: "کاربری با این شماره یافت نشد", details: "ابتدا ثبت‌نام کنید" }, { status: 404 });
+    }
+  }
+
+  const purpose = mode === "password_reset" ? "PASSWORD_RESET" : "AUTH";
   const cooldownSeconds = getOtpResendCooldownSeconds();
+  const cooldownKey = `otp:cooldown:${purpose}:${phone}`;
+
+  const redisRemaining = await cacheGetCooldownRemaining(cooldownKey);
+  if (redisRemaining) {
+    return NextResponse.json(
+      { error: "درخواست پشت‌سرهم مجاز نیست", details: `لطفا ${redisRemaining} ثانیه دیگر دوباره تلاش کنید` },
+      { status: 429 },
+    );
+  }
+
   const latest = await prisma.otpCode.findFirst({
-    where: { phone, purpose: mode === "password_reset" ? "PASSWORD_RESET" : "AUTH" },
+    where: { phone, purpose },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
@@ -37,8 +56,10 @@ export async function POST(req: Request) {
     const elapsedMs = Date.now() - latest.createdAt.getTime();
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
     if (elapsedSeconds < cooldownSeconds) {
+      const remain = cooldownSeconds - elapsedSeconds;
+      await cacheSetCooldown(cooldownKey, remain);
       return NextResponse.json(
-        { error: "درخواست پشت‌سرهم مجاز نیست", details: `لطفا ${cooldownSeconds - elapsedSeconds} ثانیه دیگر دوباره تلاش کنید` },
+        { error: "درخواست پشت‌سرهم مجاز نیست", details: `لطفا ${remain} ثانیه دیگر دوباره تلاش کنید` },
         { status: 429 },
       );
     }
@@ -46,7 +67,6 @@ export async function POST(req: Request) {
 
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
-
   const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 12) : null;
 
   await prisma.otpCode.create({
@@ -54,7 +74,7 @@ export async function POST(req: Request) {
       phone,
       codeHash: hashOtp(phone, code),
       expiresAt,
-      purpose: mode === "password_reset" ? "PASSWORD_RESET" : "AUTH",
+      purpose,
       username: parsed.data.username || null,
       passwordHash,
     },
@@ -69,6 +89,8 @@ export async function POST(req: Request) {
       { status: 502 },
     );
   }
+
+  await cacheSetCooldown(cooldownKey, cooldownSeconds);
 
   return NextResponse.json({
     ok: true,

@@ -39,6 +39,9 @@ export async function POST(req: Request) {
 
   let user = await prisma.user.findFirst({ where: { phone } });
   if (!user) {
+    if (!otp.username || !otp.passwordHash) {
+      return NextResponse.json({ error: "اکانت یافت نشد", details: "برای این شماره ابتدا ثبت‌نام کنید" }, { status: 404 });
+    }
     user = await prisma.user.create({
       data: {
         phone,

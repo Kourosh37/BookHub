@@ -50,3 +50,5 @@ npm run dev
 - SMS notification scaffolding exists in `src/lib/notifications.ts` (provider integration is intentionally TODO).
 - Auth flow uses mobile phone + OTP (SMS sending function is scaffolded in `src/lib/sms.ts`).
 - Profile APIs exist for username update, avatar upload, password change (with OTP), and account deletion.
+- Docker entrypoint can reset DB on Prisma schema hash change (`DB_RESET_ON_SCHEMA_CHANGE=true`).
+- Redis is integrated for OTP cooldown optimization and short-lived schedule/slots API caching.

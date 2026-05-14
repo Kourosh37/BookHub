@@ -27,6 +27,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const [slots, setSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [pending, startTransition] = useTransition();
+  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
 
   const loadSchedule = useCallback(async () => {
     const res = await fetch(`/api/schedules/${params.shareId}`, { cache: "no-store" });
@@ -88,7 +89,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         </div>
         <div className="flex items-center gap-3">
           {schedule?.user?.avatarUrl ? (
-            <img src={schedule.user.avatarUrl} alt="host avatar" className="h-12 w-12 rounded-full object-cover border border-slate-700" />
+            <img src={schedule.user.avatarUrl} alt="host avatar" className="h-12 w-12 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreviewOpen(true)} />
           ) : (
             <div className="h-12 w-12 rounded-full border border-slate-700" />
           )}
@@ -164,6 +165,17 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           </form>
         )}
       </div>
+      {avatarPreviewOpen && schedule?.user?.avatarUrl && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreviewOpen(false)}>
+          <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-lg font-bold">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</h3>
+            <img src={schedule.user.avatarUrl} alt="host avatar preview" className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
+            <div className="mt-4 flex justify-end">
+              <button type="button" className="btn-ghost" onClick={() => setAvatarPreviewOpen(false)}>بستن</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

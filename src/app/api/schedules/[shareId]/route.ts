@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatInTimeZone } from "date-fns-tz";
 import { requireSession } from "@/lib/auth";
+import { cacheGetJson, cacheSetJson } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,14 @@ export async function GET(_: Request, { params }: { params: { shareId: string } 
     await requireSession();
   } catch {
     return NextResponse.json({ error: "نیاز به ورود", details: "برای مشاهده برنامه باید وارد حساب شوید" }, { status: 401 });
+  }
+
+  const cacheKey = `schedule:${params.shareId}:summary`;
+  const cached = await cacheGetJson<any>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Cache": "HIT" },
+    });
   }
 
   const schedule = await prisma.schedule.findUnique({
@@ -34,8 +43,9 @@ export async function GET(_: Request, { params }: { params: { shareId: string } 
 
   const availableDates = Array.from(new Set(availableSlots.map((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd"))));
 
-  return NextResponse.json(
-    { ...schedule, availableDates },
-    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
-  );
+  const payload = { ...schedule, availableDates };
+  await cacheSetJson(cacheKey, payload, 30);
+  return NextResponse.json(payload, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Cache": "MISS" },
+  });
 }

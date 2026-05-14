@@ -4,45 +4,63 @@
 
 :root {
   color-scheme: dark;
-  --bg: rgb(2, 6, 23);
-  --text: rgb(241, 245, 249);
-  --card-bg: rgba(15, 23, 42, 0.85);
-  --card-border: rgb(51, 65, 85);
-  --input-bg: rgb(15, 23, 42);
-  --input-border: rgb(71, 85, 105);
-  --muted-text: rgb(148, 163, 184);
-  --btn-primary-bg: rgb(34, 211, 238);
-  --btn-primary-text: rgb(15, 23, 42);
+  --bg: #181c14;
+  --text: #ecdfcc;
+  --card-bg: #3c3d37;
+  --card-border: #697565;
+  --input-bg: #3c3d37;
+  --input-border: #697565;
+  --muted-text: #c9bba7;
+  --btn-primary-bg: #697565;
+  --btn-primary-text: #ecdfcc;
+  --focus-ring: #697565;
+  --link-text: #ecdfcc;
 }
 
 html[data-theme="light"] {
   color-scheme: light;
-  --bg: rgb(255, 249, 210);
-  --text: rgb(48, 59, 72);
-  --card-bg: rgb(255, 235, 204);
-  --card-border: rgb(191, 221, 240);
-  --input-bg: rgb(255, 249, 210);
-  --input-border: rgb(140, 192, 235);
-  --muted-text: rgb(88, 106, 127);
-  --btn-primary-bg: rgb(140, 192, 235);
-  --btn-primary-text: rgb(22, 49, 74);
+  --bg: #f6f0d7;
+  --text: #38422b;
+  --card-bg: #c5d89d;
+  --card-border: #9cab84;
+  --input-bg: #f6f0d7;
+  --input-border: #89986d;
+  --muted-text: #5a6644;
+  --btn-primary-bg: #89986d;
+  --btn-primary-text: #f6f0d7;
+  --focus-ring: #9cab84;
+  --link-text: #4b5a36;
 }
 
-html[data-theme="light"] .text-slate-300 {
-  color: rgb(68, 88, 110) !important;
+html .text-slate-300 {
+  color: var(--muted-text) !important;
 }
 
-html[data-theme="light"] .text-slate-400 {
-  color: rgb(74, 96, 120) !important;
+html .text-slate-400 {
+  color: var(--muted-text) !important;
 }
 
-html[data-theme="light"] .text-slate-500 {
-  color: rgb(84, 106, 130) !important;
+html .text-slate-500 {
+  color: var(--muted-text) !important;
 }
 
-html[data-theme="light"] .text-cyan-200,
-html[data-theme="light"] .text-cyan-300 {
-  color: rgb(30, 102, 158) !important;
+html .text-cyan-200,
+html .text-cyan-300,
+html .text-cyan-500 {
+  color: var(--link-text) !important;
+}
+
+html .bg-cyan-500 {
+  background: var(--btn-primary-bg) !important;
+}
+
+html .hover\:bg-cyan-400:hover {
+  background: var(--btn-primary-bg) !important;
+}
+
+html .border-cyan-700,
+html .border-cyan-700\/60 {
+  border-color: var(--card-border) !important;
 }
 
 html,
@@ -68,10 +86,11 @@ body {
 }
 
 .input {
-  @apply w-full rounded-xl px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500;
+  @apply w-full rounded-xl px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   color: var(--text);
+  --tw-ring-color: var(--focus-ring);
 }
 
 .btn {

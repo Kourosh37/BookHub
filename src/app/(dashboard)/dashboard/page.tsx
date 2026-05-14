@@ -22,6 +22,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { AvatarUploader } from "@/components/avatar-uploader";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -330,7 +332,7 @@ export default function DashboardPage() {
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="avatar" className="h-10 w-10 rounded-full object-cover border border-slate-700" />
+            <img src={user.avatarUrl} alt="avatar" className="h-10 w-10 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: user.avatarUrl, name: user.username || user.phone || "کاربر" })} />
           ) : (
             <div className="h-10 w-10 rounded-full border border-slate-700 grid place-items-center text-xs text-slate-400">بدون عکس</div>
           )}
@@ -661,7 +663,7 @@ export default function DashboardPage() {
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
                   {b.bookedByUser?.avatarUrl ? (
-                    <img src={b.bookedByUser.avatarUrl} alt="booker avatar" className="h-8 w-8 rounded-full object-cover border border-slate-700" />
+                    <img src={b.bookedByUser.avatarUrl} alt="booker avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: b.bookedByUser.avatarUrl, name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر" })} />
                   ) : (
                     <div className="h-8 w-8 rounded-full border border-slate-700" />
                   )}
@@ -708,7 +710,7 @@ export default function DashboardPage() {
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
                   {s.schedule?.user?.avatarUrl ? (
-                    <img src={s.schedule.user.avatarUrl} alt="host avatar" className="h-8 w-8 rounded-full object-cover border border-slate-700" />
+                    <img src={s.schedule.user.avatarUrl} alt="host avatar" className="h-8 w-8 cursor-pointer rounded-full object-cover border border-slate-700" onClick={() => setAvatarPreview({ url: s.schedule.user.avatarUrl, name: s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده" })} />
                   ) : (
                     <div className="h-8 w-8 rounded-full border border-slate-700" />
                   )}
@@ -764,25 +766,10 @@ export default function DashboardPage() {
             <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
           </form>
 
-          <form
-            className="space-y-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const file = (e.currentTarget.elements.namedItem("avatar") as HTMLInputElement)?.files?.[0];
-              if (!file) return toast.error("فایل انتخاب نشده است");
-              const fd = new FormData();
-              fd.append("file", file);
-              const res = await fetch("/api/profile/avatar", { method: "POST", body: fd });
-              const data = await res.json();
-              if (!res.ok) return toast.error(data.details || data.error || "خطا");
-              setUser((prev: any) => ({ ...prev, avatarUrl: data.avatarUrl }));
-              toast.success("عکس پروفایل ذخیره شد");
-            }}
-          >
-            <label className="block text-sm text-slate-300">عکس پروفایل</label>
-            <input className="input" type="file" name="avatar" accept="image/*" />
-            <button className="btn-ghost">آپلود عکس</button>
-          </form>
+          <AvatarUploader
+            currentAvatarUrl={user?.avatarUrl}
+            onUploaded={(avatarUrl) => setUser((prev: any) => ({ ...prev, avatarUrl }))}
+          />
 
           <div className="rounded-xl border border-slate-800 p-3 space-y-2">
             <h3 className="font-medium">تغییر رمز عبور</h3>
@@ -908,6 +895,18 @@ export default function DashboardPage() {
           </button>
         </div>
       </nav>
+
+      {avatarPreview && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreview(null)}>
+          <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-lg font-bold">{avatarPreview.name}</h3>
+            <img src={avatarPreview.url} alt={avatarPreview.name} className="mx-auto max-h-[70vh] w-auto rounded-2xl object-contain" />
+            <div className="mt-4 flex justify-end">
+              <button type="button" className="btn-ghost" onClick={() => setAvatarPreview(null)}>بستن</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

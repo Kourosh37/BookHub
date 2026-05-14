@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { bookingSchema } from "@/lib/validations";
 import { requireSession } from "@/lib/auth";
 import { notifyBookingCreated, scheduleTenMinuteReminderForBooking } from "@/lib/notifications";
+import { cacheDelByPattern } from "@/lib/cache";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
   let session;
@@ -82,6 +83,7 @@ export async function POST(req: Request, { params }: { params: { shareId: string
 
       void notifyBookingCreated(ctx).catch(() => {});
       void scheduleTenMinuteReminderForBooking(ctx).catch(() => {});
+      void cacheDelByPattern(`schedule:${params.shareId}:*`).catch(() => {});
     }
 
     return NextResponse.json(booking);

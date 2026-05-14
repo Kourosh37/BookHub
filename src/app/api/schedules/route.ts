@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { scheduleSchema } from "@/lib/validations";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { randomBytes } from "crypto";
+import { cacheDelByPattern } from "@/lib/cache";
 
 type Range = { startTime: string; endTime: string };
 
@@ -114,12 +115,15 @@ export async function POST(req: Request) {
       });
     }
 
+    void cacheDelByPattern(`schedule:${schedule.shareId}:*`).catch(() => {});
+
     return NextResponse.json({
       id: schedule.id,
       shareId: schedule.shareId,
       title: schedule.title,
       createdAt: schedule.createdAt,
     });
+
   } catch (error: any) {
     if (!session) {
       return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
