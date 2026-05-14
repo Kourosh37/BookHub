@@ -13,6 +13,7 @@
     "build": "npm run prisma:generate && next build",
     "start": "next start",
     "worker:queues": "node -r ts-node/register/transpile-only -r tsconfig-paths/register src/workers/queues.ts",
+    "openapi:generate": "node -r ts-node/register/transpile-only scripts/generate-openapi.ts",
     "lint": "next lint",
     "postinstall": "npm run prisma:generate"
   },
