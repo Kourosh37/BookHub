@@ -29,6 +29,7 @@ services:
   app:
     build:
       context: .
+      target: runner
     restart: unless-stopped
     depends_on:
       db:
@@ -61,6 +62,7 @@ services:
   worker:
     build:
       context: .
+      target: worker
     restart: unless-stopped
     depends_on:
       db:

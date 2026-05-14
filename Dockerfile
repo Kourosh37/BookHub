@@ -34,3 +34,12 @@ RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 3000
 CMD ["/app/entrypoint.sh"]
+
+FROM base AS worker
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./package.json
+COPY tsconfig.json ./tsconfig.json
+COPY prisma ./prisma
+COPY src ./src
+CMD ["npm", "run", "worker:queues"]
