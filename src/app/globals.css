@@ -147,6 +147,13 @@ input[type="password"]::-ms-clear {
   color: var(--danger-border);
 }
 
+.theme-toggle svg {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  min-height: 28px;
+}
+
 .dropdown-panel {
   border: 1px solid var(--card-border);
   background: var(--card-bg);
