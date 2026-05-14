@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
@@ -23,39 +24,46 @@ function toGregorianYmd(dateObj: any) {
 }
 
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
-  const [schedule, setSchedule] = useState<any>(null);
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState("");
-  const [slots, setSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [pending, startTransition] = useTransition();
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
 
-  const loadSchedule = useCallback(async () => {
-    const res = await fetch(`/api/schedules/${params.shareId}`, { cache: "no-store" });
-    const data = await res.json();
-    setSchedule(data);
-    return data;
-  }, [params.shareId]);
+  const scheduleQuery = useQuery({
+    queryKey: ["schedule", "public", params.shareId],
+    queryFn: async () => {
+      const res = await fetch(`/api/schedules/${params.shareId}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_SCHEDULE");
+      return res.json();
+    },
+  });
 
-  const loadSlots = useCallback(async (date: string) => {
-    if (!date) {
-      setSlots([]);
-      return [];
-    }
-    const res = await fetch(`/api/schedules/${params.shareId}/slots?date=${date}`, { cache: "no-store" });
-    const data = await res.json();
-    setSlots(Array.isArray(data) ? data : []);
-    return data;
-  }, [params.shareId]);
+  const slotsQuery = useQuery({
+    queryKey: ["schedule", "public", params.shareId, "slots", selectedDate],
+    enabled: Boolean(selectedDate),
+    queryFn: async () => {
+      const res = await fetch(`/api/schedules/${params.shareId}/slots?date=${selectedDate}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_SLOTS");
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
 
-  useEffect(() => {
-    void loadSchedule();
-  }, [loadSchedule]);
+  const bookingMutation = useMutation({
+    mutationFn: async (payload: { timeSlotId: string; name: FormDataEntryValue | null; answers: string[] }) => {
+      const res = await fetch(`/api/schedules/${params.shareId}/book`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "خطا در رزرو");
+      return data;
+    },
+  });
 
-  useEffect(() => {
-    if (!selectedDate) return;
-    void loadSlots(selectedDate);
-  }, [selectedDate, loadSlots]);
+  const schedule = scheduleQuery.data ?? null;
+  const slots = slotsQuery.data ?? [];
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
   const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
@@ -75,23 +83,24 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const answers = questions.map((_: any, i: number) => String(formData.get(`q-${i}`) || ""));
 
-    startTransition(() => {
-      void (async () => {
-        const answers = questions.map((_: any, i: number) => String(formData.get(`q-${i}`) || ""));
-        const res = await fetch(`/api/schedules/${params.shareId}/book`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timeSlotId: selectedSlot, name: formData.get("name"), answers }),
-        });
-        const data = await res.json();
-        if (!res.ok) return toast.error(data.error || "خطا در رزرو");
-        toast.success("رزرو با موفقیت ثبت شد");
-        setSelectedSlot("");
-        await loadSchedule();
-        await loadSlots(selectedDate);
-      })();
-    });
+    bookingMutation.mutate(
+      { timeSlotId: selectedSlot, name: formData.get("name"), answers },
+      {
+        onSuccess: async () => {
+          toast.success("رزرو با موفقیت ثبت شد");
+          setSelectedSlot("");
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["schedule", "public", params.shareId] }),
+            queryClient.invalidateQueries({
+              queryKey: ["schedule", "public", params.shareId, "slots", selectedDate],
+            }),
+          ]);
+        },
+        onError: (err: any) => toast.error(err?.message || "خطا در رزرو"),
+      },
+    );
   }
 
   return (
@@ -168,8 +177,8 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
                 <input key={i} className="input" name={`q-${i}`} placeholder={q.label} required={q.required} />
               ),
             )}
-            <button className="btn-primary w-full" disabled={pending}>
-              <Send size={16} /> {pending ? "در حال ثبت..." : "ثبت رزرو"}
+            <button className="btn-primary w-full" disabled={bookingMutation.isPending}>
+              <Send size={16} /> {bookingMutation.isPending ? "در حال ثبت..." : "ثبت رزرو"}
             </button>
           </form>
         )}

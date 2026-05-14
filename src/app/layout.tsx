@@ -5,6 +5,8 @@ import { ReactNode } from "react";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast-provider";
 import { ServiceWorkerCleanup } from "@/components/sw-cleanup";
+import { AppQueryProvider } from "@/components/query-provider";
+import { ThemeSync } from "@/components/theme-sync";
 
 export const metadata = {
   title: "بوک هاب",
@@ -20,9 +22,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
       <body className="min-h-screen">
-        <ServiceWorkerCleanup />
-        {children}
-        <ToastProvider />
+        <AppQueryProvider>
+          <ThemeSync />
+          <ServiceWorkerCleanup />
+          {children}
+          <ToastProvider />
+        </AppQueryProvider>
       </body>
     </html>
   );

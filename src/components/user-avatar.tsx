@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { User } from "lucide-react";
+import { useUIStore } from "@/store/ui-store";
 
 type Props = {
   src?: string | null;
@@ -38,10 +39,23 @@ export function UserAvatar({
   onClick,
 }: Props) {
   const [errored, setErrored] = useState(false);
+  const avatarRefreshToken = useUIStore((s) => s.avatarRefreshToken);
   const normalizedSrc = useMemo(() => normalizeAvatarSrc(src), [src]);
+  const finalSrc = useMemo(() => {
+    if (!normalizedSrc) return "";
+    if (normalizedSrc.startsWith("/api/profile/avatar/file/") || normalizedSrc.startsWith("/uploads/avatars/")) {
+      const sep = normalizedSrc.includes("?") ? "&" : "?";
+      return `${normalizedSrc}${sep}av=${avatarRefreshToken}`;
+    }
+    return normalizedSrc;
+  }, [normalizedSrc, avatarRefreshToken]);
   const clickableClass = onClick ? "cursor-pointer" : "";
 
-  if (!normalizedSrc || errored) {
+  useEffect(() => {
+    setErrored(false);
+  }, [finalSrc]);
+
+  if (!finalSrc || errored) {
     return (
       <div
         className={`${sizeClassName} ${clickableClass} rounded-full border border-slate-700 grid place-items-center text-slate-400 ${className}`.trim()}
@@ -54,7 +68,7 @@ export function UserAvatar({
 
   return (
     <img
-      src={normalizedSrc}
+      src={finalSrc}
       alt={alt}
       className={`${sizeClassName} ${clickableClass} rounded-full border border-slate-700 object-cover ${className}`.trim()}
       onClick={onClick}
@@ -62,4 +76,3 @@ export function UserAvatar({
     />
   );
 }
-

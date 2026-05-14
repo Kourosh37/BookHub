@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { UserAvatar } from "@/components/user-avatar";
+import { useUIStore } from "@/store/ui-store";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -98,12 +100,14 @@ function normalizePreviewUrl(src?: string | null) {
 }
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState<"schedules" | "bookings" | "sessions" | "profile">("schedules");
-  const [user, setUser] = useState<any>(null);
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [mySessions, setMySessions] = useState<any[]>([]);
-  const [scheduleFilter, setScheduleFilter] = useState("");
+  const queryClient = useQueryClient();
+  const tab = useUIStore((s) => s.dashboardTab);
+  const setTab = useUIStore((s) => s.setDashboardTab);
+  const scheduleFilter = useUIStore((s) => s.scheduleFilter);
+  const setScheduleFilter = useUIStore((s) => s.setScheduleFilter);
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const bumpAvatarRefreshToken = useUIStore((s) => s.bumpAvatarRefreshToken);
 
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
@@ -116,7 +120,6 @@ export default function DashboardPage() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
   const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
   const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
@@ -130,51 +133,61 @@ export default function DashboardPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const meQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      const me = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!me.ok) throw new Error("UNAUTHORIZED");
+      const meData = await me.json();
+      return meData.user;
+    },
+  });
+
+  const schedulesQuery = useQuery({
+    queryKey: ["schedules", "my"],
+    queryFn: async () => {
+      const res = await fetch("/api/schedules/my", { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_SCHEDULES");
+      return res.json();
+    },
+  });
+
+  const bookingsQuery = useQuery({
+    queryKey: ["bookings", "my", scheduleFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_BOOKINGS");
+      return res.json();
+    },
+  });
+
+  const mySessionsQuery = useQuery({
+    queryKey: ["bookings", "mine"],
+    queryFn: async () => {
+      const res = await fetch("/api/bookings/mine", { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_MINE");
+      return res.json();
+    },
+  });
+
+  const user = meQuery.data ?? null;
+  const schedules = schedulesQuery.data ?? [];
+  const bookings = bookingsQuery.data ?? [];
+  const mySessions = mySessionsQuery.data ?? [];
+
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("theme");
-    const nextTheme = saved === "light" ? "light" : "dark";
-    setTheme(nextTheme);
-    document.documentElement.dataset.theme = nextTheme;
-  }, []);
-
-  const load = useCallback(async () => {
-    const me = await fetch("/api/auth/me", { cache: "no-store" });
-    if (!me.ok) return (window.location.href = "/login");
-    const meData = (await me.json()).user;
-    setUser(meData);
-    setProfileUsername(meData?.username || "");
-
-    const sch = await fetch("/api/schedules/my", { cache: "no-store" });
-    setSchedules(await sch.json());
-
-    const bk = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`, { cache: "no-store" });
-    setBookings(await bk.json());
-
-    const mine = await fetch("/api/bookings/mine", { cache: "no-store" });
-    setMySessions(await mine.json());
-  }, [scheduleFilter]);
+    if (meQuery.error && (meQuery.error as Error).message === "UNAUTHORIZED") {
+      window.location.href = "/login";
+    }
+  }, [meQuery.error]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      if (document.visibilityState === "hidden") return;
-      void load();
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
-    };
-  }, [load]);
+    if (user) setProfileUsername(user?.username || "");
+  }, [user]);
 
   useEffect(() => {
     setDayConfigs((prev) => {
@@ -194,15 +207,6 @@ export default function DashboardPage() {
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
-
-  function toggleTheme() {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    document.documentElement.dataset.theme = nextTheme;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("theme", nextTheme);
-    }
-  }
 
   const isInvalidTimeConfig = useMemo(() => dayConfigs.some((d) => rangesOverlap(d.ranges)), [dayConfigs]);
   const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
@@ -268,14 +272,17 @@ export default function DashboardPage() {
     const data = await res.json();
     if (!res.ok) return toast.error(data.details || data.error || "خطا");
 
-    setSchedules((prev) => [data, ...prev]);
     toast.success("برنامه ساخته شد");
     setSelectedDates([]);
     setDayConfigs([]);
     setQuestions([]);
     setShowCreateFormMobile(false);
     (e.currentTarget as HTMLFormElement).reset();
-    await load();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+      queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+    ]);
   }
 
   function addQuestion() {
@@ -297,7 +304,10 @@ export default function DashboardPage() {
     if (!res.ok) return toast.error(data.details || data.error || "خطا در کنسل رزرو");
     toast.success("رزرو با موفقیت کنسل شد");
     setCancelTarget(null);
-    await load();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+    ]);
   }
 
   function startEditScheduleTitle(schedule: any) {
@@ -326,7 +336,7 @@ export default function DashboardPage() {
 
     if (!res.ok) return toast.error(data.details || data.error || "خطا در ویرایش عنوان برنامه");
 
-    setSchedules((prev) => prev.map((s) => (s.id === scheduleId ? { ...s, title: data.title } : s)));
+    await queryClient.invalidateQueries({ queryKey: ["schedules", "my"] });
     toast.success("نام برنامه ویرایش شد");
     stopEditScheduleTitle();
   }
@@ -339,11 +349,14 @@ export default function DashboardPage() {
     setDeletingSchedule(false);
     if (!res.ok) return toast.error(data.details || data.error || "خطا در حذف برنامه");
 
-    setSchedules((prev) => prev.filter((s) => s.id !== deleteScheduleTarget.id));
     if (scheduleFilter === deleteScheduleTarget.id) setScheduleFilter("");
     toast.success("برنامه حذف شد");
     setDeleteScheduleTarget(null);
-    await load();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+      queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+    ]);
   }
 
   return (
@@ -366,8 +379,8 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
-              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            <button type="button" className="btn-ghost h-11 w-11 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+              {theme === "dark" ? <Sun size={22} /> : <Moon size={22} />}
             </button>
             <button onClick={logout} className="btn-ghost h-10" aria-label="خروج" title="خروج">
               <LogOut size={16} className="icon-danger" />
@@ -794,7 +807,7 @@ export default function DashboardPage() {
               const data = await res.json();
               setProfileLoading(false);
               if (!res.ok) return toast.error(data.details || data.error || "خطا");
-              setUser(data);
+              queryClient.setQueryData(["auth", "me"], data);
               toast.success("پروفایل به‌روزرسانی شد");
             }}
           >
@@ -805,7 +818,15 @@ export default function DashboardPage() {
 
           <AvatarUploader
             currentAvatarUrl={user?.avatarUrl}
-            onUploaded={(avatarUrl) => setUser((prev: any) => ({ ...prev, avatarUrl }))}
+            onUploaded={(avatarUrl) => {
+              queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl }));
+              bumpAvatarRefreshToken();
+              void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+                queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+                queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+              ]);
+            }}
           />
 
           <div className="rounded-xl border border-slate-800 p-3 space-y-2">
