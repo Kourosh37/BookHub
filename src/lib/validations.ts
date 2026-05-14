@@ -2,7 +2,13 @@ import { z } from "zod";
 
 export const phoneSchema = z
   .string()
-  .transform((value) => value.replace(/\s|-/g, ""))
+  .transform((value) => value.replace(/[^\d]/g, ""))
+  .transform((digits) => {
+    if (digits.startsWith("09") && digits.length === 11) return digits;
+    if (digits.startsWith("9") && digits.length === 10) return `0${digits}`;
+    if (digits.startsWith("98") && digits.length === 12) return `0${digits.slice(2)}`;
+    return digits;
+  })
   .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر نیست");
 
 export const usernameSchema = z

@@ -75,8 +75,7 @@ export default function RegisterPage() {
           <input
             className="input"
             type="tel"
-            inputMode="numeric"
-            pattern="[0-9]*"
+            inputMode="tel"
             autoComplete="tel"
             enterKeyHint="next"
             placeholder="09xxxxxxxxx"

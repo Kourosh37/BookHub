@@ -2,15 +2,21 @@ FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN sh -c 'for i in 1 2 3 4 5; do apt-get update -y && apt-get install -y --no-install-recommends --fix-missing openssl ca-certificates && rm -rf /var/lib/apt/lists/* && exit 0; echo "apt install failed (attempt $i), retrying..."; sleep 6; done; exit 1'
 
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm config set fetch-retries 8 \
+ && npm config set fetch-retry-factor 2 \
+ && npm config set fetch-retry-mintimeout 10000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm config set fetch-timeout 300000 \
+ && npm config set registry https://registry.npmjs.org/ \
+ && sh -c 'for i in 1 2 3; do npm ci --ignore-scripts && exit 0; echo "npm ci failed (attempt $i), retrying..."; sleep 8; done; exit 1'
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN sh -c 'for i in 1 2 3 4 5; do apt-get update -y && apt-get install -y --no-install-recommends --fix-missing openssl ca-certificates && rm -rf /var/lib/apt/lists/* && exit 0; echo "apt install failed (attempt $i), retrying..."; sleep 6; done; exit 1'
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -23,7 +29,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN sh -c 'for i in 1 2 3 4 5; do apt-get update -y && apt-get install -y --no-install-recommends --fix-missing openssl ca-certificates && rm -rf /var/lib/apt/lists/* && exit 0; echo "apt install failed (attempt $i), retrying..."; sleep 6; done; exit 1'
 
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
