@@ -1,7 +1,14 @@
 import { z } from "zod";
 
+function normalizeDigits(value: string) {
+  return value
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+}
+
 export const phoneSchema = z
   .string()
+  .transform((value) => normalizeDigits(value))
   .transform((value) => value.replace(/[^\d]/g, ""))
   .transform((digits) => {
     if (digits.startsWith("09") && digits.length === 11) return digits;
@@ -48,6 +55,7 @@ export const verifyOtpSchema = z.object({
   phone: phoneSchema,
   code: z
     .string()
+    .transform((value) => normalizeDigits(value))
     .transform((value) => value.trim())
     .refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
 });
@@ -63,7 +71,11 @@ export const updateProfileSchema = z.object({
 
 export const changePasswordSchema = z
   .object({
-    code: z.string().trim().refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
+    code: z
+      .string()
+      .transform((value) => normalizeDigits(value))
+      .transform((value) => value.trim())
+      .refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
     newPassword: passwordSchema,
     confirmPassword: z.string(),
   })
