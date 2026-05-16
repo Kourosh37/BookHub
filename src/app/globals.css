@@ -6,12 +6,12 @@
   color-scheme: dark;
   --bg: #181c14;
   --text: #ecdfcc;
-  --card-bg: #46483f;
-  --card-border: #697565;
-  --input-bg: #505349;
-  --input-border: #697565;
+  --card-bg: #3f433a;
+  --card-border: #7f8c79;
+  --input-bg: #4b4f45;
+  --input-border: #8a9883;
   --muted-text: #c9bba7;
-  --btn-primary-bg: #697565;
+  --btn-primary-bg: #5f6d59;
   --btn-primary-text: #ecdfcc;
   --focus-ring: #697565;
   --link-text: #ecdfcc;
@@ -24,10 +24,10 @@ html[data-theme="light"] {
   color-scheme: light;
   --bg: #f3f4f8;
   --text: #1f2430;
-  --card-bg: #eef1f8;
-  --card-border: rgba(31, 36, 48, 0.08);
-  --input-bg: #e7ebf5;
-  --input-border: rgba(31, 36, 48, 0.1);
+  --card-bg: #edf1fb;
+  --card-border: rgba(31, 36, 48, 0.2);
+  --input-bg: #e3e9f8;
+  --input-border: rgba(31, 36, 48, 0.24);
   --muted-text: #667085;
   --btn-primary-bg: #3f5efb;
   --btn-primary-text: #f8faff;
@@ -108,13 +108,16 @@ body {
 
 .card {
   @apply rounded-2xl shadow-xl backdrop-blur;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--card-border) 70%, transparent);
   background: var(--card-bg);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px color-mix(in srgb, var(--card-border) 28%, transparent);
 }
 
 .input {
   @apply w-full rounded-xl px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--input-border) 88%, transparent);
   background: var(--input-bg);
   color: var(--text);
   --tw-ring-color: var(--focus-ring);
@@ -154,11 +157,14 @@ input[type="password"]::-ms-clear {
   @apply btn;
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--btn-primary-text) 22%, transparent),
+    0 6px 16px color-mix(in srgb, var(--btn-primary-bg) 35%, transparent);
 }
 
 .btn-ghost {
   @apply btn;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--input-border) 74%, transparent);
   background: var(--input-bg);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 35%, transparent);
 }
@@ -169,7 +175,7 @@ input[type="password"]::-ms-clear {
 
 .btn-danger {
   @apply btn;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--danger-border) 80%, transparent);
   background: var(--danger-bg);
   color: var(--danger-text);
 }
@@ -208,7 +214,7 @@ input[type="password"]::-ms-clear {
 }
 
 .auth-panel {
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--card-border) 64%, transparent);
   background: color-mix(in srgb, var(--card-bg) 92%, transparent);
 }
 
@@ -221,12 +227,12 @@ input[type="password"]::-ms-clear {
 }
 
 .dropdown-panel {
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--card-border) 70%, transparent);
   background: var(--card-bg);
 }
 
 .dropdown-trigger {
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--input-border) 78%, transparent);
   background: var(--input-bg);
   color: var(--text);
 }
@@ -258,11 +264,6 @@ html[data-theme="light"] .dropdown-trigger {
   border-color: transparent;
   background: color-mix(in srgb, var(--card-bg) 65%, #e9ecf5);
   color: var(--text);
-}
-
-html .border,
-html [class*="border-"] {
-  border-color: transparent !important;
 }
 
 html[data-theme="light"] .dropdown-option:hover {

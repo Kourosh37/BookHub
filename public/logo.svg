@@ -1,26 +1,25 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="g1" x1="92" y1="76" x2="430" y2="436" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5C7CFA"/>
-      <stop offset="0.45" stop-color="#22D3EE"/>
-      <stop offset="1" stop-color="#34D399"/>
+    <linearGradient id="ring" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2563EB"/>
     </linearGradient>
-    <linearGradient id="g2" x1="134" y1="126" x2="384" y2="386" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0EA5E9"/>
-      <stop offset="1" stop-color="#6366F1"/>
+    <linearGradient id="core" x1="176" y1="168" x2="336" y2="352" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
     </linearGradient>
-    <filter id="f1" x="56" y="56" width="400" height="400" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="22"/>
-    </filter>
   </defs>
 
-  <circle cx="256" cy="256" r="176" fill="url(#g1)"/>
-  <g filter="url(#f1)" opacity="0.32">
-    <circle cx="256" cy="256" r="150" fill="#0F172A"/>
-  </g>
+  <rect x="72" y="72" width="368" height="368" rx="108" fill="url(#ring)"/>
+  <rect x="110" y="110" width="292" height="292" rx="84" fill="#0B1220" fill-opacity="0.86"/>
 
-  <path d="M164 208C164 171.549 193.549 142 230 142H282C318.451 142 348 171.549 348 208V304C348 340.451 318.451 370 282 370H230C193.549 370 164 340.451 164 304V208Z" fill="#0B1220" fill-opacity="0.88"/>
-  <path d="M191 230C191 206.252 210.252 187 234 187H278C301.748 187 321 206.252 321 230V282C321 305.748 301.748 325 278 325H234C210.252 325 191 305.748 191 282V230Z" fill="url(#g2)"/>
-  <path d="M231 250C231 236.193 242.193 225 256 225C269.807 225 281 236.193 281 250C281 263.807 269.807 275 256 275C242.193 275 231 263.807 231 250Z" fill="#ECFEFF"/>
-  <path d="M215 309C215 297.402 224.402 288 236 288H276C287.598 288 297 297.402 297 309V315H215V309Z" fill="#CFFAFE"/>
+  <rect x="162" y="156" width="188" height="28" rx="14" fill="#DFF8FF" fill-opacity="0.95"/>
+  <rect x="162" y="198" width="86" height="22" rx="11" fill="#A5F3FC" fill-opacity="0.9"/>
+  <rect x="264" y="198" width="86" height="22" rx="11" fill="#A5F3FC" fill-opacity="0.9"/>
+
+  <circle cx="256" cy="292" r="72" fill="url(#core)"/>
+  <path d="M256 252V293L286 313" stroke="#E6FCFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="380" cy="132" r="34" fill="#EF4444"/>
+  <path d="M365 132L376 143L395 122" stroke="#FEF2F2" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
