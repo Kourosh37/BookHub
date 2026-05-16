@@ -71,9 +71,9 @@ export default function LoginPage() {
       setOtpPhone(values.phone);
       setResendCooldown(120);
       setCodeSent(true);
-      toast.success("Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯");
+      toast.success("کد تایید ارسال شد");
     } catch (e: any) {
-      const message = e?.message || "Ø§Ø±Ø³Ø§Ù„ Ú©Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯";
+      const message = e?.message || "ارسال کد ناموفق بود";
       const retryAfter = extractRetryAfterSeconds(message);
       if (retryAfter > 0) setResendCooldown(retryAfter);
       toast.error(message);
@@ -90,9 +90,9 @@ export default function LoginPage() {
         simpleOkSchema,
       );
       setResendCooldown(120);
-      toast.success("Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯");
+      toast.success("کد تایید دوباره ارسال شد");
     } catch (e: any) {
-      const message = e?.message || "Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯";
+      const message = e?.message || "ارسال مجدد ناموفق بود";
       const retryAfter = extractRetryAfterSeconds(message);
       if (retryAfter > 0) setResendCooldown(retryAfter);
       toast.error(message);
@@ -108,7 +108,7 @@ export default function LoginPage() {
       );
       window.location.replace(nextPath);
     } catch (e: any) {
-      toast.error(e?.message || "Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª");
+      toast.error(e?.message || "کد تایید نامعتبر است");
     }
   });
 
@@ -121,7 +121,7 @@ export default function LoginPage() {
       );
       window.location.replace(nextPath);
     } catch (e: any) {
-      toast.error(e?.message || "ÙˆØ±ÙˆØ¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯");
+      toast.error(e?.message || "ورود ناموفق بود");
     }
   });
 
@@ -131,16 +131,16 @@ export default function LoginPage() {
       <section className="mx-auto max-w-2xl">
         <div className="card auth-panel space-y-4 p-5 lg:p-6">
           <div>
-            <h1 className="text-2xl font-extrabold">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ø­Ø³Ø§Ø¨</h1>
-            <p className="mt-1 text-sm text-slate-400">Ø±ÙˆØ´ ÙˆØ±ÙˆØ¯ Ø¯Ù„Ø®ÙˆØ§Ù‡Øª Ø±Ùˆ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†.</p>
+            <h1 className="text-2xl font-extrabold">ورود به حساب</h1>
+            <p className="mt-1 text-sm text-slate-400">روش ورود دلخواهت رو انتخاب کن.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <button className={`btn ${mode === "phone" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("phone")} type="button">
-              <Smartphone size={16} /> ÙˆØ±ÙˆØ¯ Ø¨Ø§ Ù…ÙˆØ¨Ø§ÛŒÙ„
+              <Smartphone size={16} /> ورود با موبایل
             </button>
             <button className={`btn ${mode === "password" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setMode("password")} type="button">
-              <ShieldCheck size={16} /> ÙˆØ±ÙˆØ¯ Ø¨Ø§ Ø±Ù…Ø²
+              <ShieldCheck size={16} /> ورود با رمز
             </button>
           </div>
 
@@ -150,21 +150,21 @@ export default function LoginPage() {
                 <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
                 {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
                 <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
-                <button className="btn-primary h-11 w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "Ø¯Ø± Ø­Ø§Ù„ Ø§Ø±Ø³Ø§Ù„..." : "Ø§Ø±Ø³Ø§Ù„ Ú©Ø¯ ØªØ§ÛŒÛŒØ¯"}</button>
-                <p className="text-sm">Ø­Ø³Ø§Ø¨ Ù†Ø¯Ø§Ø±ÛŒØ¯ØŸ <Link className="auth-switch-link" href="/register">Ø«Ø¨Øªâ€ŒÙ†Ø§Ù…</Link></p>
+                <button className="btn-primary h-11 w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
+                <p className="text-sm">حساب ندارید؟ <Link className="auth-switch-link" href="/register">ثبت‌نام</Link></p>
               </form>
             ) : (
               <form onSubmit={verifyOtp} className="space-y-4">
                 <input type="hidden" {...verifyForm.register("phone")} />
                 <div className="rounded-xl border border-cyan-700/60 bg-cyan-500/10 p-3 text-xs text-cyan-200">
-                  Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø¨Ø±Ø§ÛŒ Ø´Ù…Ø§Ø±Ù‡ <span dir="ltr" className="font-bold">{otpPhone}</span> Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.
+                  کد تایید برای شماره <span dir="ltr" className="font-bold">{otpPhone}</span> ارسال شد.
                 </div>
-                <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="Ú©Ø¯ Û¶ Ø±Ù‚Ù…ÛŒ" dir="ltr" {...verifyForm.register("code")} />
+                <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
                 {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
                 <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <button type="button" className="auth-switch-link disabled:opacity-50" disabled={resendCooldown > 0} onClick={resendOtp}>
-                    {resendCooldown > 0 ? `Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯ ØªØ§ ${resendCooldown} Ø«Ø§Ù†ÛŒÙ‡` : "Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯ Ú©Ø¯"}
+                    {resendCooldown > 0 ? `ارسال مجدد تا ${resendCooldown} ثانیه` : "ارسال مجدد کد"}
                   </button>
                   <button
                     type="button"
@@ -174,26 +174,26 @@ export default function LoginPage() {
                       verifyForm.setValue("code", "");
                     }}
                   >
-                    ØªØºÛŒÛŒØ± Ø´Ù…Ø§Ø±Ù‡ Ù…ÙˆØ¨Ø§ÛŒÙ„
+                    تغییر شماره موبایل
                   </button>
                 </div>
-                <button className="btn-primary h-11 w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "Ø¯Ø± Ø­Ø§Ù„ Ø¨Ø±Ø±Ø³ÛŒ..." : "ÙˆØ±ÙˆØ¯"}</button>
-                <p className="text-sm">Ø­Ø³Ø§Ø¨ Ù†Ø¯Ø§Ø±ÛŒØ¯ØŸ <Link className="auth-switch-link" href="/register">Ø«Ø¨Øªâ€ŒÙ†Ø§Ù…</Link></p>
+                <button className="btn-primary h-11 w-full" disabled={verifyForm.formState.isSubmitting}>{verifyForm.formState.isSubmitting ? "در حال بررسی..." : "ورود"}</button>
+                <p className="text-sm">حساب ندارید؟ <Link className="auth-switch-link" href="/register">ثبت‌نام</Link></p>
               </form>
             )
           ) : (
             <form onSubmit={loginWithPassword} className="space-y-4">
-              <input className="input h-11" placeholder="Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒØ§ Ø´Ù…Ø§Ø±Ù‡ Ù…ÙˆØ¨Ø§ÛŒÙ„" dir="rtl" {...passwordForm.register("identifier")} />
+              <input className="input h-11" placeholder="نام کاربری یا شماره موبایل" dir="rtl" {...passwordForm.register("identifier")} />
               {passwordForm.formState.errors.identifier && <p className="text-xs text-rose-400">{passwordForm.formState.errors.identifier.message}</p>}
               <div className="relative">
-                <input className="input h-11 ps-10" type={showPassword ? "text" : "password"} placeholder="Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±" {...passwordForm.register("password")} />
+                <input className="input h-11 ps-10" type={showPassword ? "text" : "password"} placeholder="رمز عبور" {...passwordForm.register("password")} />
                 <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowPassword((p) => !p)}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               {passwordForm.formState.errors.password && <p className="text-xs text-rose-400">{passwordForm.formState.errors.password.message}</p>}
-              <button className="btn-primary h-11 w-full" disabled={passwordForm.formState.isSubmitting}>{passwordForm.formState.isSubmitting ? "Ø¯Ø± Ø­Ø§Ù„ ÙˆØ±ÙˆØ¯..." : "ÙˆØ±ÙˆØ¯"}</button>
-              <p className="text-sm">Ø­Ø³Ø§Ø¨ Ù†Ø¯Ø§Ø±ÛŒØ¯ØŸ <Link className="auth-switch-link" href="/register">Ø«Ø¨Øªâ€ŒÙ†Ø§Ù…</Link></p>
+              <button className="btn-primary h-11 w-full" disabled={passwordForm.formState.isSubmitting}>{passwordForm.formState.isSubmitting ? "در حال ورود..." : "ورود"}</button>
+              <p className="text-sm">حساب ندارید؟ <Link className="auth-switch-link" href="/register">ثبت‌نام</Link></p>
             </form>
           )}
         </div>
@@ -201,4 +201,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
