@@ -61,7 +61,7 @@ export default function Home() {
             </div>
             <div className="flex items-start gap-2 rounded-xl bg-slate-500/10 p-3">
               <ShieldCheck size={16} className="mt-0.5 shrink-0" />
-              <p>ورود امن با OTP یا رمز عبور و مدیریت ساده حساب کاربری.</p>
+              <p>ورود امن با OTP یا رمز عبور و مدیریت حساب کاربری.</p>
             </div>
           </div>
         </aside>
