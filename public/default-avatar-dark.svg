@@ -14,6 +14,7 @@
   <g clip-path="url(#clipCircle)">
     <circle cx="128" cy="128" r="128" fill="url(#bg)"/>
     <circle cx="128" cy="98" r="38" fill="url(#face)"/>
-    <path d="M30 236C38 188 76 158 128 158C180 158 218 188 226 236H30Z" fill="#E7D9C5"/>
+    <path d="M6 274C16 188 70 154 128 154C186 154 240 188 250 274H6Z" fill="#E7D9C5"/>
   </g>
 </svg>
+

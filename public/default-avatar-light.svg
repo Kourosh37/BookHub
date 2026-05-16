@@ -1,12 +1,12 @@
 ﻿<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="36" y1="24" x2="220" y2="232" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6F7D68"/>
-      <stop offset="1" stop-color="#4F5A49"/>
+    <linearGradient id="bg" x1="40" y1="28" x2="214" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4A66EA"/>
+      <stop offset="1" stop-color="#2F4DE0"/>
     </linearGradient>
     <linearGradient id="face" x1="92" y1="74" x2="164" y2="154" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F2E8D9"/>
-      <stop offset="1" stop-color="#DECFBA"/>
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#ECF1FF"/>
     </linearGradient>
     <clipPath id="clipCircle"><circle cx="128" cy="128" r="128"/></clipPath>
   </defs>
@@ -14,6 +14,6 @@
   <g clip-path="url(#clipCircle)">
     <circle cx="128" cy="128" r="128" fill="url(#bg)"/>
     <circle cx="128" cy="98" r="38" fill="url(#face)"/>
-    <path d="M30 236C38 188 76 158 128 158C180 158 218 188 226 236H30Z" fill="#E7D9C5"/>
+    <path d="M6 274C16 188 70 154 128 154C186 154 240 188 250 274H6Z" fill="#EEF3FF"/>
   </g>
 </svg>

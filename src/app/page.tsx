@@ -1,7 +1,7 @@
-import Image from "next/image";
-import Link from "next/link";
+﻿import Link from "next/link";
 import { CalendarDays, Clock3, Link2, ShieldCheck } from "lucide-react";
 import { PublicHeader } from "@/components/public-header";
+import { ThemeLogo } from "@/components/theme-logo";
 
 export default function Home() {
   return (
@@ -10,14 +10,7 @@ export default function Home() {
       <div className="grid gap-5 lg:grid-cols-3">
         <section className="card p-7 sm:p-8 lg:col-span-2">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <Image
-              src="/logo.svg"
-              alt="لوگوی بوک هاب"
-              width={120}
-              height={120}
-              className="h-20 w-20 shrink-0 rounded-2xl object-contain sm:h-24 sm:w-24"
-              priority
-            />
+            <ThemeLogo size={120} className="h-20 w-20 shrink-0 rounded-2xl object-contain sm:h-24 sm:w-24" priority />
             <div className="space-y-3">
               <h1 className="text-3xl font-extrabold sm:text-4xl">بوک هاب</h1>
               <p className="text-base text-slate-400 sm:text-lg">

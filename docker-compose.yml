@@ -63,21 +63,10 @@ services:
       - appmeta:/app/.runtime
       - appuploads:/app/public/uploads
 
-  test:
-    build:
-      context: .
-    profiles: ["test"]
-    depends_on:
-      app:
-        condition: service_started
-    env_file:
-      - .env
-    environment:
-      E2E_BASE_URL: http://app:3000
-    command: ["sh", "-lc", "npm run test:unit && npm run test:e2e"]
-
 volumes:
   pgdata:
   appmeta:
   appuploads:
   redisdata:
+
+

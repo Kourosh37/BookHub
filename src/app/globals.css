@@ -22,17 +22,17 @@
 
 html[data-theme="light"] {
   color-scheme: light;
-  --bg: #f3f4f8;
-  --text: #1f2430;
-  --card-bg: #edf1fb;
-  --card-border: rgba(31, 36, 48, 0.2);
-  --input-bg: #e3e9f8;
-  --input-border: rgba(31, 36, 48, 0.24);
-  --muted-text: #667085;
-  --btn-primary-bg: #3f5efb;
+  --bg: #eef2fb;
+  --text: #171c28;
+  --card-bg: #f7f9ff;
+  --card-border: rgba(23, 28, 40, 0.26);
+  --input-bg: #ffffff;
+  --input-border: rgba(23, 28, 40, 0.3);
+  --muted-text: #4f5f78;
+  --btn-primary-bg: #2f4de0;
   --btn-primary-text: #f8faff;
-  --focus-ring: rgba(63, 94, 251, 0.35);
-  --link-text: #2f4de0;
+  --focus-ring: rgba(47, 77, 224, 0.44);
+  --link-text: #2742c8;
   --danger-bg: #ffecec;
   --danger-text: #8a1f2d;
   --danger-border: #d14b5a;
@@ -124,22 +124,26 @@ body {
 }
 
 html[data-theme="light"] .card {
-  border-color: transparent;
-  box-shadow: 0 10px 30px rgba(20, 26, 38, 0.06);
+  border-color: color-mix(in srgb, var(--card-border) 80%, transparent);
+  box-shadow:
+    0 12px 28px rgba(20, 26, 38, 0.08),
+    inset 0 0 0 1px color-mix(in srgb, var(--card-border) 24%, transparent);
 }
 
 html[data-theme="light"] .btn-ghost {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--card-bg) 72%, #e9ecf5);
-  box-shadow: 0 1px 0 rgba(31, 36, 48, 0.05);
+  border-color: color-mix(in srgb, var(--input-border) 76%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 72%, #edf2ff);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--card-border) 28%, transparent),
+    0 1px 0 rgba(31, 36, 48, 0.06);
 }
 
 html[data-theme="light"] .btn-ghost:hover {
-  background: color-mix(in srgb, var(--card-bg) 62%, #dee5f5);
+  background: color-mix(in srgb, var(--card-bg) 58%, #dde6ff);
 }
 
 html[data-theme="light"] .input {
-  border-color: rgba(31, 36, 48, 0.07);
+  border-color: color-mix(in srgb, var(--input-border) 82%, transparent);
 }
 
 input[type="password"]::-ms-reveal,
