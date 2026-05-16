@@ -143,15 +143,45 @@ input[type="password"]::-ms-clear {
   color: var(--danger-text);
 }
 
+.auth-switch-link {
+  color: var(--link-text);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.auth-switch-link:hover {
+  text-decoration: underline;
+}
+
 .icon-danger {
   color: var(--danger-border);
 }
 
 .theme-toggle svg {
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px;
-  min-height: 28px;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.auth-shell {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--btn-primary-bg) 28%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 90% 110%, color-mix(in srgb, var(--btn-primary-bg) 20%, transparent), transparent 60%),
+    var(--bg);
+}
+
+.auth-panel {
+  border: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+}
+
+.time-input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  direction: ltr;
+  text-align: left;
 }
 
 .dropdown-panel {

@@ -101,6 +101,8 @@ function normalizePreviewUrl(src?: string | null) {
   return src;
 }
 
+const DEFAULT_AVATAR_PREVIEW = "/default-avatar.svg";
+
 export default function DashboardPage() {
   const queryClient = useQueryClient();
   const tab = useUIStore((s) => s.dashboardTab);
@@ -135,6 +137,11 @@ export default function DashboardPage() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  function openAvatarPreview(src: string | null | undefined, name: string) {
+    const url = normalizePreviewUrl(src) || DEFAULT_AVATAR_PREVIEW;
+    setAvatarPreview({ url, name });
+  }
 
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -378,18 +385,14 @@ export default function DashboardPage() {
             alt="avatar"
             sizeClassName="h-10 w-10"
             iconSize={16}
-            onClick={() => {
-              const url = normalizePreviewUrl(user?.avatarUrl);
-              if (!url) return;
-              setAvatarPreview({ url, name: user.username || user.phone || "کاربر" });
-            }}
+            onClick={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
           />
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
-            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "..."}</p>
+            <p className="mt-1 text-sm text-slate-400">مدیریت زمان‌بندی، رزروها و پروفایل</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost theme-toggle h-11 w-11 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost theme-toggle h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
             </button>
             <button onClick={logout} className="btn-ghost h-10 px-3" aria-label="خروج" title="خروج">
@@ -503,16 +506,16 @@ export default function DashboardPage() {
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
-                      <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                      <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">شروع</label>
-                          <input className="input min-w-0" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
+                          <input className="input time-input min-w-0" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
                         </div>
                         <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">پایان</label>
-                          <input className="input min-w-0" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
+                          <input className="input time-input min-w-0" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
                         </div>
-                        <button type="button" className="btn-ghost w-full sm:w-auto sm:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
+                        <button type="button" className="btn-ghost w-full md:w-auto md:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
                       </div>
                     ))}
                   </div>
@@ -716,11 +719,7 @@ export default function DashboardPage() {
                     alt="booker avatar"
                     sizeClassName="h-8 w-8"
                     iconSize={14}
-                    onClick={() => {
-                      const url = normalizePreviewUrl(b.bookedByUser?.avatarUrl);
-                      if (!url) return;
-                      setAvatarPreview({ url, name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر" });
-                    }}
+                    onClick={() => openAvatarPreview(b.bookedByUser?.avatarUrl, b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر")}
                   />
                   <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
                 </div>
@@ -769,11 +768,7 @@ export default function DashboardPage() {
                     alt="host avatar"
                     sizeClassName="h-8 w-8"
                     iconSize={14}
-                    onClick={() => {
-                      const url = normalizePreviewUrl(s.schedule?.user?.avatarUrl);
-                      if (!url) return;
-                      setAvatarPreview({ url, name: s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده" });
-                    }}
+                    onClick={() => openAvatarPreview(s.schedule?.user?.avatarUrl, s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده")}
                   />
                   <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
                 </div>
@@ -871,7 +866,7 @@ export default function DashboardPage() {
               {requestingPasswordOtp ? "در حال ارسال..." : "ارسال کد تایید"}
             </button>
             <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
-            <input className="input" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
+            <input className="input" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
             <div className="relative">
               <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
               <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowNewPassword((p) => !p)}>

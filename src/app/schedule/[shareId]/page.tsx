@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DatePicker from "react-multi-date-picker";
@@ -12,6 +12,7 @@ import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
 import { UserAvatar } from "@/components/user-avatar";
 import Image from "next/image";
+import { PublicHeader } from "@/components/public-header";
 
 function toEnglishDigits(value: string) {
   return value
@@ -29,6 +30,29 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!res.ok) {
+          const next = `/schedule/${params.shareId}`;
+          window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (active) setAuthChecked(true);
+      } catch {
+        const next = `/schedule/${params.shareId}`;
+        window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+      }
+    }
+    void checkAuth();
+    return () => {
+      active = false;
+    };
+  }, [params.shareId]);
 
   const scheduleQuery = useQuery({
     queryKey: ["schedule", "public", params.shareId],
@@ -104,8 +128,17 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     );
   }
 
+  if (!authChecked) {
+    return (
+      <main className="mx-auto max-w-4xl p-4 md:p-6">
+        <PublicHeader compact />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-4xl p-4 md:p-6">
+      <PublicHeader compact />
       <div className="card space-y-5 p-4 md:p-6">
         <div className="flex justify-end">
           <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
