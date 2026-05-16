@@ -142,7 +142,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     <main className="page-shell py-4 md:py-6">
       <PublicHeader compact />
       <div className="card space-y-5 p-4 md:p-6">
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
         </div>
         <div className="flex items-center gap-3">

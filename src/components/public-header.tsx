@@ -6,10 +6,9 @@ import { useUIStore } from "@/store/ui-store";
 
 type PublicHeaderProps = {
   compact?: boolean;
-  mobileLayout?: boolean;
 };
 
-export function PublicHeader({ compact = false, mobileLayout = false }: PublicHeaderProps) {
+export function PublicHeader({ compact = false }: PublicHeaderProps) {
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
 
