@@ -66,6 +66,8 @@ fi
 if [ "${DB_RESET_ON_SCHEMA_CHANGE:-true}" = "true" ] && [ "$CURRENT_SCHEMA_HASH" != "$PREV_SCHEMA_HASH" ]; then
   echo "[entrypoint] prisma schema changed, resetting database..."
   retry_prisma_cmd "$PRISMA_BIN migrate reset --force --skip-seed"
+  # In migration-less setups, reset leaves DB empty; push schema so tables are created.
+  retry_prisma_cmd "$PRISMA_BIN db push --accept-data-loss"
   echo "$CURRENT_SCHEMA_HASH" > "$SCHEMA_HASH_FILE"
 else
   retry_prisma_cmd "$PRISMA_BIN db push --accept-data-loss"
