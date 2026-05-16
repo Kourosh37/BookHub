@@ -37,12 +37,12 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
   const templateIdRaw = process.env.SMS_TEMPLATE_ID;
 
   if (!apiKey || !templateIdRaw) {
-    throw new Error("SMS provider configuration is missing");
+    throw new Error("تنظیمات سرویس پیامک ناقص است");
   }
 
   const templateId = Number(templateIdRaw);
   if (Number.isNaN(templateId)) {
-    throw new Error("SMS_TEMPLATE_ID is invalid");
+    throw new Error("شناسه قالب پیامک نامعتبر است");
   }
 
   const body: SmsIrVerifyPayload = {
@@ -67,12 +67,12 @@ export async function sendOtpSms(payload: SmsOtpPayload) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`SMS request failed: ${res.status} ${text}`);
+    throw new Error(`ارسال پیامک ناموفق بود: ${res.status} ${text}`);
   }
 
   const responseJson = (await res.json()) as SmsIrVerifyResponse;
   if (responseJson.status !== 1) {
-    throw new Error(`SMS provider rejected request: ${responseJson.message || "unknown error"}`);
+    throw new Error(`سرویس پیامک درخواست را رد کرد: ${responseJson.message || "خطای نامشخص"}`);
   }
 
   return {

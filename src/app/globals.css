@@ -6,9 +6,9 @@
   color-scheme: dark;
   --bg: #181c14;
   --text: #ecdfcc;
-  --card-bg: #3c3d37;
+  --card-bg: #46483f;
   --card-border: #697565;
-  --input-bg: #3c3d37;
+  --input-bg: #505349;
   --input-border: #697565;
   --muted-text: #c9bba7;
   --btn-primary-bg: #697565;
@@ -24,9 +24,9 @@ html[data-theme="light"] {
   color-scheme: light;
   --bg: #f3f4f8;
   --text: #1f2430;
-  --card-bg: #fcfdff;
+  --card-bg: #eef1f8;
   --card-border: rgba(31, 36, 48, 0.08);
-  --input-bg: #f7f8fc;
+  --input-bg: #e7ebf5;
   --input-border: rgba(31, 36, 48, 0.1);
   --muted-text: #667085;
   --btn-primary-bg: #3f5efb;
@@ -58,10 +58,18 @@ html .text-cyan-500 {
 
 html .bg-cyan-500 {
   background: var(--btn-primary-bg) !important;
+  color: var(--btn-primary-text) !important;
 }
 
 html .hover\:bg-cyan-400:hover {
   background: var(--btn-primary-bg) !important;
+  color: var(--btn-primary-text) !important;
+}
+
+html .bg-cyan-500 svg,
+html .hover\:bg-cyan-400:hover svg {
+  color: inherit !important;
+  stroke: currentColor;
 }
 
 html .border-cyan-700,
@@ -85,15 +93,28 @@ body {
   color: var(--text);
 }
 
+.page-shell {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+
+@media (min-width: 768px) {
+  .page-shell {
+    padding-inline: 24px;
+  }
+}
+
 .card {
   @apply rounded-2xl shadow-xl backdrop-blur;
-  border: 1px solid var(--card-border);
+  border: none;
   background: var(--card-bg);
 }
 
 .input {
   @apply w-full rounded-xl px-3 py-2 placeholder:text-slate-500 focus:outline-none focus:ring-2;
-  border: 1px solid var(--input-border);
+  border: none;
   background: var(--input-bg);
   color: var(--text);
   --tw-ring-color: var(--focus-ring);
@@ -107,6 +128,11 @@ html[data-theme="light"] .card {
 html[data-theme="light"] .btn-ghost {
   border-color: transparent;
   background: color-mix(in srgb, var(--card-bg) 72%, #e9ecf5);
+  box-shadow: 0 1px 0 rgba(31, 36, 48, 0.05);
+}
+
+html[data-theme="light"] .btn-ghost:hover {
+  background: color-mix(in srgb, var(--card-bg) 62%, #dee5f5);
 }
 
 html[data-theme="light"] .input {
@@ -132,13 +158,18 @@ input[type="password"]::-ms-clear {
 
 .btn-ghost {
   @apply btn;
-  border: 1px solid var(--input-border);
+  border: none;
   background: var(--input-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 35%, transparent);
+}
+
+.btn-ghost:hover {
+  background: color-mix(in srgb, var(--input-bg) 82%, var(--card-border));
 }
 
 .btn-danger {
   @apply btn;
-  border: 1px solid var(--danger-border);
+  border: none;
   background: var(--danger-bg);
   color: var(--danger-text);
 }
@@ -164,6 +195,11 @@ input[type="password"]::-ms-clear {
   min-height: 18px;
 }
 
+.header-action-btn {
+  height: 40px;
+  min-height: 40px;
+}
+
 .auth-shell {
   background:
     radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--btn-primary-bg) 28%, transparent), transparent 60%),
@@ -172,7 +208,7 @@ input[type="password"]::-ms-clear {
 }
 
 .auth-panel {
-  border: 1px solid var(--card-border);
+  border: none;
   background: color-mix(in srgb, var(--card-bg) 92%, transparent);
 }
 
@@ -185,12 +221,12 @@ input[type="password"]::-ms-clear {
 }
 
 .dropdown-panel {
-  border: 1px solid var(--card-border);
+  border: none;
   background: var(--card-bg);
 }
 
 .dropdown-trigger {
-  border: 1px solid var(--input-border);
+  border: none;
   background: var(--input-bg);
   color: var(--text);
 }
@@ -222,6 +258,11 @@ html[data-theme="light"] .dropdown-trigger {
   border-color: transparent;
   background: color-mix(in srgb, var(--card-bg) 65%, #e9ecf5);
   color: var(--text);
+}
+
+html .border,
+html [class*="border-"] {
+  border-color: transparent !important;
 }
 
 html[data-theme="light"] .dropdown-option:hover {

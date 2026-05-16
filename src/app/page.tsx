@@ -4,16 +4,16 @@ import { PublicHeader } from "@/components/public-header";
 
 export default function Home() {
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <PublicHeader />
+    <main className="page-shell py-6">
+      <PublicHeader compact />
       <div className="grid gap-5 md:grid-cols-3">
         <div className="card p-8 text-center md:col-span-2">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="لوگوی بوک هاب"
             width={120}
             height={120}
-            className="mx-auto mb-4 h-24 w-24 rounded-2xl object-cover"
+            className="mx-auto mb-4 h-24 w-24 object-contain"
             priority
           />
           <h1 className="text-3xl font-bold">بوک هاب</h1>

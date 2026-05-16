@@ -12,9 +12,9 @@ export const metadata = {
   title: "بوک هاب",
   description: "سامانه فارسی رزرو زمان",
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
   },
 };
 

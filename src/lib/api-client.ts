@@ -16,8 +16,8 @@ export async function apiFetch<TSchema extends z.ZodTypeAny>(
   if (!res.ok) {
     const parsedError = apiErrorSchema.safeParse(json);
     const message = parsedError.success
-      ? parsedError.data.details || parsedError.data.error || "Request failed"
-      : "Request failed";
+      ? parsedError.data.details || parsedError.data.error || "درخواست ناموفق بود"
+      : "درخواست ناموفق بود";
     throw new Error(message);
   }
 
@@ -34,4 +34,3 @@ export const authMeResponseSchema = z.object({
 });
 
 export const simpleOkSchema = z.object({ ok: z.boolean().optional() }).passthrough();
-

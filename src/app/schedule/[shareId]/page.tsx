@@ -130,14 +130,14 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
   if (!authChecked) {
     return (
-      <main className="mx-auto max-w-4xl p-4 md:p-6">
+      <main className="page-shell py-4 md:py-6">
         <PublicHeader compact />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-4xl p-4 md:p-6">
+    <main className="page-shell py-4 md:py-6">
       <PublicHeader compact />
       <div className="card space-y-5 p-4 md:p-6">
         <div className="flex justify-end">

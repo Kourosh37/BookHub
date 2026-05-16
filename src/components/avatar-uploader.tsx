@@ -21,6 +21,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Prop
   const [natural, setNatural] = useState({ w: 0, h: 0 });
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -139,7 +140,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Prop
           انتخاب عکس
           <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
         </label>
-        <button type="button" className="btn-ghost" onClick={removeAvatar} disabled={removing || !currentAvatarUrl}>
+        <button type="button" className="btn-danger" onClick={() => setConfirmRemoveOpen(true)} disabled={removing || !currentAvatarUrl}>
           {removing ? "در حال حذف..." : "حذف عکس"}
         </button>
       </div>
@@ -192,6 +193,29 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Prop
               <button type="button" className="btn-ghost" disabled={uploading} onClick={() => setSourceUrl(null)}>انصراف</button>
               <button type="button" className="btn-primary" disabled={uploading} onClick={uploadCropped}>
                 {uploading ? "در حال آپلود..." : "ذخیره عکس"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmRemoveOpen && (
+        <div className="fixed inset-0 z-[71] grid place-items-center bg-slate-950/80 p-4">
+          <div className="card w-full max-w-md p-4">
+            <h3 className="text-lg font-bold">تأیید حذف عکس پروفایل</h3>
+            <p className="mt-2 text-sm text-slate-300">مطمئن هستید که می‌خواهید عکس پروفایل را حذف کنید؟</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setConfirmRemoveOpen(false)} disabled={removing}>انصراف</button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={async () => {
+                  await removeAvatar();
+                  setConfirmRemoveOpen(false);
+                }}
+                disabled={removing}
+              >
+                {removing ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
           </div>

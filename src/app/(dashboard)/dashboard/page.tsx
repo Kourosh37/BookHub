@@ -130,6 +130,7 @@ export default function DashboardPage() {
   const [profileUsername, setProfileUsername] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
+  const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -137,6 +138,14 @@ export default function DashboardPage() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (passwordOtpCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setPasswordOtpCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [passwordOtpCooldown]);
 
   function openAvatarPreview(src: string | null | undefined, name: string) {
     const url = normalizePreviewUrl(src) || DEFAULT_AVATAR_PREVIEW;
@@ -377,7 +386,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 overflow-x-hidden p-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+    <main className="page-shell w-full space-y-6 overflow-x-hidden py-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:py-6 md:pb-6">
       <div className="card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
           <UserAvatar
@@ -389,13 +398,13 @@ export default function DashboardPage() {
           />
           <div className="min-w-0">
             <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
-            <p className="mt-1 text-sm text-slate-400">مدیریت زمان‌بندی، رزروها و پروفایل</p>
+            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "مدیریت زمان‌بندی، رزروها و پروفایل"}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost theme-toggle h-10 w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
             </button>
-            <button onClick={logout} className="btn-ghost h-10 px-3" aria-label="خروج" title="خروج">
+            <button onClick={logout} className="btn-danger header-action-btn px-3" aria-label="خروج" title="خروج">
               <LogOut size={18} className="icon-danger" />
               <span className="hidden md:inline">خروج</span>
             </button>
@@ -515,7 +524,7 @@ export default function DashboardPage() {
                           <label className="mb-1 block text-xs text-slate-400">پایان</label>
                           <input className="input time-input min-w-0" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
                         </div>
-                        <button type="button" className="btn-ghost w-full md:w-auto md:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} /></button>
+                        <button type="button" className="btn-ghost w-full md:w-auto md:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} className="icon-danger" /></button>
                       </div>
                     ))}
                   </div>
@@ -738,7 +747,7 @@ export default function DashboardPage() {
                 <div className="mt-3">
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="btn-danger"
                     onClick={() => setCancelTarget(b)}
                     aria-label="کنسل رزرو"
                     title="کنسل رزرو"
@@ -850,20 +859,26 @@ export default function DashboardPage() {
               type="button"
               className="btn-ghost"
               onClick={async () => {
-                if (requestingPasswordOtp) return;
+                if (requestingPasswordOtp || passwordOtpCooldown > 0) return;
                 try {
                   setRequestingPasswordOtp(true);
                   const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
                   const data = await res.json();
-                  if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                  if (!res.ok) {
+                    const msg = data.details || data.error || "خطا";
+                    const match = String(msg).match(/(\d+)/);
+                    if (match) setPasswordOtpCooldown(Number(match[1]));
+                    return toast.error(msg);
+                  }
+                  setPasswordOtpCooldown(120);
                   toast.success("کد تایید ارسال شد");
                 } finally {
                   setRequestingPasswordOtp(false);
                 }
               }}
-              disabled={requestingPasswordOtp}
+              disabled={requestingPasswordOtp || passwordOtpCooldown > 0}
             >
-              {requestingPasswordOtp ? "در حال ارسال..." : "ارسال کد تایید"}
+              {requestingPasswordOtp ? "در حال ارسال..." : passwordOtpCooldown > 0 ? `ارسال مجدد تا ${passwordOtpCooldown} ثانیه` : "ارسال کد تایید"}
             </button>
             <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
             <input className="input" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
@@ -899,7 +914,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <button className="btn-ghost" onClick={() => setDeleteAccountOpen(true)}>
+          <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
             حذف حساب کاربری
           </button>
         </section>
@@ -922,7 +937,7 @@ export default function DashboardPage() {
               <button type="button" className="btn-ghost" onClick={() => setCancelTarget(null)} disabled={cancelLoading}>
                 انصراف
               </button>
-              <button type="button" className="btn-ghost" onClick={cancelBooking} disabled={cancelLoading}>
+              <button type="button" className="btn-danger" onClick={cancelBooking} disabled={cancelLoading}>
                 {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
               </button>
             </div>
@@ -949,7 +964,7 @@ export default function DashboardPage() {
               >
                 انصراف
               </button>
-              <button type="button" className="btn-ghost" onClick={deleteSchedule} disabled={deletingSchedule}>
+              <button type="button" className="btn-danger" onClick={deleteSchedule} disabled={deletingSchedule}>
                 {deletingSchedule ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
@@ -1002,7 +1017,7 @@ export default function DashboardPage() {
               <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
               <button
                 type="button"
-                className="btn-ghost"
+                className="btn-danger"
                 onClick={async () => {
                   const res = await fetch("/api/profile", { method: "DELETE" });
                   if (!res.ok) return toast.error("حذف حساب ناموفق بود");

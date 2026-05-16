@@ -126,7 +126,7 @@ export default function LoginPage() {
   });
 
   return (
-    <main className="auth-shell mx-auto min-h-screen max-w-6xl p-4 sm:p-6">
+    <main className="auth-shell page-shell min-h-screen py-4 sm:py-6">
       <PublicHeader compact mobileLayout />
       <section className="mx-auto max-w-2xl">
         <div className="card auth-panel space-y-4 p-5 lg:p-6">

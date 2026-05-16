@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
+    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "نامعتبر"}` }, { status: 400 });
   }
 
   const rawIdentifier = parsed.data.identifier;

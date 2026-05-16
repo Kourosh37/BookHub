@@ -15,7 +15,7 @@ function contentTypeFromFileName(fileName: string) {
 export async function GET(_: Request, { params }: { params: { fileName: string } }) {
   try {
     const safeName = path.basename(params.fileName || "");
-    if (!safeName) return NextResponse.json({ error: "Invalid file name" }, { status: 400 });
+    if (!safeName) return NextResponse.json({ error: "نام فایل نامعتبر است" }, { status: 400 });
 
     const fullPath = path.join(process.cwd(), "public", "uploads", "avatars", safeName);
     const file = await readFile(fullPath);
@@ -28,7 +28,6 @@ export async function GET(_: Request, { params }: { params: { fileName: string }
       },
     });
   } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "فایل یافت نشد" }, { status: 404 });
   }
 }
-

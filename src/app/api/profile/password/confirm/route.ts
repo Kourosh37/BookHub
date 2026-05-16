@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const parsed = changePasswordSchema.safeParse(body);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
-      return NextResponse.json({ error: "داده نامعتبر است", details: issue?.message || "invalid" }, { status: 400 });
+      return NextResponse.json({ error: "داده نامعتبر است", details: issue?.message || "نامعتبر" }, { status: 400 });
     }
 
     const otp = await prisma.otpCode.findFirst({
