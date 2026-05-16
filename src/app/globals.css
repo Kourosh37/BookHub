@@ -124,17 +124,17 @@ body {
 }
 
 html[data-theme="light"] .card {
-  border-color: color-mix(in srgb, var(--card-border) 80%, transparent);
+  border-color: transparent;
   box-shadow:
     0 12px 28px rgba(20, 26, 38, 0.08),
-    inset 0 0 0 1px color-mix(in srgb, var(--card-border) 24%, transparent);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
 }
 
 html[data-theme="light"] .btn-ghost {
-  border-color: color-mix(in srgb, var(--input-border) 76%, transparent);
+  border-color: transparent;
   background: color-mix(in srgb, var(--card-bg) 72%, #edf2ff);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--card-border) 28%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
     0 1px 0 rgba(31, 36, 48, 0.06);
 }
 
@@ -143,7 +143,9 @@ html[data-theme="light"] .btn-ghost:hover {
 }
 
 html[data-theme="light"] .input {
-  border-color: color-mix(in srgb, var(--input-border) 82%, transparent);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--card-bg) 78%, #e9f0ff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.95);
 }
 
 input[type="password"]::-ms-reveal,
@@ -259,6 +261,11 @@ input[type="password"]::-ms-clear {
   color: var(--text);
 }
 
+.surface-block {
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--input-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 24%, transparent);
+}
+
 html[data-theme="light"] .dropdown-panel {
   border-color: transparent;
   box-shadow: 0 14px 36px rgba(20, 26, 38, 0.12);
@@ -266,8 +273,9 @@ html[data-theme="light"] .dropdown-panel {
 
 html[data-theme="light"] .dropdown-trigger {
   border-color: transparent;
-  background: color-mix(in srgb, var(--card-bg) 65%, #e9ecf5);
+  background: color-mix(in srgb, var(--card-bg) 60%, #e3ebff);
   color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.92);
 }
 
 html[data-theme="light"] .dropdown-option:hover {
@@ -277,4 +285,9 @@ html[data-theme="light"] .dropdown-option:hover {
 html[data-theme="light"] .dropdown-option-active {
   background: color-mix(in srgb, var(--btn-primary-bg) 16%, var(--card-bg));
   color: var(--text);
+}
+
+html[data-theme="light"] .surface-block {
+  background: color-mix(in srgb, var(--card-bg) 64%, #dde7ff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.92);
 }

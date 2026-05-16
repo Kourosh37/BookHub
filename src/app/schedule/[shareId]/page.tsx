@@ -13,6 +13,7 @@ import Link from "next/link";
 import { UserAvatar } from "@/components/user-avatar";
 import Image from "next/image";
 import { PublicHeader } from "@/components/public-header";
+import { useUIStore } from "@/store/ui-store";
 
 function toEnglishDigits(value: string) {
   return value
@@ -27,6 +28,7 @@ function toGregorianYmd(dateObj: any) {
 
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
   const queryClient = useQueryClient();
+  const theme = useUIStore((s) => s.theme);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
@@ -94,7 +96,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
   const previewAvatarUrl = useMemo(() => {
     const src = schedule?.user?.avatarUrl;
-    if (!src) return "";
+    if (!src) return theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg";
     if (src.startsWith("/")) return src;
     try {
       const url = new URL(src);
@@ -103,7 +105,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
       }
     } catch {}
     return src;
-  }, [schedule?.user?.avatarUrl]);
+  }, [schedule?.user?.avatarUrl, theme]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -144,7 +146,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
         </div>
         <div className="flex items-center gap-3">
-          <UserAvatar src={schedule?.user?.avatarUrl} alt="host avatar" sizeClassName="h-12 w-12" iconSize={18} onClick={() => previewAvatarUrl && setAvatarPreviewOpen(true)} />
+          <UserAvatar src={schedule?.user?.avatarUrl} alt="host avatar" sizeClassName="h-12 w-12" iconSize={18} onClick={() => setAvatarPreviewOpen(true)} />
           <div className="text-sm text-slate-400">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</div>
         </div>
         <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
@@ -182,13 +184,13 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           <div>
             <p className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Clock3 size={16} /> بازه‌های آزاد</p>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {slots.length === 0 && <div className="col-span-full rounded-xl border border-slate-800 p-3 text-sm text-slate-400">برای این روز، بازه آزادی باقی نمانده است.</div>}
+              {slots.length === 0 && <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">برای این روز، بازه آزادی باقی نمانده است.</div>}
               {slots.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => setSelectedSlot(s.id)}
-                  className={`btn border border-slate-700 ${selectedSlot === s.id ? "bg-cyan-500 text-slate-950" : "hover:bg-slate-800"}`}
+                  className={`btn ${selectedSlot === s.id ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`}
                 >
                   {new Date(s.startTime).toLocaleTimeString("fa-IR", {
                     hour: "2-digit",
@@ -202,7 +204,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         )}
 
         {selectedSlot && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-800 p-3">
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl surface-block p-3">
             <input className="input" name="name" placeholder="نام شما (اختیاری)" />
             {questions.map((q: any, i: number) =>
               q.type === "textarea" ? (
@@ -217,7 +219,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           </form>
         )}
       </div>
-      {avatarPreviewOpen && previewAvatarUrl && (
+      {avatarPreviewOpen && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreviewOpen(false)}>
           <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-3 text-lg font-bold">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</h3>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -101,7 +101,7 @@ function normalizePreviewUrl(src?: string | null) {
   return src;
 }
 
-const DEFAULT_AVATAR_PREVIEW = "/default-avatar.svg";
+
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -148,7 +148,7 @@ export default function DashboardPage() {
   }, [passwordOtpCooldown]);
 
   function openAvatarPreview(src: string | null | undefined, name: string) {
-    const url = normalizePreviewUrl(src) || DEFAULT_AVATAR_PREVIEW;
+    const url = normalizePreviewUrl(src) || (theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg");
     setAvatarPreview({ url, name });
   }
 
@@ -508,10 +508,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-slate-800 p-3">
+            <div className="space-y-3 rounded-xl surface-block p-3">
               <p className="text-sm text-slate-300">بازه‌های زمانی هر تاریخ</p>
               {dayConfigs.map((d) => (
-                <div key={d.date} className="rounded-xl border border-slate-800 p-3">
+                <div key={d.date} className="rounded-xl surface-block p-3">
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
@@ -534,13 +534,13 @@ export default function DashboardPage() {
               {isInvalidTimeConfig && <p className="text-sm text-rose-300">در بعضی تاریخ‌ها تداخل یا ترتیب نادرست بازه وجود دارد.</p>}
             </div>
 
-            <div className="space-y-2 rounded-xl border border-slate-800 p-3">
+            <div className="space-y-2 rounded-xl surface-block p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">سوالات فرم رزرو</p>
                 <button type="button" className="btn-ghost" onClick={addQuestion} disabled={questions.length >= 5}><Plus size={16} /> افزودن سوال</button>
               </div>
               {questions.map((q, i) => (
-                <div key={i} className="grid gap-2 rounded-lg border border-slate-800 p-2">
+                <div key={i} className="grid gap-2 rounded-lg surface-block p-2">
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -576,7 +576,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs text-slate-400">الزامی بودن</label>
-                      <label className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm">
+                      <label className="flex h-11 items-center gap-2 rounded-xl surface-block px-3 text-sm">
                         <ShieldCheck size={15} className="text-cyan-300" />
                         <input
                           type="checkbox"
@@ -731,7 +731,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {bookings.length === 0 && <div className="text-sm text-slate-400">برای این برنامه رزروی ثبت نشده است.</div>}
             {bookings.map((b) => (
-              <div key={b.id} className="rounded-xl border border-slate-800 p-3">
+              <div key={b.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
@@ -781,7 +781,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {mySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
             {mySessions.map((s) => (
-              <div key={s.id} className="rounded-xl border border-slate-800 p-3">
+              <div key={s.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
                   <UserAvatar
@@ -865,7 +865,7 @@ export default function DashboardPage() {
             }}
           />
 
-          <div className="rounded-xl border border-slate-800 p-3 space-y-2">
+          <div className="rounded-xl surface-block p-3 space-y-2">
             <h3 className="font-medium">تغییر رمز عبور</h3>
             <button
               type="button"
