@@ -43,7 +43,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/bookhub?schema=public}
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/bookhub?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       OTP_SECRET: ${OTP_SECRET:-change-me-too}
@@ -55,7 +55,7 @@ services:
       SMS_SENDER: ${SMS_SENDER:-}
       MAX_PROFILE_IMAGE_MB: ${MAX_PROFILE_IMAGE_MB:-2}
       DB_RESET_ON_SCHEMA_CHANGE: ${DB_RESET_ON_SCHEMA_CHANGE:-true}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: redis://redis:6379
       TZ: ${TZ:-Asia/Tehran}
     ports:
       - "3000:3000"
