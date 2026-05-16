@@ -185,7 +185,7 @@ input[type="password"]::-ms-clear {
 }
 
 .icon-danger {
-  color: var(--danger-border);
+  color: var(--danger-text);
 }
 
 .theme-toggle svg {
