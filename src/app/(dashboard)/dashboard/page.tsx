@@ -541,6 +541,18 @@ export default function DashboardPage() {
               </div>
               {questions.map((q, i) => (
                 <div key={i} className="grid gap-2 rounded-lg border border-slate-800 p-2">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== i))}
+                      aria-label="حذف سوال"
+                      title="حذف سوال"
+                    >
+                      <Trash2 size={14} className="icon-danger" />
+                      <span>حذف سوال</span>
+                    </button>
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">متن سوال</label>
                     <input
