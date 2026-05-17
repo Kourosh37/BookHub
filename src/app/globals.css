@@ -4,20 +4,20 @@
 
 :root {
   color-scheme: dark;
-  --bg: #181c14;
-  --text: #ecdfcc;
-  --card-bg: #3f433a;
-  --card-border: #7f8c79;
-  --input-bg: #4b4f45;
-  --input-border: #8a9883;
-  --muted-text: #c9bba7;
-  --btn-primary-bg: #5f6d59;
-  --btn-primary-text: #ecdfcc;
-  --focus-ring: #697565;
-  --link-text: #ecdfcc;
-  --danger-bg: #6f3a3a;
-  --danger-text: #f6dede;
-  --danger-border: #8f4b4b;
+  --bg: #0b1119;
+  --text: #e8edf5;
+  --card-bg: #121c28;
+  --card-border: #263243;
+  --input-bg: #101a26;
+  --input-border: #2a384b;
+  --muted-text: #a5b3c6;
+  --btn-primary-bg: #1f6feb;
+  --btn-primary-text: #f7fbff;
+  --focus-ring: #3b82f6;
+  --link-text: #7dd3fc;
+  --danger-bg: #2a1215;
+  --danger-text: #fca5a5;
+  --danger-border: #5f1f2a;
 }
 
 html[data-theme="light"] {
