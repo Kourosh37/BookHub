@@ -5,6 +5,7 @@ import { scheduleSchema } from "@/lib/validations";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { randomBytes } from "crypto";
 import { cacheDelByPattern } from "@/lib/cache";
+import { describeConflict, getUserBookingsInRange, rangesOverlap } from "@/lib/time-conflicts";
 
 type Range = { startTime: string; endTime: string };
 
@@ -70,18 +71,6 @@ export async function POST(req: Request) {
       if (err) return NextResponse.json({ error: `${day.date}: ${err}` }, { status: 400 });
     }
 
-    const schedule = await prisma.schedule.create({
-      data: {
-        shareId: createShareId(),
-        userId: session.userId,
-        title: parsed.data.title,
-        questions: parsed.data.questions,
-        daysConfig: normalizedDays,
-        slotDuration: parsed.data.slotDuration,
-        gapMinutes: parsed.data.gapMinutes,
-      },
-    });
-
     const slots: { startTime: Date; endTime: Date }[] = [];
 
     for (const day of normalizedDays) {
@@ -107,6 +96,52 @@ export async function POST(req: Request) {
         }
       }
     }
+
+    if (!slots.length) {
+      return NextResponse.json(
+        {
+          error: "بازه قابل رزرو تولید نشد",
+          details: "بازه‌های واردشده با مدت جلسه سازگار نیست یا خیلی کوتاه است.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (slots.length) {
+      const minStart = new Date(Math.min(...slots.map((s) => s.startTime.getTime())));
+      const maxEnd = new Date(Math.max(...slots.map((s) => s.endTime.getTime())));
+      const existing = await getUserBookingsInRange(session.userId, minStart, maxEnd);
+
+      const conflicting = slots.find((slot) =>
+        existing.some((b) => rangesOverlap(slot.startTime, slot.endTime, b.timeSlot.startTime, b.timeSlot.endTime)),
+      );
+
+      if (conflicting) {
+        const hit = existing.find((b) =>
+          rangesOverlap(conflicting.startTime, conflicting.endTime, b.timeSlot.startTime, b.timeSlot.endTime),
+        );
+
+        return NextResponse.json(
+          {
+            error: "تداخل زمانی با جلسات موجود",
+            details: hit ? `بازه انتخابی با ${describeConflict(hit)} همپوشانی دارد.` : "بازه انتخابی با جلسات موجود همپوشانی دارد.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    const schedule = await prisma.schedule.create({
+      data: {
+        shareId: createShareId(),
+        userId: session.userId,
+        title: parsed.data.title,
+        questions: parsed.data.questions,
+        daysConfig: normalizedDays,
+        slotDuration: parsed.data.slotDuration,
+        gapMinutes: parsed.data.gapMinutes,
+      },
+    });
 
     if (slots.length) {
       await prisma.timeSlot.createMany({

@@ -4,6 +4,7 @@ import { bookingSchema } from "@/lib/validations";
 import { requireSession } from "@/lib/auth";
 import { notifyBookingCreated, scheduleTenMinuteReminderForBooking } from "@/lib/notifications";
 import { cacheDelByPattern } from "@/lib/cache";
+import { describeConflict, getUserBookingsInRange, rangesOverlap } from "@/lib/time-conflicts";
 
 export async function POST(req: Request, { params }: { params: { shareId: string } }) {
   let session;
@@ -23,6 +24,39 @@ export async function POST(req: Request, { params }: { params: { shareId: string
 
   const schedule = await prisma.schedule.findUnique({ where: { shareId: params.shareId }, select: { id: true } });
   if (!schedule) return NextResponse.json({ error: "برنامه پیدا نشد", details: "لینک رزرو معتبر نیست" }, { status: 404 });
+
+  const slot = await prisma.timeSlot.findFirst({
+    where: { id: parsed.data.timeSlotId, scheduleId: schedule.id },
+    select: { id: true, startTime: true, endTime: true, isBooked: true },
+  });
+
+  if (!slot) {
+    return NextResponse.json({ error: "بازه زمانی پیدا نشد", details: "لینک یا بازه انتخابی معتبر نیست" }, { status: 404 });
+  }
+
+  const now = new Date();
+  if (slot.endTime <= now || slot.startTime <= now) {
+    return NextResponse.json(
+      { error: "بازه زمانی منقضی شده", details: "امکان رزرو بازه‌های گذشته یا شروع‌شده وجود ندارد" },
+      { status: 400 },
+    );
+  }
+
+  if (slot.isBooked) {
+    return NextResponse.json({ error: "این بازه همین الان رزرو شد", details: "لطفاً یک بازه دیگر انتخاب کنید" }, { status: 409 });
+  }
+
+  const conflicts = await getUserBookingsInRange(session.userId, slot.startTime, slot.endTime);
+  const conflict = conflicts.find((b) => rangesOverlap(slot.startTime, slot.endTime, b.timeSlot.startTime, b.timeSlot.endTime));
+  if (conflict) {
+    return NextResponse.json(
+      {
+        error: "تداخل زمانی با جلسات موجود",
+        details: `این بازه با ${describeConflict(conflict)} همپوشانی دارد.`,
+      },
+      { status: 409 },
+    );
+  }
 
   const existing = await prisma.booking.findFirst({
     where: {

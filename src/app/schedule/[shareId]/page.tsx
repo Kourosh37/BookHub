@@ -33,6 +33,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const [selectedSlot, setSelectedSlot] = useState("");
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [bookingError, setBookingError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -111,6 +112,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const answers = questions.map((_: any, i: number) => String(formData.get(`q-${i}`) || ""));
+    setBookingError("");
 
     bookingMutation.mutate(
       { timeSlotId: selectedSlot, name: formData.get("name"), answers },
@@ -118,6 +120,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         onSuccess: async () => {
           toast.success("رزرو با موفقیت ثبت شد");
           setSelectedSlot("");
+          setBookingError("");
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["schedule", "public", params.shareId] }),
             queryClient.invalidateQueries({
@@ -125,7 +128,11 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
             }),
           ]);
         },
-        onError: (err: any) => toast.error(err?.message || "خطا در رزرو"),
+        onError: (err: any) => {
+          const message = err?.message || "خطا در رزرو";
+          setBookingError(message);
+          toast.error(message);
+        },
       },
     );
   }
@@ -216,6 +223,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
             <button className="btn-primary w-full" disabled={bookingMutation.isPending}>
               <Send size={16} /> {bookingMutation.isPending ? "در حال ثبت..." : "ثبت رزرو"}
             </button>
+            {bookingError && <p className="text-sm text-rose-300">{bookingError}</p>}
           </form>
         )}
       </div>

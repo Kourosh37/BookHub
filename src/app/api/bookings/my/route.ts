@@ -10,10 +10,14 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const scheduleId = url.searchParams.get("scheduleId");
 
+    const now = new Date();
     const bookings = await prisma.booking.findMany({
       where: {
         schedule: {
           userId: session.userId,
+        },
+        timeSlot: {
+          endTime: { gte: now },
         },
         ...(scheduleId ? { scheduleId } : {}),
       },
@@ -30,7 +34,7 @@ export async function GET(req: Request) {
           select: { id: true, username: true, phone: true, avatarUrl: true },
         },
       },
-      orderBy: { bookedAt: "desc" },
+      orderBy: { timeSlot: { startTime: "asc" } },
     });
 
     return NextResponse.json(bookings, {

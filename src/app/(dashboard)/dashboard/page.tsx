@@ -77,6 +77,20 @@ function toMinutes(v: string) {
   return h * 60 + m;
 }
 
+function getRangeLengthMinutes(range: Range) {
+  const start = toMinutes(range.startTime);
+  const end = toMinutes(range.endTime);
+  return end - start;
+}
+
+function estimateSlotCount(range: Range, slotDuration: number, gapMinutes: number) {
+  if (slotDuration <= 0) return 0;
+  const length = getRangeLengthMinutes(range);
+  if (length < slotDuration) return 0;
+  const step = slotDuration + Math.max(0, gapMinutes);
+  return Math.max(1, Math.floor((length - slotDuration) / step) + 1);
+}
+
 function rangesOverlap(ranges: Range[]) {
   const sorted = [...ranges]
     .map((r) => ({ ...r, s: toMinutes(r.startTime), e: toMinutes(r.endTime) }))
@@ -87,6 +101,30 @@ function rangesOverlap(ranges: Range[]) {
     if (i > 0 && sorted[i].s < sorted[i - 1].e) return true;
   }
   return false;
+}
+
+function getRangeIssues(ranges: Range[]) {
+  const issues: Array<string | null> = Array.from({ length: ranges.length }, () => null);
+  const sorted = ranges
+    .map((r, idx) => ({ ...r, idx, s: toMinutes(r.startTime), e: toMinutes(r.endTime) }))
+    .sort((a, b) => a.s - b.s);
+
+  for (const item of sorted) {
+    if (item.e <= item.s) {
+      issues[item.idx] = "زمان پایان باید بعد از زمان شروع باشد.";
+    }
+  }
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    if (cur.s < prev.e) {
+      issues[cur.idx] = issues[cur.idx] || "این بازه با بازه قبلی همپوشانی دارد.";
+      issues[prev.idx] = issues[prev.idx] || "این بازه با بازه بعدی همپوشانی دارد.";
+    }
+  }
+
+  return issues;
 }
 
 function normalizePreviewUrl(src?: string | null) {
@@ -127,6 +165,9 @@ export default function DashboardPage() {
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
   const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
   const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
+  const [createError, setCreateError] = useState("");
+  const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
+  const [gapMinutesValue, setGapMinutesValue] = useState(10);
   const [profileUsername, setProfileUsername] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
@@ -194,25 +235,33 @@ export default function DashboardPage() {
   const bookings = bookingsQuery.data ?? [];
   const mySessions = mySessionsQuery.data ?? [];
 
-  const sortedBookings = useMemo(
-    () =>
-      [...bookings].sort((a, b) => {
-        const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-        const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-        return aTime - bTime;
-      }),
-    [bookings],
-  );
+  const sortedBookings = useMemo(() => {
+    const now = Date.now();
+    const upcoming = bookings.filter((b) => {
+      const end = b?.timeSlot?.endTime || b?.timeSlot?.startTime;
+      if (!end) return true;
+      return new Date(end).getTime() >= now;
+    });
+    return [...upcoming].sort((a, b) => {
+      const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      return aTime - bTime;
+    });
+  }, [bookings]);
 
-  const sortedMySessions = useMemo(
-    () =>
-      [...mySessions].sort((a, b) => {
-        const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-        const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-        return aTime - bTime;
-      }),
-    [mySessions],
-  );
+  const sortedMySessions = useMemo(() => {
+    const now = Date.now();
+    const upcoming = mySessions.filter((s) => {
+      const end = s?.timeSlot?.endTime || s?.timeSlot?.startTime;
+      if (!end) return true;
+      return new Date(end).getTime() >= now;
+    });
+    return [...upcoming].sort((a, b) => {
+      const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      return aTime - bTime;
+    });
+  }, [mySessions]);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -248,6 +297,26 @@ export default function DashboardPage() {
   }, []);
 
   const isInvalidTimeConfig = useMemo(() => dayConfigs.some((d) => rangesOverlap(d.ranges)), [dayConfigs]);
+  const rangeIssuesByDate = useMemo(() => {
+    const map = new Map<string, Array<string | null>>();
+    dayConfigs.forEach((d) => map.set(d.date, getRangeIssues(d.ranges)));
+    return map;
+  }, [dayConfigs]);
+  const slotCountByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    dayConfigs.forEach((d) => {
+      const count = d.ranges.reduce(
+        (sum, r) => sum + estimateSlotCount(r, slotDurationMinutes, gapMinutesValue),
+        0,
+      );
+      map.set(d.date, count);
+    });
+    return map;
+  }, [dayConfigs, slotDurationMinutes, gapMinutesValue]);
+  const totalSlotCount = useMemo(() => {
+    return Array.from(slotCountByDate.values()).reduce((sum, v) => sum + v, 0);
+  }, [slotCountByDate]);
+  const canCreateSchedule = !isInvalidTimeConfig && totalSlotCount > 0;
   const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
   const todayTehranYmd = useMemo(
     () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(new Date()),
@@ -289,10 +358,26 @@ export default function DashboardPage() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
 
-    if (dayConfigs.length === 0) return toast.error("حداقل یک تاریخ انتخاب کنید");
-    if (dayConfigs.some((d) => d.date < todayTehranYmd)) return toast.error("تاریخ برنامه نباید قبل از امروز باشد");
-    if (dayConfigs.some((d) => d.ranges.length === 0)) return toast.error("برای هر تاریخ حداقل یک بازه زمانی لازم است");
-    if (isInvalidTimeConfig) return toast.error("تداخل یا نامعتبر بودن بازه‌های زمانی را اصلاح کنید");
+    if (dayConfigs.length === 0) {
+      const message = "حداقل یک تاریخ انتخاب کنید";
+      setCreateError(message);
+      return toast.error(message);
+    }
+    if (dayConfigs.some((d) => d.date < todayTehranYmd)) {
+      const message = "تاریخ برنامه نباید قبل از امروز باشد";
+      setCreateError(message);
+      return toast.error(message);
+    }
+    if (dayConfigs.some((d) => d.ranges.length === 0)) {
+      const message = "برای هر تاریخ حداقل یک بازه زمانی لازم است";
+      setCreateError(message);
+      return toast.error(message);
+    }
+    if (isInvalidTimeConfig) {
+      const message = "تداخل یا نامعتبر بودن بازه‌های زمانی را اصلاح کنید";
+      setCreateError(message);
+      return toast.error(message);
+    }
 
     const payload = {
       title: String(f.get("title")),
@@ -309,7 +394,11 @@ export default function DashboardPage() {
     });
 
     const data = await res.json();
-    if (!res.ok) return toast.error(data.details || data.error || "خطا");
+    if (!res.ok) {
+      const message = data.details || data.error || "خطا";
+      setCreateError(message);
+      return toast.error(message);
+    }
 
     queryClient.setQueryData(["schedules", "my"], (prev: any) => {
       const prevList = Array.isArray(prev) ? prev : [];
@@ -319,6 +408,7 @@ export default function DashboardPage() {
     });
 
     toast.success("برنامه ساخته شد");
+    setCreateError("");
     setSelectedDates([]);
     setDayConfigs([]);
     setQuestions([]);
@@ -468,6 +558,11 @@ export default function DashboardPage() {
             className={`card space-y-4 p-4 md:p-5 ${showCreateFormMobile ? "block" : "hidden md:block"}`}
           >
             <h2 className="font-bold">ساخت برنامه جدید</h2>
+            {createError && (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+                {createError}
+              </div>
+            )}
 
             <div>
               <label className="mb-2 block text-sm text-slate-300">عنوان برنامه</label>
@@ -520,31 +615,103 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm text-slate-300">مدت هر ارائه (دقیقه)</label>
-                <input className="input" name="slotDuration" type="number" min={5} defaultValue={30} required />
+                <input
+                  className="input"
+                  name="slotDuration"
+                  type="number"
+                  min={5}
+                  defaultValue={30}
+                  onChange={(e) => setSlotDurationMinutes(Number(e.target.value) || 0)}
+                  required
+                />
               </div>
               <div>
                 <label className="mb-2 block text-sm text-slate-300">فاصله بین ارائه‌ها (دقیقه)</label>
-                <input className="input" name="gapMinutes" type="number" min={0} defaultValue={10} required />
+                <input
+                  className="input"
+                  name="gapMinutes"
+                  type="number"
+                  min={0}
+                  defaultValue={10}
+                  onChange={(e) => setGapMinutesValue(Number(e.target.value) || 0)}
+                  required
+                />
               </div>
             </div>
 
             <div className="space-y-3 rounded-xl surface-block p-3">
               <p className="text-sm text-slate-300">بازه‌های زمانی هر تاریخ</p>
+              <p className="text-xs text-slate-400">هر بازه باید حداقل به اندازه مدت جلسه باشد تا اسلات تولید شود.</p>
+              <p className="text-xs text-slate-400">فاصله بین ارائه‌ها باید عددی غیرمنفی باشد؛ اگر خیلی بزرگ باشد ممکن است تنها یک اسلات بسازد.</p>
+              <p className="text-xs text-slate-400">جمع کل اسلات‌های قابل تولید: {totalSlotCount}</p>
+              {totalSlotCount === 0 && (
+                <p className="text-xs text-rose-300">هیچ اسلاتی تولید نمی‌شود. بازه‌ها یا مدت جلسه را اصلاح کنید.</p>
+              )}
+              {totalSlotCount > 0 && totalSlotCount < 3 && (
+                <p className="text-xs text-amber-200">اسلات‌های کمی تولید می‌شوند؛ ممکن است نیاز به بازه بیشتر داشته باشید.</p>
+              )}
+              {!canCreateSchedule && (
+                <p className="text-xs text-rose-300">تا زمان اصلاح بازه‌ها امکان ساخت برنامه وجود ندارد.</p>
+              )}
               {dayConfigs.map((d) => (
                 <div key={d.date} className="rounded-xl surface-block p-3">
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    {rangeIssuesByDate.get(d.date)?.some(Boolean) ? (
+                      <p className="text-xs text-rose-300">حداقل یکی از بازه‌های این تاریخ مشکل دارد.</p>
+                    ) : (
+                      <span className="text-xs text-slate-400">اسلات قابل تولید: {slotCountByDate.get(d.date) ?? 0}</span>
+                    )}
+                    <span className="text-xs text-slate-400">اسلات قابل تولید: {slotCountByDate.get(d.date) ?? 0}</span>
+                  </div>
+                  {(slotCountByDate.get(d.date) ?? 0) === 0 && (
+                    <p className="mb-2 text-xs text-rose-300">برای این تاریخ اسلاتی تولید نمی‌شود.</p>
+                  )}
+                  {(slotCountByDate.get(d.date) ?? 0) > 0 && (slotCountByDate.get(d.date) ?? 0) < 2 && (
+                    <p className="mb-2 text-xs text-amber-200">فقط یک اسلات برای این تاریخ ساخته می‌شود.</p>
+                  )}
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
                       <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="md:col-span-3 text-xs text-slate-400">
+                          طول بازه: {getRangeLengthMinutes(r)} دقیقه
+                          {slotDurationMinutes > 0 && (
+                            <span className="text-slate-400"> · تعداد اسلات: {estimateSlotCount(r, slotDurationMinutes, gapMinutesValue)}</span>
+                          )}
+                          {slotDurationMinutes > 0 && getRangeLengthMinutes(r) < slotDurationMinutes && (
+                            <span className="text-rose-300"> · کوتاه‌تر از مدت جلسه است</span>
+                          )}
+                          {slotDurationMinutes > 0 && getRangeLengthMinutes(r) === slotDurationMinutes && (
+                            <span className="text-amber-200"> · فقط یک جلسه جا می‌شود</span>
+                          )}
+                          {gapMinutesValue > 0 && getRangeLengthMinutes(r) <= slotDurationMinutes + gapMinutesValue && (
+                            <span className="text-amber-200"> · فاصله بزرگ است و احتمالاً فقط یک اسلات می‌سازد</span>
+                          )}
+                        </div>
                         <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">شروع</label>
-                          <input className="input time-input min-w-0" type="time" value={r.startTime} onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)} />
+                          <input
+                            className={`input time-input min-w-0 ${rangeIssuesByDate.get(d.date)?.[i] ? "border-rose-400/70 ring-2 ring-rose-400/30" : ""}`}
+                            type="time"
+                            value={r.startTime}
+                            onChange={(e) => updateRange(d.date, i, "startTime", e.target.value)}
+                          />
                         </div>
                         <div className="min-w-0">
                           <label className="mb-1 block text-xs text-slate-400">پایان</label>
-                          <input className="input time-input min-w-0" type="time" value={r.endTime} onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)} />
+                          <input
+                            className={`input time-input min-w-0 ${rangeIssuesByDate.get(d.date)?.[i] ? "border-rose-400/70 ring-2 ring-rose-400/30" : ""}`}
+                            type="time"
+                            value={r.endTime}
+                            onChange={(e) => updateRange(d.date, i, "endTime", e.target.value)}
+                          />
                         </div>
                         <button type="button" className="btn-ghost w-full md:w-auto md:self-end" onClick={() => removeRange(d.date, i)}><Trash2 size={16} className="icon-danger" /></button>
+                        {rangeIssuesByDate.get(d.date)?.[i] && (
+                          <p className="text-xs text-rose-300 md:col-span-3">
+                            {rangeIssuesByDate.get(d.date)?.[i]}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -552,6 +719,9 @@ export default function DashboardPage() {
                 </div>
               ))}
               {isInvalidTimeConfig && <p className="text-sm text-rose-300">در بعضی تاریخ‌ها تداخل یا ترتیب نادرست بازه وجود دارد.</p>}
+              {createError && !isInvalidTimeConfig && (
+                <p className="text-sm text-rose-300">{createError}</p>
+              )}
             </div>
 
             <div className="space-y-2 rounded-xl surface-block p-3">
@@ -611,7 +781,9 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <button className="btn-primary w-full"><Clock3 size={16} /> ایجاد برنامه</button>
+            <button className="btn-primary w-full" disabled={!canCreateSchedule}>
+              <Clock3 size={16} /> ایجاد برنامه
+            </button>
           </form>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -865,6 +1037,7 @@ export default function DashboardPage() {
 
           <AvatarUploader
             currentAvatarUrl={user?.avatarUrl}
+            onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
             onUploaded={(avatarUrl) => {
               queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl }));
               bumpAvatarRefreshToken();

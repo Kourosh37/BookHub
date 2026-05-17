@@ -8,8 +8,14 @@ export async function GET() {
   try {
     const session = await requireSession();
 
+    const now = new Date();
     const bookings = await prisma.booking.findMany({
-      where: { bookedByUserId: session.userId },
+      where: {
+        bookedByUserId: session.userId,
+        timeSlot: {
+          endTime: { gte: now },
+        },
+      },
       include: {
         schedule: {
           include: {
@@ -20,7 +26,7 @@ export async function GET() {
         },
         timeSlot: true,
       },
-      orderBy: { bookedAt: "desc" },
+      orderBy: { timeSlot: { startTime: "asc" } },
     });
 
     return NextResponse.json(bookings, {

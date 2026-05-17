@@ -9,11 +9,12 @@ type Props = {
   currentAvatarUrl?: string | null;
   onUploaded: (avatarUrl: string) => void;
   onRemoved: () => void;
+  onPreview?: () => void;
 };
 
 const CROP_SIZE = 320;
 
-export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Props) {
+export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPreview }: Props) {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offsetX, setOffsetX] = useState(0);
@@ -135,7 +136,13 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved }: Prop
     <div className="space-y-2">
       <label className="block text-sm text-slate-300">عکس پروفایل</label>
       <div className="flex items-center gap-3">
-        <UserAvatar src={currentAvatarUrl} alt="avatar preview" sizeClassName="h-12 w-12" iconSize={16} />
+        <UserAvatar
+          src={currentAvatarUrl}
+          alt="avatar preview"
+          sizeClassName="h-12 w-12"
+          iconSize={16}
+          onClick={onPreview}
+        />
         <label className="btn-ghost cursor-pointer">
           انتخاب عکس
           <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
