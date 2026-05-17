@@ -194,6 +194,26 @@ export default function DashboardPage() {
   const bookings = bookingsQuery.data ?? [];
   const mySessions = mySessionsQuery.data ?? [];
 
+  const sortedBookings = useMemo(
+    () =>
+      [...bookings].sort((a, b) => {
+        const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+        const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+        return aTime - bTime;
+      }),
+    [bookings],
+  );
+
+  const sortedMySessions = useMemo(
+    () =>
+      [...mySessions].sort((a, b) => {
+        const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+        const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+        return aTime - bTime;
+      }),
+    [mySessions],
+  );
+
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
   }, []);
@@ -729,8 +749,8 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {bookings.length === 0 && <div className="text-sm text-slate-400">برای این برنامه رزروی ثبت نشده است.</div>}
-            {bookings.map((b) => (
+            {sortedBookings.length === 0 && <div className="text-sm text-slate-400">برای این برنامه رزروی ثبت نشده است.</div>}
+            {sortedBookings.map((b) => (
               <div key={b.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{b.schedule.title}</div>
                 <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
@@ -779,8 +799,8 @@ export default function DashboardPage() {
           <h2 className="mb-4 text-lg font-bold md:text-xl">جلسات من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">جلسه‌هایی که خودتان رزرو کرده‌اید همراه با زمان و پاسخ‌های ثبت‌شده نمایش داده می‌شوند.</p>
           <div className="space-y-3">
-            {mySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
-            {mySessions.map((s) => (
+            {sortedMySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
+            {sortedMySessions.map((s) => (
               <div key={s.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
                 <div className="mt-2 flex items-center gap-2">
