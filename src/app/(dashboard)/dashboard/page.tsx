@@ -30,6 +30,7 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUIStore } from "@/store/ui-store";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
+import { formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -184,6 +185,7 @@ export default function DashboardPage() {
   const [baseUrl, setBaseUrl] = useState("");
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
@@ -195,6 +197,7 @@ export default function DashboardPage() {
   const [createError, setCreateError] = useState("");
   const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
   const [gapMinutesValue, setGapMinutesValue] = useState(10);
+  const [scheduleTitle, setScheduleTitle] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
@@ -344,6 +347,42 @@ export default function DashboardPage() {
     return Array.from(slotCountByDate.values()).reduce((sum, v) => sum + v, 0);
   }, [slotCountByDate]);
   const canCreateSchedule = !isInvalidTimeConfig && totalSlotCount > 0;
+  const nextSession = sortedMySessions.length > 0 ? sortedMySessions[0] : null;
+  useEffect(() => {
+    const raw = localStorage.getItem("bookhub:schedule-draft");
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw) as {
+        title?: string;
+        slotDuration?: number;
+        gapMinutes?: number;
+        selectedDates?: string[];
+        dayConfigs?: DayItem[];
+        questions?: Question[];
+      };
+      if (typeof draft.title === "string") setScheduleTitle(draft.title);
+      if (typeof draft.slotDuration === "number") setSlotDurationMinutes(draft.slotDuration);
+      if (typeof draft.gapMinutes === "number") setGapMinutesValue(draft.gapMinutes);
+      if (Array.isArray(draft.selectedDates)) setSelectedDates(draft.selectedDates);
+      if (Array.isArray(draft.dayConfigs)) setDayConfigs(draft.dayConfigs);
+      if (Array.isArray(draft.questions)) setQuestions(draft.questions);
+    } catch {
+      localStorage.removeItem("bookhub:schedule-draft");
+    }
+  }, []);
+
+  useEffect(() => {
+    const payload = {
+      title: scheduleTitle,
+      slotDuration: slotDurationMinutes,
+      gapMinutes: gapMinutesValue,
+      selectedDates,
+      dayConfigs,
+      questions,
+    };
+    localStorage.setItem("bookhub:schedule-draft", JSON.stringify(payload));
+  }, [scheduleTitle, slotDurationMinutes, gapMinutesValue, selectedDates, dayConfigs, questions]);
+
   const pickerValue = useMemo(() => selectedDates.map((d) => ymdToPersianDateObject(d)), [selectedDates]);
   const todayTehranYmd = useMemo(
     () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(new Date()),
@@ -414,6 +453,7 @@ export default function DashboardPage() {
       questions: questions.filter((q) => q.label.trim().length > 0),
     };
 
+    setCreatingSchedule(true);
     const res = await fetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -422,6 +462,7 @@ export default function DashboardPage() {
 
     const data = await res.json();
     if (!res.ok) {
+      setCreatingSchedule(false);
       const message = data.details || data.error || "خطا";
       setCreateError(message);
       return toast.error(message);
@@ -435,10 +476,13 @@ export default function DashboardPage() {
     });
 
     toast.success("برنامه ساخته شد");
+    setCreatingSchedule(false);
     setCreateError("");
     setSelectedDates([]);
     setDayConfigs([]);
     setQuestions([]);
+    setScheduleTitle("");
+    localStorage.removeItem("bookhub:schedule-draft");
     setShowCreateFormMobile(false);
     (e.currentTarget as HTMLFormElement).reset();
     await Promise.all([
@@ -593,7 +637,14 @@ export default function DashboardPage() {
 
             <div>
               <label className="mb-2 block text-sm text-slate-300">عنوان برنامه</label>
-              <input className="input" name="title" placeholder="مثلاً مشاوره پایان‌نامه" required />
+              <input
+                className="input"
+                name="title"
+                placeholder="مثلاً مشاوره پایان‌نامه"
+                value={scheduleTitle}
+                onChange={(e) => setScheduleTitle(e.target.value)}
+                required
+              />
             </div>
 
             <div>
@@ -647,7 +698,7 @@ export default function DashboardPage() {
                   name="slotDuration"
                   type="number"
                   min={5}
-                  defaultValue={30}
+                  value={slotDurationMinutes}
                   onChange={(e) => setSlotDurationMinutes(Number(e.target.value) || 0)}
                   required
                 />
@@ -659,7 +710,7 @@ export default function DashboardPage() {
                   name="gapMinutes"
                   type="number"
                   min={0}
-                  defaultValue={10}
+                  value={gapMinutesValue}
                   onChange={(e) => setGapMinutesValue(Number(e.target.value) || 0)}
                   required
                 />
@@ -799,8 +850,8 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <button className="btn-primary w-full" disabled={!canCreateSchedule}>
-              <Clock3 size={16} /> ایجاد برنامه
+            <button className="btn-primary w-full" disabled={!canCreateSchedule || creatingSchedule}>
+              <Clock3 size={16} /> {creatingSchedule ? "در حال ساخت..." : "ایجاد برنامه"}
             </button>
           </form>
 
@@ -893,9 +944,15 @@ export default function DashboardPage() {
             <label className="block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
             <a
               className="btn-ghost"
-              href={`/api/bookings/my/export${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`}
+              href={`/api/bookings/my/export?format=csv${scheduleFilter ? `&scheduleId=${scheduleFilter}` : ""}`}
             >
-              دانلود خروجی
+              دانلود CSV
+            </a>
+            <a
+              className="btn-ghost"
+              href={`/api/bookings/my/export?format=xls${scheduleFilter ? `&scheduleId=${scheduleFilter}` : ""}`}
+            >
+              دانلود Excel
             </a>
           </div>
           <div ref={scheduleMenuRef} className="relative mb-4 w-full sm:max-w-sm">
@@ -964,7 +1021,9 @@ export default function DashboardPage() {
                   />
                   <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
                 </div>
-                <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
+                <div className="text-sm text-slate-400">
+                  زمان: {b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}
+                </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
                   <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
                   {renderAnswers(b.answers, b.schedule?.questions)}
@@ -991,6 +1050,19 @@ export default function DashboardPage() {
         <section className="card p-4">
           <h2 className="mb-4 text-lg font-bold md:text-xl">جلسات من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">جلسه‌هایی که خودتان رزرو کرده‌اید همراه با زمان و پاسخ‌های ثبت‌شده نمایش داده می‌شوند.</p>
+          {nextSession && nextSession.timeSlot?.startTime && (
+            <div className="mb-4 rounded-xl border border-cyan-700/40 bg-cyan-500/10 p-3 text-sm text-cyan-200">
+              <div className="font-semibold">جلسه بعدی شما</div>
+              <div className="mt-1 text-xs text-slate-300">
+                {nextSession.schedule?.title || "جلسه"} · {formatJalaliDateTime(new Date(nextSession.timeSlot.startTime))}
+              </div>
+              {minutesUntil(new Date(nextSession.timeSlot.startTime)) >= 0 && (
+                <div className="mt-1 text-xs text-slate-300">
+                  شروع تا {minutesUntil(new Date(nextSession.timeSlot.startTime))} دقیقه دیگر
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-3">
             {sortedMySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
             {sortedMySessions.map((s) => (
@@ -1007,10 +1079,10 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
                 </div>
                 <div className="text-sm text-slate-400">
-                  زمان شروع: {new Date(s.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+                  زمان شروع: {s.timeSlot?.startTime ? formatJalaliDateTime(new Date(s.timeSlot.startTime)) : "-"}
                 </div>
                 <div className="text-sm text-slate-400">
-                  زمان پایان: {new Date(s.timeSlot?.endTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+                  زمان پایان: {s.timeSlot?.endTime ? formatJalaliDateTime(new Date(s.timeSlot.endTime)) : "-"}
                 </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
                   <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>

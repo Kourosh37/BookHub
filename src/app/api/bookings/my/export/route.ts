@@ -33,6 +33,7 @@ export async function GET(req: Request) {
     const session = await requireSession();
     const url = new URL(req.url);
     const scheduleId = url.searchParams.get("scheduleId");
+    const format = (url.searchParams.get("format") || "csv").toLowerCase();
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -77,11 +78,32 @@ export async function GET(req: Request) {
       ];
     });
 
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (format === "xls" || format === "excel") {
+      const rowsHtml = [header, ...rows]
+        .map(
+          (row) =>
+            `<tr>${row
+              .map((cell) => `<td>${String(cell ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>`)
+              .join("")}</tr>`,
+        )
+        .join("");
+      const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1">${rowsHtml}</table></body></html>`;
+      const fileName = `bookings-${stamp}.xls`;
+      return new NextResponse(html, {
+        headers: {
+          "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+          "Content-Disposition": `attachment; filename=\"${fileName}\"`,
+        },
+      });
+    }
+
     const csv = [header, ...rows]
       .map((row) => row.map((cell) => csvEscape(String(cell ?? ""))).join(","))
       .join("\n");
 
-    const fileName = `bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+    const fileName = `bookings-${stamp}.csv`;
     return new NextResponse(`\ufeff${csv}`, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
