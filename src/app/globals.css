@@ -225,9 +225,12 @@ input[type="password"]::-ms-clear {
 }
 
 .time-input {
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   direction: ltr;
   text-align: left;
 }
