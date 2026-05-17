@@ -9,7 +9,7 @@ export default function Home() {
       <PublicHeader compact />
       <div className="grid gap-5 lg:grid-cols-3">
         <section className="card p-7 sm:p-8 lg:col-span-2">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <div className="flex flex-row items-center gap-4 sm:items-start sm:gap-5">
             <ThemeLogo size={120} className="h-20 w-20 shrink-0 rounded-2xl object-contain sm:h-24 sm:w-24" priority />
             <div className="space-y-3">
               <h1 className="text-3xl font-extrabold sm:text-4xl">بوک هاب</h1>
