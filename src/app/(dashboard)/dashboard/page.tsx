@@ -19,7 +19,6 @@ import {
   LogOut,
   Moon,
   Plus,
-  ShieldCheck,
   Sun,
   Trash2,
   UserCircle2,
@@ -81,6 +80,34 @@ function getRangeLengthMinutes(range: Range) {
   const start = toMinutes(range.startTime);
   const end = toMinutes(range.endTime);
   return end - start;
+}
+
+function renderAnswers(answers: any, questions: any) {
+  const items = Array.isArray(questions) && questions.length > 0
+    ? questions.map((q: any, idx: number) => ({
+        label: q?.label || `سوال ${idx + 1}`,
+        value: Array.isArray(answers) ? answers[idx] : "-",
+      }))
+    : Array.isArray(answers)
+      ? answers.map((value: any, idx: number) => ({ label: `پاسخ ${idx + 1}`, value }))
+      : [];
+
+  if (items.length === 0) {
+    return <div className="text-xs text-slate-400">پاسخی ثبت نشده است.</div>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {items.map((item, idx) => (
+        <div key={idx} className="flex flex-wrap items-start justify-between gap-2 text-sm">
+          <span className="text-slate-300">{item.label}</span>
+          <span className="rounded-lg bg-slate-500/10 px-2 py-1 text-xs text-slate-300">
+            {item.value ? String(item.value) : "-"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function estimateSlotCount(range: Range, slotDuration: number, gapMinutes: number) {
@@ -767,7 +794,6 @@ export default function DashboardPage() {
                     <div>
                       <label className="mb-1 block text-xs text-slate-400">الزامی بودن</label>
                       <label className="flex h-11 items-center gap-2 rounded-xl surface-block px-3 text-sm">
-                        <ShieldCheck size={15} className="text-cyan-300" />
                         <input
                           type="checkbox"
                           checked={q.required}
@@ -937,16 +963,9 @@ export default function DashboardPage() {
                   <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
                 </div>
                 <div className="text-sm text-slate-400">زمان: {new Date(b.timeSlot.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</div>
-                <div className="mt-2 space-y-1 text-sm text-slate-300 break-words">
-                  {Array.isArray(b.answers) && Array.isArray(b.schedule?.questions) && b.schedule.questions.length > 0 ? (
-                    b.schedule.questions.map((q: any, idx: number) => (
-                      <div key={idx}>
-                        {q?.label || `سوال ${idx + 1}`}: {b.answers[idx] || "-"}
-                      </div>
-                    ))
-                  ) : (
-                    <div>پاسخ‌ها: {Array.isArray(b.answers) ? b.answers.join(" | ") || "-" : "-"}</div>
-                  )}
+                <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
+                  <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
+                  {renderAnswers(b.answers, b.schedule?.questions)}
                 </div>
                 <div className="mt-3">
                   <button
@@ -991,16 +1010,9 @@ export default function DashboardPage() {
                 <div className="text-sm text-slate-400">
                   زمان پایان: {new Date(s.timeSlot?.endTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
                 </div>
-                <div className="mt-2 space-y-1 text-sm text-slate-300 break-words">
-                  {Array.isArray(s.answers) && Array.isArray(s.schedule?.questions) && s.schedule.questions.length > 0 ? (
-                    s.schedule.questions.map((q: any, idx: number) => (
-                      <div key={idx}>
-                        {q?.label || `سوال ${idx + 1}`}: {s.answers[idx] || "-"}
-                      </div>
-                    ))
-                  ) : (
-                    <div>پاسخ‌ها: {Array.isArray(s.answers) ? s.answers.join(" | ") || "-" : "-"}</div>
-                  )}
+                <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
+                  <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
+                  {renderAnswers(s.answers, s.schedule?.questions)}
                 </div>
               </div>
             ))}
