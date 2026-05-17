@@ -1,5 +1,4 @@
-﻿import { formatInTimeZone } from "date-fns-tz";
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { sendTemplateSms } from "@/lib/sms";
 
 type BookingNotificationContext = {
@@ -46,9 +45,21 @@ function buildSlotParams(slotStartIso?: string | null) {
   if (!slotStartIso) return null;
   const slotDate = new Date(slotStartIso);
   if (Number.isNaN(slotDate.getTime())) return null;
+  const dateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const timeFormatter = new Intl.DateTimeFormat("fa-IR", {
+    timeZone: "Asia/Tehran",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
   return {
-    date: formatInTimeZone(slotDate, "Asia/Tehran", "yyyy-MM-dd"),
-    time: formatInTimeZone(slotDate, "Asia/Tehran", "HH:mm"),
+    date: dateFormatter.format(slotDate),
+    time: timeFormatter.format(slotDate),
   };
 }
 
@@ -106,7 +117,7 @@ export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificati
   const { hostInfo, guestInfo } = await resolveContacts(ctx.hostUserId, ctx.guestUserId);
   const slotInfo = buildSlotParams(ctx.slotStartIso);
   const templateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_REMINDER);
-  if (!guestInfo.phone || !templateId || !slotInfo || !ctx.slotStartIso) return;
+  if (!templateId || !slotInfo || !ctx.slotStartIso) return;
 
   const start = new Date(ctx.slotStartIso);
   if (Number.isNaN(start.getTime())) return;
@@ -114,11 +125,20 @@ export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificati
   if (minutesToStart < 0 || minutesToStart > 10) return;
 
   const title = ctx.scheduleTitle || "برنامه";
-  await sendTemplateSms({
-    phone: guestInfo.phone,
-    templateId,
-    parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
-  });
+  if (guestInfo.phone) {
+    await sendTemplateSms({
+      phone: guestInfo.phone,
+      templateId,
+      parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
+    });
+  }
+  if (hostInfo.phone) {
+    await sendTemplateSms({
+      phone: hostInfo.phone,
+      templateId,
+      parameters: buildParams({ title, name: guestInfo.name, date: slotInfo.date, time: slotInfo.time }),
+    });
+  }
 }
 
 export async function cancelScheduledRemindersForBooking(bookingId: string) {

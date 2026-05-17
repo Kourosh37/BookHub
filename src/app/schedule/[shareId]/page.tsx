@@ -78,7 +78,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   });
 
   const bookingMutation = useMutation({
-    mutationFn: async (payload: { timeSlotId: string; name: FormDataEntryValue | null; answers: string[] }) => {
+    mutationFn: async (payload: { timeSlotId: string; answers: string[] }) => {
       const res = await fetch(`/api/schedules/${params.shareId}/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +115,7 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     setBookingError("");
 
     bookingMutation.mutate(
-      { timeSlotId: selectedSlot, name: formData.get("name"), answers },
+      { timeSlotId: selectedSlot, answers },
       {
         onSuccess: async () => {
           toast.success("رزرو با موفقیت ثبت شد");
@@ -212,7 +212,6 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
         {selectedSlot && (
           <form onSubmit={handleSubmit} className="space-y-3 rounded-xl surface-block p-3">
-            <input className="input" name="name" placeholder="نام شما (اختیاری)" />
             {questions.map((q: any, i: number) =>
               q.type === "textarea" ? (
                 <textarea key={i} className="input min-h-24" name={`q-${i}`} placeholder={q.label} required={q.required} />

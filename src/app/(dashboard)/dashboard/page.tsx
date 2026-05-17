@@ -683,14 +683,9 @@ export default function DashboardPage() {
               {dayConfigs.map((d) => (
                 <div key={d.date} className="rounded-xl surface-block p-3">
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    {rangeIssuesByDate.get(d.date)?.some(Boolean) ? (
-                      <p className="text-xs text-rose-300">حداقل یکی از بازه‌های این تاریخ مشکل دارد.</p>
-                    ) : (
-                      <span className="text-xs text-slate-400">اسلات قابل تولید: {slotCountByDate.get(d.date) ?? 0}</span>
-                    )}
-                    <span className="text-xs text-slate-400">اسلات قابل تولید: {slotCountByDate.get(d.date) ?? 0}</span>
-                  </div>
+                  {rangeIssuesByDate.get(d.date)?.some(Boolean) && (
+                    <p className="mb-2 text-xs text-rose-300">حداقل یکی از بازه‌های این تاریخ مشکل دارد.</p>
+                  )}
                   {(slotCountByDate.get(d.date) ?? 0) === 0 && (
                     <p className="mb-2 text-xs text-rose-300">برای این تاریخ اسلاتی تولید نمی‌شود.</p>
                   )}
@@ -702,9 +697,6 @@ export default function DashboardPage() {
                       <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <div className="md:col-span-3 text-xs text-slate-400">
                           طول بازه: {getRangeLengthMinutes(r)} دقیقه
-                          {slotDurationMinutes > 0 && (
-                            <span className="text-slate-400"> · تعداد اسلات: {estimateSlotCount(r, slotDurationMinutes, gapMinutesValue)}</span>
-                          )}
                           {slotDurationMinutes > 0 && getRangeLengthMinutes(r) < slotDurationMinutes && (
                             <span className="text-rose-300"> · کوتاه‌تر از مدت جلسه است</span>
                           )}
@@ -897,7 +889,15 @@ export default function DashboardPage() {
         <section className="card relative overflow-visible p-4">
           <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
-          <label className="mb-2 block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
+            <a
+              className="btn-ghost"
+              href={`/api/bookings/my/export${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`}
+            >
+              دانلود خروجی
+            </a>
+          </div>
           <div ref={scheduleMenuRef} className="relative mb-4 w-full sm:max-w-sm">
             <button
               type="button"
@@ -951,7 +951,9 @@ export default function DashboardPage() {
             {sortedBookings.map((b) => (
               <div key={b.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{b.schedule.title}</div>
-                <div className="text-sm text-slate-400">نام رزروکننده: {b.visitorName || "-"}</div>
+                <div className="text-sm text-slate-400">
+                  نام رزروکننده: {b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر"}
+                </div>
                 <div className="mt-2 flex items-center gap-2">
                   <UserAvatar
                     src={b.bookedByUser?.avatarUrl}
@@ -1013,6 +1015,18 @@ export default function DashboardPage() {
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
                   <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
                   {renderAnswers(s.answers, s.schedule?.questions)}
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => setCancelTarget(s)}
+                    aria-label="کنسل رزرو"
+                    title="کنسل رزرو"
+                  >
+                    <XCircle size={14} className="icon-danger" />
+                    <span>کنسل رزرو</span>
+                  </button>
                 </div>
               </div>
             ))}

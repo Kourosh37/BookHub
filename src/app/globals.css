@@ -233,6 +233,9 @@ input[type="password"]::-ms-clear {
   min-inline-size: 0;
   direction: ltr;
   text-align: left;
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .phone-input {

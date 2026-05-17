@@ -27,9 +27,11 @@ export async function POST(req: Request, { params }: { params: { bookingId: stri
       return NextResponse.json({ error: "رزرو پیدا نشد" }, { status: 404 });
     }
 
-    if (booking.schedule.userId !== session.userId) {
+    const isHost = booking.schedule.userId === session.userId;
+    const isGuest = booking.bookedByUserId === session.userId;
+    if (!isHost && !isGuest) {
       log.warn({ bookingId: params.bookingId, userId: session.userId }, "forbidden booking cancel");
-      return NextResponse.json({ error: "عدم دسترسی", details: "فقط صاحب برنامه می‌تواند این رزرو را کنسل کند" }, { status: 403 });
+      return NextResponse.json({ error: "عدم دسترسی", details: "اجازه کنسل این رزرو را ندارید" }, { status: 403 });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -40,14 +42,16 @@ export async function POST(req: Request, { params }: { params: { bookingId: stri
       });
     });
 
-    void notifyBookingCanceledByHost({
-      bookingId: booking.id,
-      scheduleId: booking.scheduleId,
-      scheduleTitle: booking.schedule.title,
-      hostUserId: booking.schedule.userId,
-      guestUserId: booking.bookedByUserId,
-      slotStartIso: booking.timeSlot?.startTime?.toISOString?.() || null,
-    }).catch(() => {});
+    if (isHost) {
+      void notifyBookingCanceledByHost({
+        bookingId: booking.id,
+        scheduleId: booking.scheduleId,
+        scheduleTitle: booking.schedule.title,
+        hostUserId: booking.schedule.userId,
+        guestUserId: booking.bookedByUserId,
+        slotStartIso: booking.timeSlot?.startTime?.toISOString?.() || null,
+      }).catch(() => {});
+    }
     void cancelScheduledRemindersForBooking(booking.id).catch(() => {});
     void cacheDelByPattern(`schedule:${booking.schedule.shareId}:*`).catch(() => {});
 

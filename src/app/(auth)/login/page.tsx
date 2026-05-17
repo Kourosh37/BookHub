@@ -147,7 +147,7 @@ export default function LoginPage() {
           {mode === "phone" ? (
             !codeSent ? (
               <form onSubmit={requestOtp} className="space-y-4">
-                <input className="input h-11 phone-input" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
+                <input className="input h-11 phone-input" type="tel" inputMode="tel" pattern="[+0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
                 {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
                 <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
                 <button className="btn-primary h-11 w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
