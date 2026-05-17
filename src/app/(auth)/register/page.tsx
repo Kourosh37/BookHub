@@ -139,7 +139,7 @@ export default function RegisterPage() {
               <input className="input h-11" placeholder="نام کاربری" {...registerForm.register("username")} />
               {registerForm.formState.errors.username && <p className="text-xs text-rose-400">{registerForm.formState.errors.username.message as string}</p>}
 
-              <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...registerForm.register("phone")} />
+              <input className="input h-11 phone-input" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...registerForm.register("phone")} />
               {registerForm.formState.errors.phone && <p className="text-xs text-rose-400">{registerForm.formState.errors.phone.message}</p>}
 
               <div className="relative">

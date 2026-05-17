@@ -235,6 +235,12 @@ input[type="password"]::-ms-clear {
   text-align: left;
 }
 
+.phone-input {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
 .dropdown-panel {
   border: 1px solid color-mix(in srgb, var(--card-border) 70%, transparent);
   background: var(--card-bg);
