@@ -16,6 +16,9 @@ export async function POST(req: Request, { params }: { params: { bookingId: stri
         schedule: {
           select: { userId: true, title: true, shareId: true },
         },
+        timeSlot: {
+          select: { startTime: true },
+        },
       },
     });
 
@@ -43,6 +46,7 @@ export async function POST(req: Request, { params }: { params: { bookingId: stri
       scheduleTitle: booking.schedule.title,
       hostUserId: booking.schedule.userId,
       guestUserId: booking.bookedByUserId,
+      slotStartIso: booking.timeSlot?.startTime?.toISOString?.() || null,
     }).catch(() => {});
     void cancelScheduledRemindersForBooking(booking.id).catch(() => {});
     void cacheDelByPattern(`schedule:${booking.schedule.shareId}:*`).catch(() => {});

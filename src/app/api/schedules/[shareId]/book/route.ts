@@ -102,16 +102,21 @@ export async function POST(req: Request, { params }: { params: { shareId: string
         timeSlot: {
           select: { startTime: true },
         },
+        bookedByUser: {
+          select: { username: true, phone: true },
+        },
       },
     });
 
     if (bookingDetails) {
+      const guestName = bookingDetails.bookedByUser?.username || bookingDetails.bookedByUser?.phone || booking.visitorName || "کاربر";
       const ctx = {
         bookingId: bookingDetails.id,
         scheduleId: bookingDetails.scheduleId,
         scheduleTitle: bookingDetails.schedule?.title,
         hostUserId: bookingDetails.schedule.userId,
         guestUserId: bookingDetails.bookedByUserId,
+        guestName,
         slotStartIso: bookingDetails.timeSlot?.startTime?.toISOString?.() || null,
       };
 
