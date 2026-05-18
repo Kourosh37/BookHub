@@ -26,6 +26,7 @@ import {
   Plus,
   QrCode,
   Share2,
+  Settings,
   Sun,
   Trash2,
   UserCircle2,
@@ -38,6 +39,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useUIStore } from "@/store/ui-store";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 import { formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
+import { defaultSmsPreferences, normalizeSmsPreferences } from "@/lib/sms-preferences";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -254,6 +256,9 @@ export default function DashboardPage() {
   const [scheduleTitle, setScheduleTitle] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+  const [smsPreferences, setSmsPreferences] = useState(defaultSmsPreferences);
+  const [smsPreferencesSaving, setSmsPreferencesSaving] = useState(false);
+  const [smsPreferencesError, setSmsPreferencesError] = useState("");
   const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
   const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
   const [passwordCode, setPasswordCode] = useState("");
@@ -406,6 +411,15 @@ export default function DashboardPage() {
     },
   });
 
+  const smsPreferencesQuery = useQuery({
+    queryKey: ["profile", "sms-preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/profile/sms-preferences", { cache: "no-store" });
+      if (!res.ok) throw new Error("FAILED_SMS_PREFS");
+      return res.json();
+    },
+  });
+
   const schedulesQuery = useQuery({
     queryKey: ["schedules", "my"],
     queryFn: async () => {
@@ -437,6 +451,7 @@ export default function DashboardPage() {
   const schedules = schedulesQuery.data ?? [];
   const bookings = bookingsQuery.data ?? [];
   const mySessions = mySessionsQuery.data ?? [];
+  const smsPreferencesData = smsPreferencesQuery.data ?? null;
 
   const bookingScheduleOptions = useMemo(
     () => schedules.map((s: any) => ({ id: s.id, title: s.title })),
@@ -488,6 +503,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) setProfileUsername(user?.username || "");
   }, [user]);
+
+  useEffect(() => {
+    if (smsPreferencesData) {
+      setSmsPreferences(normalizeSmsPreferences(smsPreferencesData));
+    }
+  }, [smsPreferencesData]);
 
   useEffect(() => {
     setDayConfigs((prev) => {
@@ -801,7 +822,14 @@ export default function DashboardPage() {
       const dataUrl = await captureExportPng();
       const img = new window.Image();
       img.src = dataUrl;
-      await img.decode();
+      if (img.decode) {
+        await img.decode();
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("IMAGE_DECODE_FAILED"));
+        });
+      }
       const { jsPDF } = await import("jspdf");
       const orientation = img.width > img.height ? "landscape" : "portrait";
       const pdf = new jsPDF({ orientation, unit: "pt", format: [img.width, img.height] });
@@ -879,8 +907,39 @@ export default function DashboardPage() {
     ]);
   }
 
-  const tabOrder: Array<"schedules" | "bookings" | "sessions" | "profile"> = ["schedules", "bookings", "sessions", "profile"];
-  const minSwipeDistance = 50;
+  async function updateSmsPreferences(nextPrefs: typeof defaultSmsPreferences) {
+    setSmsPreferencesSaving(true);
+    setSmsPreferencesError("");
+    const previous = smsPreferences;
+    setSmsPreferences(nextPrefs);
+    const res = await fetch("/api/profile/sms-preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nextPrefs),
+    });
+    const data = await res.json();
+    setSmsPreferencesSaving(false);
+
+    if (!res.ok) {
+      setSmsPreferences(previous);
+      setSmsPreferencesError(data.details || data.error || "خطا در ذخیره تنظیمات پیامک");
+      return;
+    }
+
+    setSmsPreferences(normalizeSmsPreferences(data));
+  }
+
+  const tabOrder: Array<"schedules" | "bookings" | "sessions" | "profile" | "settings"> = [
+    "schedules",
+    "bookings",
+    "sessions",
+    "profile",
+    "settings",
+  ];
+  const minSwipeDistance = 60;
+  const swipeAxisThreshold = 12;
+  const swipeAxisRatio = 1.15;
+  const isModalOpen = Boolean(cancelTarget || deleteScheduleTarget || qrModal || avatarPreview || deleteAccountOpen);
 
   const finishSwipeTransition = () => {
     if (swipeResetTimeoutRef.current) {
@@ -891,6 +950,9 @@ export default function DashboardPage() {
   };
 
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    if (isModalOpen) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("input, textarea, select, button, a, [data-no-swipe]")) return;
     if (swipeResetTimeoutRef.current) {
       clearTimeout(swipeResetTimeoutRef.current);
     }
@@ -903,6 +965,7 @@ export default function DashboardPage() {
   };
 
   const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (isModalOpen) return;
     if (touchStart === null) return;
     if (touchStartY === null) return;
 
@@ -913,12 +976,18 @@ export default function DashboardPage() {
     const horizontalDelta = Math.abs(diff);
 
     if (isHorizontalSwipe === null) {
-      if (horizontalDelta < 8) return;
-      setIsHorizontalSwipe(horizontalDelta > verticalDelta * 1.2);
-      if (horizontalDelta <= verticalDelta * 1.2) return;
+      if (horizontalDelta < swipeAxisThreshold && verticalDelta < swipeAxisThreshold) return;
+      if (verticalDelta > swipeAxisThreshold && verticalDelta > horizontalDelta * swipeAxisRatio) {
+        setIsHorizontalSwipe(false);
+        return;
+      }
+      setIsHorizontalSwipe(horizontalDelta > verticalDelta * swipeAxisRatio);
+      if (horizontalDelta <= verticalDelta * swipeAxisRatio) return;
     }
 
     if (!isHorizontalSwipe) return;
+
+    e.preventDefault();
 
     const currentIndex = tabOrder.indexOf(tab);
     if (currentIndex === -1) return;
@@ -1020,6 +1089,9 @@ export default function DashboardPage() {
         </button>
         <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
           <UserCircle2 size={16} /> پروفایل
+        </button>
+        <button className={`btn ${tab === "settings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("settings")}>
+          <Settings size={16} /> تنظیمات
         </button>
       </div>
 
@@ -1409,7 +1481,8 @@ export default function DashboardPage() {
                 aria-haspopup="listbox"
                 aria-expanded={isExportMenuOpen}
               >
-                <Download size={16} /> خروجی گرفتن
+                <Download size={16} />
+                <span className="hidden sm:inline">خروجی گرفتن</span>
               </button>
               <div
                 className={`dropdown-panel absolute left-0 z-50 mt-2 w-48 origin-top-left rounded-2xl shadow-xl transition-all duration-200 ${
@@ -2028,6 +2101,62 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {tab === "settings" && (
+        <section className="card space-y-4 p-4">
+          <h2 className="text-lg font-bold md:text-xl">تنظیمات</h2>
+          <p className="text-sm text-slate-400">کنترل دریافت پیامک‌های مربوط به رزروها و جلسات.</p>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl surface-block p-4">
+              <h3 className="text-sm font-semibold text-slate-200">پیامک‌های رزرو</h3>
+              <p className="mt-1 text-xs text-slate-400">با خاموش کردن هر گزینه، پیامک مربوطه برای شما ارسال نمی‌شود.</p>
+              <div className="mt-3 space-y-2">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                  <span>
+                    <span className="block text-slate-200">رزرو جدید</span>
+                    <span className="block text-xs text-slate-400">اطلاع‌رسانی ثبت رزرو جدید</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={smsPreferences.bookingCreated}
+                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCreated: e.target.checked })}
+                    disabled={smsPreferencesSaving}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                  <span>
+                    <span className="block text-slate-200">کنسل شدن رزرو</span>
+                    <span className="block text-xs text-slate-400">اطلاع‌رسانی لغو رزرو</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={smsPreferences.bookingCanceled}
+                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCanceled: e.target.checked })}
+                    disabled={smsPreferencesSaving}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                  <span>
+                    <span className="block text-slate-200">یادآوری جلسه</span>
+                    <span className="block text-xs text-slate-400">۱۰ دقیقه قبل از شروع جلسه</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={smsPreferences.bookingReminder}
+                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingReminder: e.target.checked })}
+                    disabled={smsPreferencesSaving}
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                {smsPreferencesSaving && <span className="text-cyan-200">در حال ذخیره تنظیمات...</span>}
+                {smsPreferencesError && <span className="text-rose-300">{smsPreferencesError}</span>}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       </div>
 
       {cancelTarget && (
@@ -2113,11 +2242,11 @@ export default function DashboardPage() {
       )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
-        <div className="relative card mx-auto grid max-w-md grid-cols-4 gap-2 overflow-hidden p-2">
+        <div className="relative card mx-auto grid max-w-md grid-cols-5 gap-2 overflow-hidden p-2">
           <div 
             className="absolute bottom-0 left-0 h-1 rounded-t-full bg-cyan-500 transition-all duration-300 ease-out"
             style={{
-              width: '25%',
+              width: `${100 / tabOrder.length}%`,
               transform: `translateX(${tabOrder.indexOf(tab) * 100}%)`,
             }}
           />
@@ -2133,6 +2262,9 @@ export default function DashboardPage() {
           </button>
           <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
             <UserCircle2 size={15} />
+          </button>
+          <button className={`btn ${tab === "settings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("settings")}>
+            <Settings size={15} />
           </button>
         </div>
       </nav>

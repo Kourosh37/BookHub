@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type ThemeMode = "dark" | "light";
-type DashboardTab = "schedules" | "bookings" | "sessions" | "profile";
+type DashboardTab = "schedules" | "bookings" | "sessions" | "profile" | "settings";
 
 type UIState = {
   theme: ThemeMode;

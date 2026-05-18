@@ -1,5 +1,6 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { sendTemplateSms } from "@/lib/sms";
+import { isSmsEnabled, type SmsPreferences } from "@/lib/sms-preferences";
 
 type BookingNotificationContext = {
   bookingId: string;
@@ -11,24 +12,26 @@ type BookingNotificationContext = {
   slotStartIso?: string | null;
 };
 
-type ContactInfo = { phone: string | null; name: string };
+type ContactInfo = { phone: string | null; name: string; smsPreferences: SmsPreferences | null };
 
 async function resolveContacts(hostUserId: string, guestUserId?: string | null) {
   const [host, guest] = await Promise.all([
-    prisma.user.findUnique({ where: { id: hostUserId }, select: { phone: true, username: true } }),
+    prisma.user.findUnique({ where: { id: hostUserId }, select: { phone: true, username: true, smsPreferences: true } }),
     guestUserId
-      ? prisma.user.findUnique({ where: { id: guestUserId }, select: { phone: true, username: true } })
+      ? prisma.user.findUnique({ where: { id: guestUserId }, select: { phone: true, username: true, smsPreferences: true } })
       : Promise.resolve(null),
   ]);
 
   const hostInfo: ContactInfo = {
     phone: host?.phone || null,
     name: host?.username || host?.phone || "ارائه‌دهنده",
+    smsPreferences: host?.smsPreferences ?? null,
   };
 
   const guestInfo: ContactInfo = {
     phone: guest?.phone || null,
     name: guest?.username || guest?.phone || "کاربر",
+    smsPreferences: guest?.smsPreferences ?? null,
   };
 
   return { hostInfo, guestInfo };
@@ -82,7 +85,7 @@ export async function notifyBookingCreated(ctx: BookingNotificationContext) {
   const title = ctx.scheduleTitle || "برنامه";
   const guestName = ctx.guestName || guestInfo.name || "کاربر";
 
-  if (hostInfo.phone && hostTemplateId) {
+  if (hostInfo.phone && hostTemplateId && isSmsEnabled(hostInfo.smsPreferences, "bookingCreated")) {
     await sendTemplateSms({
       phone: hostInfo.phone,
       templateId: hostTemplateId,
@@ -90,7 +93,7 @@ export async function notifyBookingCreated(ctx: BookingNotificationContext) {
     });
   }
 
-  if (guestInfo.phone && guestTemplateId) {
+  if (guestInfo.phone && guestTemplateId && isSmsEnabled(guestInfo.smsPreferences, "bookingCreated")) {
     await sendTemplateSms({
       phone: guestInfo.phone,
       templateId: guestTemplateId,
@@ -104,6 +107,7 @@ export async function notifyBookingCanceledByHost(ctx: BookingNotificationContex
   const slotInfo = buildSlotParams(ctx.slotStartIso);
   const templateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_CANCELED);
   if (!guestInfo.phone || !templateId || !slotInfo) return;
+  if (!isSmsEnabled(guestInfo.smsPreferences, "bookingCanceled")) return;
   const title = ctx.scheduleTitle || "برنامه";
 
   await sendTemplateSms({
@@ -125,14 +129,14 @@ export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificati
   if (minutesToStart < 0 || minutesToStart > 10) return;
 
   const title = ctx.scheduleTitle || "برنامه";
-  if (guestInfo.phone) {
+  if (guestInfo.phone && isSmsEnabled(guestInfo.smsPreferences, "bookingReminder")) {
     await sendTemplateSms({
       phone: guestInfo.phone,
       templateId,
       parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
     });
   }
-  if (hostInfo.phone) {
+  if (hostInfo.phone && isSmsEnabled(hostInfo.smsPreferences, "bookingReminder")) {
     await sendTemplateSms({
       phone: hostInfo.phone,
       templateId,

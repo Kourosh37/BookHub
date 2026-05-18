@@ -57,6 +57,12 @@ export const updateProfileSchema = z.object({
   username: usernameSchema.optional(),
 });
 
+export const updateSmsPreferencesSchema = z.object({
+  bookingCreated: z.boolean(),
+  bookingCanceled: z.boolean(),
+  bookingReminder: z.boolean(),
+});
+
 export const changePasswordSchema = z
   .object({
     code: z

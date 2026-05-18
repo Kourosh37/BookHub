@@ -8,7 +8,7 @@ export async function GET() {
     const session = await requireSession();
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { id: true, username: true, phone: true, avatarUrl: true },
+      select: { id: true, username: true, phone: true, avatarUrl: true, smsPreferences: true },
     });
     return NextResponse.json(user);
   } catch {
@@ -36,7 +36,7 @@ export async function PATCH(req: Request) {
     const updated = await prisma.user.update({
       where: { id: session.userId },
       data: { ...(username ? { username } : {}) },
-      select: { id: true, username: true, phone: true, avatarUrl: true },
+      select: { id: true, username: true, phone: true, avatarUrl: true, smsPreferences: true },
     });
     return NextResponse.json(updated);
   } catch {
