@@ -1,3 +1,5 @@
+import { normalizeSmsIrMobile } from "@/lib/phone";
+
 type SmsOtpPayload = {
   phone: string;
   code: string;
@@ -28,10 +30,7 @@ export type SendOtpSmsResult = {
 export type SendTemplateSmsResult = SendOtpSmsResult;
 
 function normalizeMobile(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("09") && digits.length === 11) return digits.slice(1);
-  if (digits.startsWith("9") && digits.length === 10) return digits;
-  return digits;
+  return normalizeSmsIrMobile(phone);
 }
 
 function parseTemplateId(raw: string | undefined, label: string) {

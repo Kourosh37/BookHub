@@ -3,15 +3,12 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
 import { passwordLoginSchema } from "@/lib/validations";
+import { normalizePhoneInput } from "@/lib/phone";
 import { checkSlidingWindowLimit } from "@/lib/rate-limit";
 import { withRequestId } from "@/lib/logger";
 
 function normalizeLoginPhone(value: string) {
-  const digits = value.replace(/[^\d]/g, "");
-  if (digits.startsWith("09") && digits.length === 11) return digits;
-  if (digits.startsWith("9") && digits.length === 10) return `0${digits}`;
-  if (digits.startsWith("98") && digits.length === 12) return `0${digits.slice(2)}`;
-  return null;
+  return normalizePhoneInput(value);
 }
 
 export async function POST(req: Request) {

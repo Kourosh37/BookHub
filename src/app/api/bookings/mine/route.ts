@@ -8,13 +8,9 @@ export async function GET() {
   try {
     const session = await requireSession();
 
-    const now = new Date();
     const bookings = await prisma.booking.findMany({
       where: {
         bookedByUserId: session.userId,
-        timeSlot: {
-          endTime: { gte: now },
-        },
       },
       include: {
         schedule: {

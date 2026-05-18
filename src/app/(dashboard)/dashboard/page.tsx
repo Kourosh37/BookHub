@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
+import QRCode from "qrcode";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
@@ -14,11 +15,17 @@ import {
   ChevronDown,
   Clock3,
   Copy,
+  Download,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
   Pencil,
   ListChecks,
   LogOut,
   Moon,
   Plus,
+  QrCode,
+  Share2,
   Sun,
   Trash2,
   UserCircle2,
@@ -35,6 +42,16 @@ import { formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
+type ProfileSectionKey = "username" | "avatar" | "password" | "delete";
+type QrModalState = { schedule: any; url: string };
+type ListFilterState = {
+  query: string;
+  from: string;
+  to: string;
+  includePast: boolean;
+  scheduleIds: string[];
+  sort: "time-asc" | "time-desc" | "name-asc" | "name-desc";
+};
 
 function toEnglishDigits(value: string) {
   return value
@@ -77,13 +94,43 @@ function toMinutes(v: string) {
   return h * 60 + m;
 }
 
+function normalizeSearchText(value: any) {
+  return toEnglishDigits(String(value ?? "")).toLowerCase().trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(value: any, query: string) {
+  const text = String(value ?? "");
+  const rawQuery = query.trim();
+  if (!rawQuery) return text;
+  const regex = new RegExp(escapeRegExp(rawQuery), "gi");
+  const parts = text.split(regex);
+  const matches = text.match(regex);
+  if (!matches) return text;
+  return (
+    <>
+      {parts.map((part, idx) => (
+        <span key={`${part}-${idx}`}>
+          {part}
+          {matches[idx] ? (
+            <mark className="rounded bg-cyan-500/30 px-1 text-cyan-100">{matches[idx]}</mark>
+          ) : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function getRangeLengthMinutes(range: Range) {
   const start = toMinutes(range.startTime);
   const end = toMinutes(range.endTime);
   return end - start;
 }
 
-function renderAnswers(answers: any, questions: any) {
+function renderAnswers(answers: any, questions: any, query: string) {
   const items = Array.isArray(questions) && questions.length > 0
     ? questions.map((q: any, idx: number) => ({
         label: q?.label || `سوال ${idx + 1}`,
@@ -101,9 +148,9 @@ function renderAnswers(answers: any, questions: any) {
     <div className="grid gap-2">
       {items.map((item, idx) => (
         <div key={idx} className="flex flex-wrap items-start justify-between gap-2 text-sm">
-          <span className="text-slate-300">{item.label}</span>
+          <span className="text-slate-300">{highlightText(item.label, query)}</span>
           <span className="rounded-lg bg-slate-500/10 px-2 py-1 text-xs text-slate-300">
-            {item.value ? String(item.value) : "-"}
+            {item.value ? highlightText(String(item.value), query) : "-"}
           </span>
         </div>
       ))}
@@ -192,8 +239,9 @@ export default function DashboardPage() {
   const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
-  const [isScheduleMenuOpen, setIsScheduleMenuOpen] = useState(false);
-  const scheduleMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  const bookingsExportRef = useRef<HTMLDivElement | null>(null);
   const [createError, setCreateError] = useState("");
   const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
   const [gapMinutesValue, setGapMinutesValue] = useState(10);
@@ -205,10 +253,59 @@ export default function DashboardPage() {
   const [passwordCode, setPasswordCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteOtpCooldown, setDeleteOtpCooldown] = useState(0);
+  const [requestingDeleteOtp, setRequestingDeleteOtp] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<{ url: string; name: string } | null>(null);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [qrModal, setQrModal] = useState<QrModalState | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [exportingImage, setExportingImage] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportContext, setExportContext] = useState({ title: "", stamp: "", count: 0 });
+  const [profileSections, setProfileSections] = useState<Record<ProfileSectionKey, boolean>>({
+    username: true,
+    avatar: false,
+    password: false,
+    delete: false,
+  });
+  const [bookingFilters, setBookingFilters] = useState<ListFilterState>({
+    query: "",
+    from: "",
+    to: "",
+    includePast: false,
+    scheduleIds: [],
+    sort: "time-asc",
+  });
+  const [bookingFilterDraft, setBookingFilterDraft] = useState<ListFilterState>({
+    query: "",
+    from: "",
+    to: "",
+    includePast: false,
+    scheduleIds: [],
+    sort: "time-asc",
+  });
+  const [bookingFilterOpen, setBookingFilterOpen] = useState(false);
+  const [sessionFilters, setSessionFilters] = useState<ListFilterState>({
+    query: "",
+    from: "",
+    to: "",
+    includePast: false,
+    scheduleIds: [],
+    sort: "time-asc",
+  });
+  const [sessionFilterDraft, setSessionFilterDraft] = useState<ListFilterState>({
+    query: "",
+    from: "",
+    to: "",
+    includePast: false,
+    scheduleIds: [],
+    sort: "time-asc",
+  });
+  const [sessionFilterOpen, setSessionFilterOpen] = useState(false);
 
   useEffect(() => {
     if (passwordOtpCooldown <= 0) return;
@@ -218,9 +315,91 @@ export default function DashboardPage() {
     return () => window.clearInterval(timer);
   }, [passwordOtpCooldown]);
 
+  useEffect(() => {
+    if (deleteOtpCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setDeleteOtpCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [deleteOtpCooldown]);
+
+  useEffect(() => {
+    if (!qrModal?.url) {
+      setQrDataUrl("");
+      return;
+    }
+    let active = true;
+    QRCode.toDataURL(qrModal.url, { margin: 1, width: 360 })
+      .then((url) => {
+        if (active) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (active) setQrDataUrl("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [qrModal?.url]);
+
   function openAvatarPreview(src: string | null | undefined, name: string) {
     const url = normalizePreviewUrl(src) || (theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg");
     setAvatarPreview({ url, name });
+  }
+
+  function toggleProfileSection(key: ProfileSectionKey) {
+    setProfileSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function parseDateInput(value: string, endOfDay = false) {
+    if (!value) return null;
+    const [y, m, d] = value.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  }
+
+  function applyListFilters(list: any[], filters: ListFilterState, queryMatch: (item: any, query: string) => boolean) {
+    const now = Date.now();
+    const fromDate = parseDateInput(filters.from);
+    const toDate = parseDateInput(filters.to, true);
+    const query = normalizeSearchText(filters.query);
+
+    return list.filter((item) => {
+      const start = item?.timeSlot?.startTime ? new Date(item.timeSlot.startTime).getTime() : null;
+      if (filters.scheduleIds.length > 0 && !filters.scheduleIds.includes(item?.scheduleId)) return false;
+      if (!filters.includePast) {
+        const end = item?.timeSlot?.endTime || item?.timeSlot?.startTime;
+        if (end && new Date(end).getTime() < now) return false;
+      }
+      if (fromDate && start !== null && start < fromDate.getTime()) return false;
+      if (toDate && start !== null && start > toDate.getTime()) return false;
+      if (query && !queryMatch(item, query)) return false;
+      return true;
+    });
+  }
+
+  function bookingMatchesQuery(item: any, rawQuery: string) {
+    const query = normalizeSearchText(rawQuery);
+    if (!query) return true;
+    const fields = [
+      item?.schedule?.title,
+      item?.bookedByUser?.username,
+      item?.bookedByUser?.phone,
+      item?.visitorName,
+      Array.isArray(item?.answers) ? item.answers.join(" ") : item?.answers,
+    ];
+    return fields.some((field) => normalizeSearchText(field).includes(query));
+  }
+
+  function sessionMatchesQuery(item: any, rawQuery: string) {
+    const query = normalizeSearchText(rawQuery);
+    if (!query) return true;
+    const fields = [
+      item?.schedule?.title,
+      item?.schedule?.user?.username,
+      item?.schedule?.user?.phone,
+      Array.isArray(item?.answers) ? item.answers.join(" ") : item?.answers,
+    ];
+    return fields.some((field) => normalizeSearchText(field).includes(query));
   }
 
   const meQuery = useQuery({
@@ -243,9 +422,9 @@ export default function DashboardPage() {
   });
 
   const bookingsQuery = useQuery({
-    queryKey: ["bookings", "my", scheduleFilter],
+    queryKey: ["bookings", "my"],
     queryFn: async () => {
-      const res = await fetch(`/api/bookings/my${scheduleFilter ? `?scheduleId=${scheduleFilter}` : ""}`, { cache: "no-store" });
+      const res = await fetch("/api/bookings/my", { cache: "no-store" });
       if (!res.ok) throw new Error("FAILED_BOOKINGS");
       return res.json();
     },
@@ -265,33 +444,42 @@ export default function DashboardPage() {
   const bookings = bookingsQuery.data ?? [];
   const mySessions = mySessionsQuery.data ?? [];
 
-  const sortedBookings = useMemo(() => {
-    const now = Date.now();
-    const upcoming = bookings.filter((b) => {
-      const end = b?.timeSlot?.endTime || b?.timeSlot?.startTime;
-      if (!end) return true;
-      return new Date(end).getTime() >= now;
-    });
-    return [...upcoming].sort((a, b) => {
-      const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-      const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-      return aTime - bTime;
-    });
-  }, [bookings]);
+  const bookingScheduleOptions = useMemo(
+    () => schedules.map((s: any) => ({ id: s.id, title: s.title })),
+    [schedules],
+  );
 
-  const sortedMySessions = useMemo(() => {
-    const now = Date.now();
-    const upcoming = mySessions.filter((s) => {
-      const end = s?.timeSlot?.endTime || s?.timeSlot?.startTime;
-      if (!end) return true;
-      return new Date(end).getTime() >= now;
+  const sessionScheduleOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    mySessions.forEach((s: any) => {
+      if (s?.schedule?.id) map.set(s.schedule.id, s.schedule?.title || "-");
     });
-    return [...upcoming].sort((a, b) => {
+    return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+  }, [mySessions]);
+
+  const filteredBookings = useMemo(() => {
+    const list = applyListFilters(bookings, bookingFilters, bookingMatchesQuery);
+    return [...list].sort((a, b) => {
       const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
       const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
-      return aTime - bTime;
+      if (bookingFilters.sort === "time-asc") return aTime - bTime;
+      if (bookingFilters.sort === "time-desc") return bTime - aTime;
+      const aName = (a?.schedule?.title || "").localeCompare(b?.schedule?.title || "", "fa");
+      return bookingFilters.sort === "name-asc" ? aName : -aName;
     });
-  }, [mySessions]);
+  }, [bookings, bookingFilters]);
+
+  const filteredMySessions = useMemo(() => {
+    const list = applyListFilters(mySessions, sessionFilters, sessionMatchesQuery);
+    return [...list].sort((a, b) => {
+      const aTime = a?.timeSlot?.startTime ? new Date(a.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b?.timeSlot?.startTime ? new Date(b.timeSlot.startTime).getTime() : Number.POSITIVE_INFINITY;
+      if (sessionFilters.sort === "time-asc") return aTime - bTime;
+      if (sessionFilters.sort === "time-desc") return bTime - aTime;
+      const aName = (a?.schedule?.title || "").localeCompare(b?.schedule?.title || "", "fa");
+      return sessionFilters.sort === "name-asc" ? aName : -aName;
+    });
+  }, [mySessions, sessionFilters]);
 
   useEffect(() => {
     if (typeof window !== "undefined") setBaseUrl(window.location.origin.replace(/\/$/, ""));
@@ -316,9 +504,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function onPointerDown(e: MouseEvent) {
-      if (!scheduleMenuRef.current) return;
-      if (!scheduleMenuRef.current.contains(e.target as Node)) {
-        setIsScheduleMenuOpen(false);
+      const target = e.target as Node;
+      if (exportMenuRef.current && !exportMenuRef.current.contains(target)) {
+        setIsExportMenuOpen(false);
       }
     }
 
@@ -347,7 +535,7 @@ export default function DashboardPage() {
     return Array.from(slotCountByDate.values()).reduce((sum, v) => sum + v, 0);
   }, [slotCountByDate]);
   const canCreateSchedule = !isInvalidTimeConfig && totalSlotCount > 0;
-  const nextSession = sortedMySessions.length > 0 ? sortedMySessions[0] : null;
+  const nextSession = filteredMySessions.length > 0 ? filteredMySessions[0] : null;
   useEffect(() => {
     const raw = localStorage.getItem("bookhub:schedule-draft");
     if (!raw) return;
@@ -500,6 +688,138 @@ export default function DashboardPage() {
   function getShareUrl(shareId: string) {
     const origin = baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
     return `${origin}/schedule/${shareId}`;
+  }
+
+  function openQrModal(schedule: any) {
+    if (!schedule?.shareId) return;
+    setQrModal({ schedule, url: getShareUrl(schedule.shareId) });
+  }
+
+  function openQrForCurrentSchedule() {
+    if (schedules.length === 0) {
+      toast.error("ابتدا یک برنامه بسازید");
+      return;
+    }
+    const selected = scheduleFilter
+      ? schedules.find((s: any) => s.id === scheduleFilter)
+      : schedules[0];
+    if (!selected) {
+      toast.error("برنامه‌ای برای اشتراک پیدا نشد");
+      return;
+    }
+    openQrModal(selected);
+  }
+
+  async function shareQrLink() {
+    if (!qrModal?.url) return;
+    if (navigator.share) {
+      try {
+        if (qrDataUrl) {
+          const blob = await fetch(qrDataUrl).then((res) => res.blob());
+          const file = new File([blob], "bookhub-qr.png", { type: blob.type || "image/png" });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: "لینک برنامه", url: qrModal.url, files: [file] });
+            return;
+          }
+        }
+        await navigator.share({ title: "لینک برنامه", url: qrModal.url });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(qrModal.url);
+      toast.success("لینک کپی شد");
+    } catch {
+      toast.error("امکان اشتراک‌گذاری وجود ندارد");
+    }
+  }
+
+  function getExportFileStamp(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const h = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    return `${y}${m}${d}-${h}${min}`;
+  }
+
+  function buildExportContext(now: Date) {
+    if (bookingFilters.scheduleIds.length === 1) {
+      const selected = schedules.find((s: any) => s.id === bookingFilters.scheduleIds[0]);
+      return {
+        title: selected?.title || "برنامه انتخابی",
+        stamp: formatJalaliDateTime(now),
+        count: filteredBookings.length,
+      };
+    }
+
+    if (bookingFilters.scheduleIds.length > 1) {
+      return {
+        title: `چند برنامه (${bookingFilters.scheduleIds.length})`,
+        stamp: formatJalaliDateTime(now),
+        count: filteredBookings.length,
+      };
+    }
+
+    return {
+      title: "همه برنامه‌ها",
+      stamp: formatJalaliDateTime(now),
+      count: filteredBookings.length,
+    };
+  }
+
+  async function captureExportPng() {
+    if (!bookingsExportRef.current) throw new Error("NO_EXPORT_TARGET");
+    const now = new Date();
+    setExportContext(buildExportContext(now));
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const { toPng } = await import("html-to-image");
+    return toPng(bookingsExportRef.current, {
+      cacheBust: true,
+      pixelRatio: 2.5,
+      backgroundColor: "#f8fafc",
+    });
+  }
+
+  async function exportBookingsAsImage() {
+    if (!bookingsExportRef.current) return;
+    setExportingImage(true);
+    try {
+      const dataUrl = await captureExportPng();
+      const fileStamp = getExportFileStamp(new Date());
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `bookings-${fileStamp}.png`;
+      link.click();
+    } catch {
+      toast.error("خروجی تصویر ناموفق بود");
+    } finally {
+      setExportingImage(false);
+      setIsExportMenuOpen(false);
+    }
+  }
+
+  async function exportBookingsAsPdf() {
+    setExportingPdf(true);
+    try {
+      const dataUrl = await captureExportPng();
+      const img = new window.Image();
+      img.src = dataUrl;
+      await img.decode();
+      const { jsPDF } = await import("jspdf");
+      const orientation = img.width > img.height ? "landscape" : "portrait";
+      const pdf = new jsPDF({ orientation, unit: "pt", format: [img.width, img.height] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      const fileStamp = getExportFileStamp(new Date());
+      pdf.save(`bookings-${fileStamp}.pdf`);
+    } catch {
+      toast.error("خروجی PDF ناموفق بود");
+    } finally {
+      setExportingPdf(false);
+      setIsExportMenuOpen(false);
+    }
   }
 
   async function cancelBooking() {
@@ -921,6 +1241,16 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       className="btn-ghost"
+                      onClick={() => openQrModal(s)}
+                      aria-label="نمایش QR برنامه"
+                      title="نمایش QR برنامه"
+                    >
+                      <QrCode size={14} />
+                      <span className="hidden md:inline">QR برنامه</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost"
                       onClick={() => setDeleteScheduleTarget(s)}
                       aria-label="حذف برنامه"
                       title="حذف برنامه"
@@ -942,74 +1272,247 @@ export default function DashboardPage() {
           <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <label className="block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
-            <a
-              className="btn-ghost"
-              href={`/api/bookings/my/export?format=csv${scheduleFilter ? `&scheduleId=${scheduleFilter}` : ""}`}
-            >
-              دانلود CSV
-            </a>
-            <a
-              className="btn-ghost"
-              href={`/api/bookings/my/export?format=xls${scheduleFilter ? `&scheduleId=${scheduleFilter}` : ""}`}
-            >
-              دانلود Excel
-            </a>
-          </div>
-          <div ref={scheduleMenuRef} className="relative mb-4 w-full sm:max-w-sm">
-            <button
-              type="button"
-              onClick={() => setIsScheduleMenuOpen((prev) => !prev)}
-              className="dropdown-trigger flex w-full items-center justify-between rounded-3xl px-3 py-2.5 text-right shadow-sm outline-none transition"
-              aria-haspopup="listbox"
-              aria-expanded={isScheduleMenuOpen}
-            >
-              <span className="truncate">
-                {scheduleFilter ? schedules.find((s) => s.id === scheduleFilter)?.title || "همه برنامه‌ها" : "همه برنامه‌ها"}
-              </span>
-              <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${isScheduleMenuOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            <div
-              className={`dropdown-panel absolute z-50 mt-2 max-h-64 w-full origin-top overflow-y-auto rounded-2xl shadow-xl transition-all duration-200 ${
-                isScheduleMenuOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
-              }`}
-            >
+            <div ref={exportMenuRef} className="relative">
               <button
                 type="button"
-                className={`dropdown-option block w-full px-3 py-2 text-right text-sm transition ${scheduleFilter === "" ? "dropdown-option-active" : ""}`}
-                onClick={() => {
-                  setScheduleFilter("");
-                  setIsScheduleMenuOpen(false);
-                }}
-                role="option"
-                aria-selected={scheduleFilter === ""}
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                className="btn-ghost flex items-center gap-2"
+                aria-haspopup="listbox"
+                aria-expanded={isExportMenuOpen}
               >
-                همه برنامه‌ها
+                <Download size={16} /> خروجی گرفتن
               </button>
-              {schedules.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`dropdown-option block w-full px-3 py-2 text-right text-sm transition ${scheduleFilter === s.id ? "dropdown-option-active" : ""}`}
-                  onClick={() => {
-                    setScheduleFilter(s.id);
-                    setIsScheduleMenuOpen(false);
-                  }}
-                  role="option"
-                  aria-selected={scheduleFilter === s.id}
+              <div
+                className={`dropdown-panel absolute left-0 z-50 mt-2 w-48 origin-top-left rounded-2xl shadow-xl transition-all duration-200 ${
+                  isExportMenuOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0"
+                }`}
+              >
+                <a
+                  className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
+                  href={`/api/bookings/my/export?format=csv${bookingFilters.scheduleIds.length > 0 ? `&scheduleId=${bookingFilters.scheduleIds.join(",")}` : ""}`}
+                  onClick={() => setIsExportMenuOpen(false)}
                 >
-                  {s.title}
+                  <FileText size={14} /> CSV
+                </a>
+                <a
+                  className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
+                  href={`/api/bookings/my/export?format=xls${bookingFilters.scheduleIds.length > 0 ? `&scheduleId=${bookingFilters.scheduleIds.join(",")}` : ""}`}
+                  onClick={() => setIsExportMenuOpen(false)}
+                >
+                  <FileSpreadsheet size={14} /> Excel
+                </a>
+                <button
+                  type="button"
+                  className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
+                  onClick={exportBookingsAsPdf}
+                  disabled={exportingPdf}
+                >
+                  <FileText size={14} /> {exportingPdf ? "در حال ساخت PDF" : "PDF"}
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
+                  onClick={exportBookingsAsImage}
+                  disabled={exportingImage}
+                >
+                  <FileImage size={14} /> {exportingImage ? "در حال ساخت تصویر" : "تصویر"}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="mb-4 grid gap-2 rounded-2xl border border-slate-700/40 bg-slate-500/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              className="input h-10"
+              placeholder="جستجو در رزروها (نام، شماره، پاسخ‌ها...)"
+              value={bookingFilterDraft.query}
+              onChange={(e) => {
+                const value = e.target.value;
+                setBookingFilterDraft((prev) => ({ ...prev, query: value }));
+                setBookingFilters((prev) => ({ ...prev, query: value }));
+              }}
+            />
+            <button
+              type="button"
+              className="btn-ghost h-10"
+              onClick={() => setBookingFilterOpen((prev) => !prev)}
+            >
+              فیلتر بیشتر
+            </button>
+            {bookingFilterOpen && (
+              <div className="sm:col-span-2 grid gap-2 rounded-xl border border-slate-700/40 bg-slate-900/40 p-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">از تاریخ</label>
+                  <input
+                    className="input h-10"
+                    type="date"
+                    value={bookingFilterDraft.from}
+                    onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, from: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">تا تاریخ</label>
+                  <input
+                    className="input h-10"
+                    type="date"
+                    value={bookingFilterDraft.to}
+                    onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, to: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">مرتب‌سازی</label>
+                  <select
+                    className="input h-10"
+                    value={bookingFilterDraft.sort}
+                    onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, sort: e.target.value as ListFilterState["sort"] }))}
+                  >
+                    <option value="time-asc">زمان (نزدیک‌ترین)</option>
+                    <option value="time-desc">زمان (دورترین)</option>
+                    <option value="name-asc">نام برنامه (الف-ی)</option>
+                    <option value="name-desc">نام برنامه (ی-الف)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs text-slate-400">فیلتر برنامه‌ها</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={`rounded-full border px-3 py-1 text-xs transition ${bookingFilterDraft.scheduleIds.length === 0 ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
+                      onClick={() => setBookingFilterDraft((prev) => ({ ...prev, scheduleIds: [] }))}
+                    >
+                      همه برنامه‌ها
+                    </button>
+                    {bookingScheduleOptions.map((s) => {
+                      const active = bookingFilterDraft.scheduleIds.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`rounded-full border px-3 py-1 text-xs transition ${active ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
+                          onClick={() =>
+                            setBookingFilterDraft((prev) => ({
+                              ...prev,
+                              scheduleIds: active
+                                ? prev.scheduleIds.filter((id) => id !== s.id)
+                                : [...prev.scheduleIds, s.id],
+                            }))
+                          }
+                        >
+                          {s.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={bookingFilterDraft.includePast}
+                    onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
+                  />
+                  نمایش رزروهای گذشته
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setBookingFilters(bookingFilterDraft);
+                      setBookingFilterOpen(false);
+                    }}
+                  >
+                    اعمال فیلتر
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => {
+                      const reset = { query: "", from: "", to: "", includePast: false, scheduleIds: [], sort: "time-asc" };
+                      setBookingFilterDraft(reset);
+                      setBookingFilters(reset);
+                      setBookingFilterOpen(false);
+                    }}
+                  >
+                    ریست
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div
+            ref={bookingsExportRef}
+            className="fixed left-[-9999px] top-0 w-[980px]"
+            aria-hidden="true"
+          >
+            <div
+              className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 text-slate-900 shadow-xl"
+              dir="rtl"
+              style={{ fontFamily: "Vazirmatn, ui-sans-serif, system-ui" }}
+            >
+              <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
+                <div>
+                  <div className="text-lg font-extrabold">خروجی رزروها</div>
+                  <div className="text-xs text-slate-500">{exportContext.title} · {exportContext.count} رزرو</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-[11px] text-slate-500">زمان دانلود: {exportContext.stamp}</div>
+                  <img src="/logo.svg" alt="BookHub" className="h-8 w-8" />
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                <table className="w-full border-separate border-spacing-0 text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="rounded-tr-2xl border-b border-slate-200 p-2 text-right">برنامه</th>
+                      <th className="border-b border-slate-200 p-2 text-right">رزروکننده</th>
+                      <th className="border-b border-slate-200 p-2 text-right">شماره</th>
+                      <th className="rounded-tl-2xl border-b border-slate-200 p-2 text-right">زمان</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBookings.map((b, idx) => (
+                      <tr key={b.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                        <td className="border-b border-slate-100 p-2">{b.schedule?.title || "-"}</td>
+                        <td className="border-b border-slate-100 p-2">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر"}</td>
+                        <td className="border-b border-slate-100 p-2" dir="ltr">{b.bookedByUser?.phone || "-"}</td>
+                        <td className="border-b border-slate-100 p-2">{b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                <span>bookhub.ir</span>
+                <span>رزروهای ثبت‌شده شما</span>
+              </div>
             </div>
           </div>
           <div className="space-y-3">
-            {sortedBookings.length === 0 && <div className="text-sm text-slate-400">برای این برنامه رزروی ثبت نشده است.</div>}
-            {sortedBookings.map((b) => (
+            {filteredBookings.length === 0 && <div className="text-sm text-slate-400">نتیجه‌ای برای فیلتر انتخابی پیدا نشد.</div>}
+            {filteredBookings.map((b) => (
               <div key={b.id} className="rounded-xl surface-block p-3">
-                <div className="font-medium break-words">{b.schedule.title}</div>
+                <div className="font-medium break-words">{highlightText(b.schedule.title, bookingFilters.query)}</div>
                 <div className="text-sm text-slate-400">
-                  نام رزروکننده: {b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر"}
+                  نام رزروکننده: {highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر", bookingFilters.query)}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <span>شماره رزروکننده:</span>
+                  <span dir="ltr">{highlightText(b.bookedByUser?.phone || "-", bookingFilters.query)}</span>
+                  {b.bookedByUser?.phone && (
+                    <button
+                      type="button"
+                      className="rounded-md p-1 text-slate-400 transition hover:bg-slate-500/10 hover:text-cyan-300"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(b.bookedByUser.phone);
+                        toast.success("شماره کپی شد");
+                      }}
+                      aria-label="کپی شماره رزروکننده"
+                      title="کپی شماره رزروکننده"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <UserAvatar
@@ -1019,14 +1522,14 @@ export default function DashboardPage() {
                     iconSize={14}
                     onClick={() => openAvatarPreview(b.bookedByUser?.avatarUrl, b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر")}
                   />
-                  <div className="text-xs text-slate-400">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان"}</div>
+                  <div className="text-xs text-slate-400">{highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان", bookingFilters.query)}</div>
                 </div>
                 <div className="text-sm text-slate-400">
                   زمان: {b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}
                 </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
                   <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
-                  {renderAnswers(b.answers, b.schedule?.questions)}
+                  {renderAnswers(b.answers, b.schedule?.questions, bookingFilters.query)}
                 </div>
                 <div className="mt-3">
                   <button
@@ -1050,11 +1553,129 @@ export default function DashboardPage() {
         <section className="card p-4">
           <h2 className="mb-4 text-lg font-bold md:text-xl">جلسات من</h2>
           <p className="-mt-2 mb-4 text-sm text-slate-400">جلسه‌هایی که خودتان رزرو کرده‌اید همراه با زمان و پاسخ‌های ثبت‌شده نمایش داده می‌شوند.</p>
+          <div className="mb-4 grid gap-2 rounded-2xl border border-slate-700/40 bg-slate-500/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              className="input h-10"
+              placeholder="جستجو در جلسات (نام برنامه، ارائه‌دهنده، پاسخ‌ها...)"
+              value={sessionFilterDraft.query}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSessionFilterDraft((prev) => ({ ...prev, query: value }));
+                setSessionFilters((prev) => ({ ...prev, query: value }));
+              }}
+            />
+            <button
+              type="button"
+              className="btn-ghost h-10"
+              onClick={() => setSessionFilterOpen((prev) => !prev)}
+            >
+              فیلتر بیشتر
+            </button>
+            {sessionFilterOpen && (
+              <div className="sm:col-span-2 grid gap-2 rounded-xl border border-slate-700/40 bg-slate-900/40 p-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">از تاریخ</label>
+                  <input
+                    className="input h-10"
+                    type="date"
+                    value={sessionFilterDraft.from}
+                    onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, from: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">تا تاریخ</label>
+                  <input
+                    className="input h-10"
+                    type="date"
+                    value={sessionFilterDraft.to}
+                    onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, to: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">مرتب‌سازی</label>
+                  <select
+                    className="input h-10"
+                    value={sessionFilterDraft.sort}
+                    onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, sort: e.target.value as ListFilterState["sort"] }))}
+                  >
+                    <option value="time-asc">زمان (نزدیک‌ترین)</option>
+                    <option value="time-desc">زمان (دورترین)</option>
+                    <option value="name-asc">نام برنامه (الف-ی)</option>
+                    <option value="name-desc">نام برنامه (ی-الف)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs text-slate-400">فیلتر برنامه‌ها</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={`rounded-full border px-3 py-1 text-xs transition ${sessionFilterDraft.scheduleIds.length === 0 ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
+                      onClick={() => setSessionFilterDraft((prev) => ({ ...prev, scheduleIds: [] }))}
+                    >
+                      همه برنامه‌ها
+                    </button>
+                    {sessionScheduleOptions.map((s) => {
+                      const active = sessionFilterDraft.scheduleIds.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`rounded-full border px-3 py-1 text-xs transition ${active ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
+                          onClick={() =>
+                            setSessionFilterDraft((prev) => ({
+                              ...prev,
+                              scheduleIds: active
+                                ? prev.scheduleIds.filter((id) => id !== s.id)
+                                : [...prev.scheduleIds, s.id],
+                            }))
+                          }
+                        >
+                          {s.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={sessionFilterDraft.includePast}
+                    onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
+                  />
+                  نمایش جلسات گذشته
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setSessionFilters(sessionFilterDraft);
+                      setSessionFilterOpen(false);
+                    }}
+                  >
+                    اعمال فیلتر
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => {
+                      const reset = { query: "", from: "", to: "", includePast: false, scheduleIds: [], sort: "time-asc" };
+                      setSessionFilterDraft(reset);
+                      setSessionFilters(reset);
+                      setSessionFilterOpen(false);
+                    }}
+                  >
+                    ریست
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {nextSession && nextSession.timeSlot?.startTime && (
             <div className="mb-4 rounded-xl border border-cyan-700/40 bg-cyan-500/10 p-3 text-sm text-cyan-200">
               <div className="font-semibold">جلسه بعدی شما</div>
               <div className="mt-1 text-xs text-slate-300">
-                {nextSession.schedule?.title || "جلسه"} · {formatJalaliDateTime(new Date(nextSession.timeSlot.startTime))}
+                {highlightText(nextSession.schedule?.title || "جلسه", sessionFilters.query)} · {formatJalaliDateTime(new Date(nextSession.timeSlot.startTime))}
               </div>
               {minutesUntil(new Date(nextSession.timeSlot.startTime)) >= 0 && (
                 <div className="mt-1 text-xs text-slate-300">
@@ -1064,10 +1685,10 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="space-y-3">
-            {sortedMySessions.length === 0 && <div className="text-sm text-slate-400">هنوز جلسه‌ای رزرو نکرده‌اید.</div>}
-            {sortedMySessions.map((s) => (
+            {filteredMySessions.length === 0 && <div className="text-sm text-slate-400">نتیجه‌ای برای فیلتر انتخابی پیدا نشد.</div>}
+            {filteredMySessions.map((s) => (
               <div key={s.id} className="rounded-xl surface-block p-3">
-                <div className="font-medium break-words">{s.schedule?.title || "-"}</div>
+                <div className="font-medium break-words">{highlightText(s.schedule?.title || "-", sessionFilters.query)}</div>
                 <div className="mt-2 flex items-center gap-2">
                   <UserAvatar
                     src={s.schedule?.user?.avatarUrl}
@@ -1076,7 +1697,7 @@ export default function DashboardPage() {
                     iconSize={14}
                     onClick={() => openAvatarPreview(s.schedule?.user?.avatarUrl, s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده")}
                   />
-                  <div className="text-sm text-slate-400">ارائه‌دهنده: {s.schedule?.user?.username || s.schedule?.user?.phone || "-"}</div>
+                  <div className="text-sm text-slate-400">ارائه‌دهنده: {highlightText(s.schedule?.user?.username || s.schedule?.user?.phone || "-", sessionFilters.query)}</div>
                 </div>
                 <div className="text-sm text-slate-400">
                   زمان شروع: {s.timeSlot?.startTime ? formatJalaliDateTime(new Date(s.timeSlot.startTime)) : "-"}
@@ -1086,7 +1707,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
                   <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
-                  {renderAnswers(s.answers, s.schedule?.questions)}
+                  {renderAnswers(s.answers, s.schedule?.questions, sessionFilters.query)}
                 </div>
                 <div className="mt-3">
                   <button
@@ -1110,116 +1731,172 @@ export default function DashboardPage() {
         <section className="card space-y-4 p-4">
           <h2 className="text-lg font-bold md:text-xl">پروفایل</h2>
           <p className="text-sm text-slate-400">مدیریت نام کاربری، رمز عبور، عکس پروفایل و حذف حساب کاربری.</p>
-
-          <form
-            className="space-y-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setProfileLoading(true);
-              const res = await fetch("/api/profile", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: profileUsername }),
-              });
-              const data = await res.json();
-              setProfileLoading(false);
-              if (!res.ok) return toast.error(data.details || data.error || "خطا");
-              queryClient.setQueryData(["auth", "me"], data);
-              toast.success("پروفایل به‌روزرسانی شد");
-            }}
-          >
-            <label className="block text-sm text-slate-300">نام کاربری</label>
-            <input className="input" value={profileUsername} onChange={(e) => setProfileUsername(e.target.value)} />
-            <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
-          </form>
-
-          <AvatarUploader
-            currentAvatarUrl={user?.avatarUrl}
-            onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
-            onUploaded={(avatarUrl) => {
-              queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl }));
-              bumpAvatarRefreshToken();
-              void Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
-                queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
-                queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
-              ]);
-            }}
-            onRemoved={() => {
-              queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl: null }));
-              bumpAvatarRefreshToken();
-              void Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
-                queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
-                queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
-              ]);
-            }}
-          />
-
-          <div className="rounded-xl surface-block p-3 space-y-2">
-            <h3 className="font-medium">تغییر رمز عبور</h3>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={async () => {
-                if (requestingPasswordOtp || passwordOtpCooldown > 0) return;
-                try {
-                  setRequestingPasswordOtp(true);
-                  const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
-                  const data = await res.json();
-                  if (!res.ok) {
-                    const msg = data.details || data.error || "خطا";
-                    const match = String(msg).match(/(\d+)/);
-                    if (match) setPasswordOtpCooldown(Number(match[1]));
-                    return toast.error(msg);
-                  }
-                  setPasswordOtpCooldown(120);
-                  toast.success("کد تایید ارسال شد");
-                } finally {
-                  setRequestingPasswordOtp(false);
-                }
-              }}
-              disabled={requestingPasswordOtp || passwordOtpCooldown > 0}
-            >
-              {requestingPasswordOtp ? "در حال ارسال..." : passwordOtpCooldown > 0 ? `ارسال مجدد تا ${passwordOtpCooldown} ثانیه` : "ارسال کد تایید"}
-            </button>
-            <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
-            <input className="input" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
-            <div className="relative">
-              <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-              <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowNewPassword((p) => !p)}>
-                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          <div className="space-y-3">
+            <div className="rounded-2xl surface-block">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium"
+                onClick={() => toggleProfileSection("username")}
+                aria-expanded={profileSections.username}
+              >
+                تغییر نام کاربری
+                <ChevronDown size={16} className={`transition ${profileSections.username ? "rotate-180" : ""}`} />
               </button>
+              {profileSections.username && (
+                <form
+                  className="space-y-2 px-4 pb-4"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setProfileLoading(true);
+                    const res = await fetch("/api/profile", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ username: profileUsername }),
+                    });
+                    const data = await res.json();
+                    setProfileLoading(false);
+                    if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                    queryClient.setQueryData(["auth", "me"], data);
+                    toast.success("پروفایل به‌روزرسانی شد");
+                  }}
+                >
+                  <label className="block text-sm text-slate-300">نام کاربری</label>
+                  <input className="input" value={profileUsername} onChange={(e) => setProfileUsername(e.target.value)} />
+                  <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
+                </form>
+              )}
             </div>
-            <div className="relative">
-              <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
-              <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowConfirmPassword((p) => !p)}>
-                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+
+            <div className="rounded-2xl surface-block">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium"
+                onClick={() => toggleProfileSection("avatar")}
+                aria-expanded={profileSections.avatar}
+              >
+                عکس پروفایل
+                <ChevronDown size={16} className={`transition ${profileSections.avatar ? "rotate-180" : ""}`} />
               </button>
+              {profileSections.avatar && (
+                <div className="px-4 pb-4">
+                  <AvatarUploader
+                    currentAvatarUrl={user?.avatarUrl}
+                    onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
+                    onUploaded={(avatarUrl) => {
+                      queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl }));
+                      bumpAvatarRefreshToken();
+                      void Promise.all([
+                        queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+                        queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+                        queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+                      ]);
+                    }}
+                    onRemoved={() => {
+                      queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl: null }));
+                      bumpAvatarRefreshToken();
+                      void Promise.all([
+                        queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
+                        queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
+                        queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
+                      ]);
+                    }}
+                  />
+                </div>
+              )}
             </div>
-            <button
-              className="btn-primary"
-              onClick={async () => {
-                const res = await fetch("/api/profile/password/confirm", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ code: passwordCode, newPassword, confirmPassword: confirmNewPassword }),
-                });
-                const data = await res.json();
-                if (!res.ok) return toast.error(data.details || data.error || "خطا");
-                toast.success("رمز عبور تغییر کرد");
-                setPasswordCode("");
-                setNewPassword("");
-                setConfirmNewPassword("");
-              }}
-            >
-              تایید تغییر رمز
-            </button>
+
+            <div className="rounded-2xl surface-block">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium"
+                onClick={() => toggleProfileSection("password")}
+                aria-expanded={profileSections.password}
+              >
+                تغییر رمز عبور
+                <ChevronDown size={16} className={`transition ${profileSections.password ? "rotate-180" : ""}`} />
+              </button>
+              {profileSections.password && (
+                <div className="space-y-2 px-4 pb-4">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={async () => {
+                      if (requestingPasswordOtp || passwordOtpCooldown > 0) return;
+                      try {
+                        setRequestingPasswordOtp(true);
+                        const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
+                        const data = await res.json();
+                        if (!res.ok) {
+                          const msg = data.details || data.error || "خطا";
+                          const match = String(msg).match(/(\d+)/);
+                          if (match) setPasswordOtpCooldown(Number(match[1]));
+                          return toast.error(msg);
+                        }
+                        setPasswordOtpCooldown(120);
+                        toast.success("کد تایید ارسال شد");
+                      } finally {
+                        setRequestingPasswordOtp(false);
+                      }
+                    }}
+                    disabled={requestingPasswordOtp || passwordOtpCooldown > 0}
+                  >
+                    {requestingPasswordOtp ? "در حال ارسال..." : passwordOtpCooldown > 0 ? `ارسال مجدد تا ${passwordOtpCooldown} ثانیه` : "ارسال کد تایید"}
+                  </button>
+                  <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
+                  <input className="input" type="tel" inputMode="numeric" pattern="[0-9۰-۹٠-٩]*" autoComplete="one-time-code" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
+                  <div className="relative">
+                    <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                    <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowNewPassword((p) => !p)}>
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                    <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowConfirmPassword((p) => !p)}>
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <button
+                    className="btn-primary"
+                    onClick={async () => {
+                      const res = await fetch("/api/profile/password/confirm", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code: passwordCode, newPassword, confirmPassword: confirmNewPassword }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                      toast.success("رمز عبور تغییر کرد");
+                      setPasswordCode("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                    }}
+                  >
+                    تایید تغییر رمز
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium text-rose-200"
+                onClick={() => toggleProfileSection("delete")}
+                aria-expanded={profileSections.delete}
+              >
+                حذف اکانت
+                <ChevronDown size={16} className={`transition ${profileSections.delete ? "rotate-180" : ""}`} />
+              </button>
+              {profileSections.delete && (
+                <div className="px-4 pb-4">
+                  <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
+                    حذف حساب کاربری
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-
-          <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
-            حذف حساب کاربری
-          </button>
         </section>
       )}
 
@@ -1275,8 +1952,38 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {qrModal && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/80 p-4" onClick={() => setQrModal(null)}>
+          <div className="card w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">اشتراک‌گذاری برنامه</h3>
+            <p className="mt-1 text-sm text-slate-400">{qrModal.schedule?.title || "برنامه"}</p>
+            <a className="mt-2 block break-all text-xs text-cyan-300" href={qrModal.url} target="_blank" rel="noreferrer">
+              {qrModal.url}
+            </a>
+            <div className="mt-4 flex items-center justify-center rounded-2xl bg-white p-3">
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt="QR" className="h-48 w-48" />
+              ) : (
+                <div className="text-xs text-slate-500">در حال ساخت QR...</div>
+              )}
+            </div>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              {qrDataUrl && (
+                <a className="btn-ghost" href={qrDataUrl} download={`bookhub-${qrModal.schedule?.shareId || "schedule"}.png`}>
+                  <Download size={16} /> دانلود QR
+                </a>
+              )}
+              <button type="button" className="btn-primary" onClick={shareQrLink}>
+                <Share2 size={16} /> اشتراک‌گذاری
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => setQrModal(null)}>بستن</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
-        <div className="card mx-auto grid max-w-md grid-cols-4 gap-2 p-2">
+        <div className="card mx-auto grid max-w-md grid-cols-5 gap-2 p-2">
           <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
             <CalendarDays size={15} />
           </button>
@@ -1285,6 +1992,9 @@ export default function DashboardPage() {
           </button>
           <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
             <Clock3 size={15} />
+          </button>
+          <button className="btn-ghost" onClick={openQrForCurrentSchedule} aria-label="اشتراک با QR">
+            <QrCode size={15} />
           </button>
           <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
             <UserCircle2 size={15} />
@@ -1316,20 +2026,70 @@ export default function DashboardPage() {
           <div className="card w-full max-w-md p-4">
             <h3 className="text-lg font-bold">حذف حساب کاربری</h3>
             <p className="mt-2 text-sm text-slate-300">این عملیات قابل بازگشت نیست. ادامه می‌دهید؟</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
+            <div className="mt-4 space-y-3">
               <button
                 type="button"
-                className="btn-danger"
+                className="btn-ghost w-full justify-between"
                 onClick={async () => {
-                  const res = await fetch("/api/profile", { method: "DELETE" });
-                  if (!res.ok) return toast.error("حذف حساب ناموفق بود");
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  window.location.href = "/login";
+                  if (requestingDeleteOtp || deleteOtpCooldown > 0) return;
+                  try {
+                    setRequestingDeleteOtp(true);
+                    const res = await fetch("/api/profile/delete/request-otp", { method: "POST" });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      const msg = data.details || data.error || "خطا";
+                      const match = String(msg).match(/(\d+)/);
+                      if (match) setDeleteOtpCooldown(Number(match[1]));
+                      return toast.error(msg);
+                    }
+                    setDeleteOtpCooldown(120);
+                    toast.success("کد تایید ارسال شد");
+                  } finally {
+                    setRequestingDeleteOtp(false);
+                  }
                 }}
+                disabled={requestingDeleteOtp || deleteOtpCooldown > 0}
               >
-                تایید حذف
+                {requestingDeleteOtp
+                  ? "در حال ارسال..."
+                  : deleteOtpCooldown > 0
+                    ? `ارسال مجدد تا ${deleteOtpCooldown} ثانیه`
+                    : "ارسال کد تایید حذف"}
               </button>
+              <input
+                className="input"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9۰-۹٠-٩]*"
+                autoComplete="one-time-code"
+                placeholder="کد تایید ۶ رقمی"
+                value={deleteCode}
+                onChange={(e) => setDeleteCode(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
+                <button
+                  type="button"
+                  className="btn-danger"
+                  onClick={async () => {
+                    if (!deleteCode.trim()) return toast.error("کد تایید را وارد کنید");
+                    setDeletingAccount(true);
+                    const res = await fetch("/api/profile/delete/confirm", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ code: deleteCode }),
+                    });
+                    setDeletingAccount(false);
+                    const data = await res.json();
+                    if (!res.ok) return toast.error(data.details || data.error || "حذف حساب ناموفق بود");
+                    await fetch("/api/auth/logout", { method: "POST" });
+                    window.location.href = "/login";
+                  }}
+                  disabled={deletingAccount}
+                >
+                  {deletingAccount ? "در حال حذف..." : "تایید حذف"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

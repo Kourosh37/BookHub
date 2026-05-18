@@ -21,6 +21,7 @@ model User {
 enum OtpPurpose {
   AUTH
   PASSWORD_RESET
+  ACCOUNT_DELETE
 }
 
 model OtpCode {

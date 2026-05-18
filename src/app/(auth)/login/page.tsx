@@ -147,7 +147,7 @@ export default function LoginPage() {
           {mode === "phone" ? (
             !codeSent ? (
               <form onSubmit={requestOtp} className="space-y-4">
-                <input className="input h-11 phone-input" type="tel" inputMode="tel" pattern="[+0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
+                <input className="input h-11 phone-input" type="tel" inputMode="tel" pattern="[+0-9۰-۹٠-٩]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...phoneForm.register("phone")} />
                 {phoneForm.formState.errors.phone && <p className="text-xs text-rose-400">{phoneForm.formState.errors.phone.message}</p>}
                 <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
                 <button className="btn-primary h-11 w-full" disabled={phoneForm.formState.isSubmitting}>{phoneForm.formState.isSubmitting ? "در حال ارسال..." : "ارسال کد تایید"}</button>
@@ -159,7 +159,7 @@ export default function LoginPage() {
                 <div className="rounded-xl border border-cyan-700/60 bg-cyan-500/10 p-3 text-xs text-cyan-200">
                   کد تایید برای شماره <span dir="ltr" className="font-bold">{otpPhone}</span> ارسال شد.
                 </div>
-                <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
+                <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9۰-۹٠-٩]*" autoComplete="one-time-code" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
                 {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
                 <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
                 <div className="flex items-center justify-between gap-2 text-xs">

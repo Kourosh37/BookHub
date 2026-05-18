@@ -33,6 +33,9 @@ export async function GET(req: Request) {
     const session = await requireSession();
     const url = new URL(req.url);
     const scheduleId = url.searchParams.get("scheduleId");
+    const scheduleIds = scheduleId
+      ? scheduleId.split(",").map((id) => id.trim()).filter(Boolean)
+      : [];
     const format = (url.searchParams.get("format") || "csv").toLowerCase();
 
     const bookings = await prisma.booking.findMany({
@@ -40,7 +43,7 @@ export async function GET(req: Request) {
         schedule: {
           userId: session.userId,
         },
-        ...(scheduleId ? { scheduleId } : {}),
+        ...(scheduleIds.length > 0 ? { scheduleId: { in: scheduleIds } } : {}),
       },
       include: {
         schedule: {

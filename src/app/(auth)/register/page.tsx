@@ -139,7 +139,7 @@ export default function RegisterPage() {
               <input className="input h-11" placeholder="نام کاربری" {...registerForm.register("username")} />
               {registerForm.formState.errors.username && <p className="text-xs text-rose-400">{registerForm.formState.errors.username.message as string}</p>}
 
-              <input className="input h-11 phone-input" type="tel" inputMode="tel" pattern="[+0-9]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...registerForm.register("phone")} />
+              <input className="input h-11 phone-input" type="tel" inputMode="tel" pattern="[+0-9۰-۹٠-٩]*" autoComplete="tel" placeholder="09xxxxxxxxx" dir="ltr" {...registerForm.register("phone")} />
               {registerForm.formState.errors.phone && <p className="text-xs text-rose-400">{registerForm.formState.errors.phone.message}</p>}
 
               <div className="relative">
@@ -168,7 +168,7 @@ export default function RegisterPage() {
               <div className="rounded-xl border border-cyan-700/60 bg-cyan-500/10 p-3 text-sm text-cyan-200">
                 کد فعال‌سازی برای شماره <span dir="ltr" className="font-bold">{otpPhone}</span> ارسال شد.
               </div>
-              <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
+              <input className="input h-11" type="tel" inputMode="numeric" pattern="[0-9۰-۹٠-٩]*" autoComplete="one-time-code" placeholder="کد ۶ رقمی" dir="ltr" {...verifyForm.register("code")} />
               {verifyForm.formState.errors.code && <p className="text-xs text-rose-400">{verifyForm.formState.errors.code.message}</p>}
               <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
               <div className="flex items-center justify-between gap-2 text-xs">

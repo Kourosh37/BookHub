@@ -45,11 +45,8 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE() {
-  try {
-    const session = await requireSession();
-    await prisma.user.delete({ where: { id: session.userId } });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
-  }
+  return NextResponse.json(
+    { error: "برای حذف حساب از مسیر تایید حذف استفاده کنید" },
+    { status: 405 },
+  );
 }

@@ -1,22 +1,11 @@
 import { z } from "zod";
-
-function normalizeDigits(value: string) {
-  return value
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-}
+import { normalizeOtpCode, normalizePhoneInput } from "@/lib/phone";
 
 export const phoneSchema = z
   .string()
-  .transform((value) => normalizeDigits(value))
-  .transform((value) => value.replace(/[^\d]/g, ""))
-  .transform((digits) => {
-    if (digits.startsWith("09") && digits.length === 11) return digits;
-    if (digits.startsWith("9") && digits.length === 10) return `0${digits}`;
-    if (digits.startsWith("98") && digits.length === 12) return `0${digits.slice(2)}`;
-    return digits;
-  })
-  .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر نیست");
+  .transform((value) => normalizePhoneInput(value))
+  .refine((value) => value !== null, "شماره موبایل معتبر نیست")
+  .transform((value) => value as string);
 
 export const usernameSchema = z
   .string()
@@ -55,8 +44,7 @@ export const verifyOtpSchema = z.object({
   phone: phoneSchema,
   code: z
     .string()
-    .transform((value) => normalizeDigits(value))
-    .transform((value) => value.trim())
+    .transform((value) => normalizeOtpCode(value))
     .refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
 });
 
@@ -73,8 +61,7 @@ export const changePasswordSchema = z
   .object({
     code: z
       .string()
-      .transform((value) => normalizeDigits(value))
-      .transform((value) => value.trim())
+      .transform((value) => normalizeOtpCode(value))
       .refine((value) => /^\d{6}$/.test(value), "کد تایید باید ۶ رقم باشد"),
     newPassword: passwordSchema,
     confirmPassword: z.string(),
