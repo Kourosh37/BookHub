@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type TouchEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
@@ -220,11 +220,17 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const tab = useUIStore((s) => s.dashboardTab);
   const setTab = useUIStore((s) => s.setDashboardTab);
-  const scheduleFilter = useUIStore((s) => s.scheduleFilter);
-  const setScheduleFilter = useUIStore((s) => s.setScheduleFilter);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const bumpAvatarRefreshToken = useUIStore((s) => s.bumpAvatarRefreshToken);
+
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isHorizontalSwipe, setIsHorizontalSwipe] = useState<boolean | null>(null);
+  const swipeResetTimeoutRef = useRef<number | null>(null);
 
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
@@ -272,38 +278,26 @@ export default function DashboardPage() {
     password: false,
     delete: false,
   });
-  const [bookingFilters, setBookingFilters] = useState<ListFilterState>({
+  const defaultListFilters: ListFilterState = {
     query: "",
     from: "",
     to: "",
     includePast: false,
     scheduleIds: [],
     sort: "time-asc",
+  };
+  const [bookingFilters, setBookingFilters] = useState<ListFilterState>({
+    ...defaultListFilters,
   });
   const [bookingFilterDraft, setBookingFilterDraft] = useState<ListFilterState>({
-    query: "",
-    from: "",
-    to: "",
-    includePast: false,
-    scheduleIds: [],
-    sort: "time-asc",
+    ...defaultListFilters,
   });
   const [bookingFilterOpen, setBookingFilterOpen] = useState(false);
   const [sessionFilters, setSessionFilters] = useState<ListFilterState>({
-    query: "",
-    from: "",
-    to: "",
-    includePast: false,
-    scheduleIds: [],
-    sort: "time-asc",
+    ...defaultListFilters,
   });
   const [sessionFilterDraft, setSessionFilterDraft] = useState<ListFilterState>({
-    query: "",
-    from: "",
-    to: "",
-    includePast: false,
-    scheduleIds: [],
-    sort: "time-asc",
+    ...defaultListFilters,
   });
   const [sessionFilterOpen, setSessionFilterOpen] = useState(false);
 
@@ -695,21 +689,6 @@ export default function DashboardPage() {
     setQrModal({ schedule, url: getShareUrl(schedule.shareId) });
   }
 
-  function openQrForCurrentSchedule() {
-    if (schedules.length === 0) {
-      toast.error("ابتدا یک برنامه بسازید");
-      return;
-    }
-    const selected = scheduleFilter
-      ? schedules.find((s: any) => s.id === scheduleFilter)
-      : schedules[0];
-    if (!selected) {
-      toast.error("برنامه‌ای برای اشتراک پیدا نشد");
-      return;
-    }
-    openQrModal(selected);
-  }
-
   async function shareQrLink() {
     if (!qrModal?.url) return;
     if (navigator.share) {
@@ -725,7 +704,6 @@ export default function DashboardPage() {
         await navigator.share({ title: "لینک برنامه", url: qrModal.url });
         return;
       } catch {
-        // fall through to clipboard
       }
     }
     try {
@@ -774,12 +752,28 @@ export default function DashboardPage() {
     if (!bookingsExportRef.current) throw new Error("NO_EXPORT_TARGET");
     const now = new Date();
     setExportContext(buildExportContext(now));
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
     const { toPng } = await import("html-to-image");
+
+    const target = bookingsExportRef.current;
+    const prevVisibility = target.style.visibility;
+    const prevOpacity = target.style.opacity;
+    target.style.visibility = "visible";
+    target.style.opacity = "1";
     return toPng(bookingsExportRef.current, {
       cacheBust: true,
-      pixelRatio: 2.5,
+      pixelRatio: 2,
       backgroundColor: "#f8fafc",
+      style: {
+        transform: 'scale(1)',
+        transformOrigin: 'top left',
+      },
+    }).finally(() => {
+      target.style.visibility = prevVisibility;
+      target.style.opacity = prevOpacity;
     });
   }
 
@@ -876,7 +870,6 @@ export default function DashboardPage() {
     setDeletingSchedule(false);
     if (!res.ok) return toast.error(data.details || data.error || "خطا در حذف برنامه");
 
-    if (scheduleFilter === deleteScheduleTarget.id) setScheduleFilter("");
     toast.success("برنامه حذف شد");
     setDeleteScheduleTarget(null);
     await Promise.all([
@@ -885,6 +878,108 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] }),
     ]);
   }
+
+  const tabOrder: Array<"schedules" | "bookings" | "sessions" | "profile"> = ["schedules", "bookings", "sessions", "profile"];
+  const minSwipeDistance = 50;
+
+  const finishSwipeTransition = () => {
+    if (swipeResetTimeoutRef.current) {
+      clearTimeout(swipeResetTimeoutRef.current);
+    }
+    setIsTransitioning(false);
+    setSwipeOffset(0);
+  };
+
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    if (swipeResetTimeoutRef.current) {
+      clearTimeout(swipeResetTimeoutRef.current);
+    }
+    setSwipeOffset(0);
+    setIsTransitioning(false);
+    setIsHorizontalSwipe(null);
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (touchStart === null) return;
+    if (touchStartY === null) return;
+
+    const currentTouch = e.targetTouches[0].clientX;
+    const currentTouchY = e.targetTouches[0].clientY;
+    const diff = currentTouch - touchStart;
+    const verticalDelta = Math.abs(currentTouchY - touchStartY);
+    const horizontalDelta = Math.abs(diff);
+
+    if (isHorizontalSwipe === null) {
+      if (horizontalDelta < 8) return;
+      setIsHorizontalSwipe(horizontalDelta > verticalDelta * 1.2);
+      if (horizontalDelta <= verticalDelta * 1.2) return;
+    }
+
+    if (!isHorizontalSwipe) return;
+
+    const currentIndex = tabOrder.indexOf(tab);
+    if (currentIndex === -1) return;
+    if ((currentIndex === 0 && diff > 0) || (currentIndex === tabOrder.length - 1 && diff < 0)) {
+      setSwipeOffset(diff * 0.3);
+    } else {
+      setSwipeOffset(diff);
+    }
+
+    setTouchEnd(currentTouch);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart === null || touchEnd === null || touchStartY === null || isHorizontalSwipe !== true) {
+      setSwipeOffset(0);
+      setTouchStart(null);
+      setTouchStartY(null);
+      setTouchEnd(null);
+      setIsHorizontalSwipe(null);
+      return;
+    }
+
+    const currentIndex = tabOrder.indexOf(tab);
+    if (currentIndex === -1) {
+      finishSwipeTransition();
+      setTouchStart(null);
+      setTouchStartY(null);
+      setTouchEnd(null);
+      setIsHorizontalSwipe(null);
+      return;
+    }
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && currentIndex < tabOrder.length - 1) {
+      setIsTransitioning(true);
+      setTab(tabOrder[currentIndex + 1]);
+      swipeResetTimeoutRef.current = window.setTimeout(finishSwipeTransition, 300);
+    } else if (isRightSwipe && currentIndex > 0) {
+      setIsTransitioning(true);
+      setTab(tabOrder[currentIndex - 1]);
+      swipeResetTimeoutRef.current = window.setTimeout(finishSwipeTransition, 300);
+    } else {
+      setSwipeOffset(0);
+    }
+
+    setTouchStart(null);
+    setTouchStartY(null);
+    setTouchEnd(null);
+    setIsHorizontalSwipe(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (swipeResetTimeoutRef.current) {
+        clearTimeout(swipeResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <main className="page-shell w-full space-y-6 overflow-x-hidden py-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:py-6 md:pb-6">
@@ -928,7 +1023,41 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {tab === "schedules" && (
+      <div
+        className="relative md:contents"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isTransitioning ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+          opacity: isTransitioning ? 0.7 : 1,
+          willChange: "transform, opacity",
+          touchAction: "pan-y",
+        }}
+      >
+        {Math.abs(swipeOffset) > 10 && (
+          <>
+            {swipeOffset > 0 && tabOrder.indexOf(tab) > 0 && (
+          <div 
+            className="pointer-events-none fixed left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-cyan-500/20 p-3 backdrop-blur-sm md:hidden"
+            style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 0.8) }}
+              >
+                <ChevronDown size={24} className="rotate-90 text-cyan-300" />
+              </div>
+            )}
+            {swipeOffset < 0 && tabOrder.indexOf(tab) < tabOrder.length - 1 && (
+          <div 
+            className="pointer-events-none fixed right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-cyan-500/20 p-3 backdrop-blur-sm md:hidden"
+            style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 0.8) }}
+              >
+                <ChevronDown size={24} className="-rotate-90 text-cyan-300" />
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "schedules" && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="lg:col-span-2">
             <h2 className="text-lg font-bold md:text-xl">برنامه‌های من</h2>
@@ -1422,13 +1551,12 @@ export default function DashboardPage() {
                   >
                     اعمال فیلتر
                   </button>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => {
-                      const reset = { query: "", from: "", to: "", includePast: false, scheduleIds: [], sort: "time-asc" };
-                      setBookingFilterDraft(reset);
-                      setBookingFilters(reset);
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                      setBookingFilterDraft(defaultListFilters);
+                      setBookingFilters(defaultListFilters);
                       setBookingFilterOpen(false);
                     }}
                   >
@@ -1440,8 +1568,9 @@ export default function DashboardPage() {
           </div>
           <div
             ref={bookingsExportRef}
-            className="fixed left-[-9999px] top-0 w-[980px]"
+            className="pointer-events-none fixed left-0 top-0 z-[-1] w-[980px]"
             aria-hidden="true"
+            style={{ visibility: "hidden" }}
           >
             <div
               className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 text-slate-900 shadow-xl"
@@ -1659,9 +1788,8 @@ export default function DashboardPage() {
                     type="button"
                     className="btn-ghost"
                     onClick={() => {
-                      const reset = { query: "", from: "", to: "", includePast: false, scheduleIds: [], sort: "time-asc" };
-                      setSessionFilterDraft(reset);
-                      setSessionFilters(reset);
+                      setSessionFilterDraft(defaultListFilters);
+                      setSessionFilters(defaultListFilters);
                       setSessionFilterOpen(false);
                     }}
                   >
@@ -1900,6 +2028,8 @@ export default function DashboardPage() {
         </section>
       )}
 
+      </div>
+
       {cancelTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
           <div className="card w-full max-w-md p-4">
@@ -1983,7 +2113,15 @@ export default function DashboardPage() {
       )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
-        <div className="card mx-auto grid max-w-md grid-cols-5 gap-2 p-2">
+        <div className="relative card mx-auto grid max-w-md grid-cols-4 gap-2 overflow-hidden p-2">
+          <div 
+            className="absolute bottom-0 left-0 h-1 rounded-t-full bg-cyan-500 transition-all duration-300 ease-out"
+            style={{
+              width: '25%',
+              transform: `translateX(${tabOrder.indexOf(tab) * 100}%)`,
+            }}
+          />
+          
           <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
             <CalendarDays size={15} />
           </button>
@@ -1992,9 +2130,6 @@ export default function DashboardPage() {
           </button>
           <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
             <Clock3 size={15} />
-          </button>
-          <button className="btn-ghost" onClick={openQrForCurrentSchedule} aria-label="اشتراک با QR">
-            <QrCode size={15} />
           </button>
           <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
             <UserCircle2 size={15} />

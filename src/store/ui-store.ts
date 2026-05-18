@@ -12,8 +12,6 @@ type UIState = {
   toggleTheme: () => void;
   dashboardTab: DashboardTab;
   setDashboardTab: (tab: DashboardTab) => void;
-  scheduleFilter: string;
-  setScheduleFilter: (scheduleId: string) => void;
   avatarRefreshToken: number;
   bumpAvatarRefreshToken: () => void;
 };
@@ -26,8 +24,6 @@ export const useUIStore = create<UIState>()(
       toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
       dashboardTab: "schedules",
       setDashboardTab: (tab) => set({ dashboardTab: tab }),
-      scheduleFilter: "",
-      setScheduleFilter: (scheduleId) => set({ scheduleFilter: scheduleId }),
       avatarRefreshToken: 0,
       bumpAvatarRefreshToken: () => set((s) => ({ avatarRefreshToken: s.avatarRefreshToken + 1 })),
     }),
@@ -36,7 +32,6 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         theme: state.theme,
         dashboardTab: state.dashboardTab,
-        scheduleFilter: state.scheduleFilter,
       }),
     },
   ),
