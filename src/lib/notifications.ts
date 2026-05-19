@@ -13,7 +13,7 @@ type BookingNotificationContext = {
   slotStartIso?: string | null;
 };
 
-type ContactInfo = { phone: string | null; name: string; smsPreferences: SmsPreferences | null };
+type ContactInfo = { phone: string | null; name: string; smsPreferences: unknown };
 
 async function resolveContacts(hostUserId: string, guestUserId?: string | null) {
   const [host, guest] = await Promise.all([

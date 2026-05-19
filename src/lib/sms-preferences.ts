@@ -12,14 +12,20 @@ export const defaultSmsPreferences: SmsPreferences = {
   bookingReminder: true,
 };
 
-export function normalizeSmsPreferences(raw?: Partial<SmsPreferences> | null): SmsPreferences {
+function coerceSmsPreferences(raw: unknown): Partial<SmsPreferences> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as Partial<SmsPreferences>;
+}
+
+export function normalizeSmsPreferences(raw?: unknown): SmsPreferences {
+  const parsed = coerceSmsPreferences(raw);
   return {
-    bookingCreated: typeof raw?.bookingCreated === "boolean" ? raw.bookingCreated : true,
-    bookingCanceled: typeof raw?.bookingCanceled === "boolean" ? raw.bookingCanceled : true,
-    bookingReminder: typeof raw?.bookingReminder === "boolean" ? raw.bookingReminder : true,
+    bookingCreated: typeof parsed?.bookingCreated === "boolean" ? parsed.bookingCreated : true,
+    bookingCanceled: typeof parsed?.bookingCanceled === "boolean" ? parsed.bookingCanceled : true,
+    bookingReminder: typeof parsed?.bookingReminder === "boolean" ? parsed.bookingReminder : true,
   };
 }
 
-export function isSmsEnabled(raw: Partial<SmsPreferences> | null | undefined, key: SmsPreferenceKey) {
+export function isSmsEnabled(raw: unknown, key: SmsPreferenceKey) {
   return normalizeSmsPreferences(raw)[key];
 }
