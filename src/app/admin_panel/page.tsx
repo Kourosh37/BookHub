@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Moon, Sun, Shield, LogOut, Users, CalendarDays, ListChecks, Clock3, Phone, Search } from "lucide-react";
+import Link from "next/link";
 import { useUIStore } from "@/store/ui-store";
 import { ThemeLogo } from "@/components/theme-logo";
 import { UserAvatar } from "@/components/user-avatar";
@@ -204,7 +205,7 @@ export default function AdminPanelPage() {
                 <div className="text-xs text-slate-400">ورود مدیر سامانه</div>
               </div>
             </div>
-            <button type="button" className="btn-ghost w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
             </button>
           </div>
@@ -225,6 +226,9 @@ export default function AdminPanelPage() {
             <button className="btn-primary w-full" disabled={loginLoading}>
               {loginLoading ? "در حال ورود..." : "ورود"}
             </button>
+            <Link href="/" className="btn-ghost w-full justify-center">
+              رفتن به سایت
+            </Link>
           </form>
         </div>
       </main>
@@ -242,9 +246,12 @@ export default function AdminPanelPage() {
           </div>
         </div>
         <div className="ms-auto flex items-center gap-2">
-          <button type="button" className="btn-ghost w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
             {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
           </button>
+          <Link href="/" className="btn-ghost">
+            رفتن به سایت
+          </Link>
           <button type="button" className="btn-danger" onClick={handleLogout}>
             <LogOut size={16} className="icon-danger" /> خروج
           </button>

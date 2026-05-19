@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, type TouchEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
@@ -228,10 +228,10 @@ export default function DashboardPage() {
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const touchStartRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-  const touchLastXRef = useRef<number | null>(null);
-  const activeTouchIdRef = useRef<number | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+  const pointerStartXRef = useRef<number | null>(null);
+  const pointerStartYRef = useRef<number | null>(null);
+  const pointerLastXRef = useRef<number | null>(null);
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const swipeResetTimeoutRef = useRef<number | null>(null);
 
@@ -1069,9 +1069,18 @@ export default function DashboardPage() {
     setSwipeOffset(0);
   };
 
-  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+  const resetSwipeTracking = () => {
+    pointerIdRef.current = null;
+    pointerStartXRef.current = null;
+    pointerStartYRef.current = null;
+    pointerLastXRef.current = null;
+    isHorizontalSwipeRef.current = null;
+  };
+
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
     if (isModalOpen || isTransitioning) return;
-    if (e.targetTouches.length !== 1) return;
+    if (!e.isPrimary) return;
     const target = e.target as HTMLElement | null;
     if (target?.closest("input, textarea, select, button, a, [data-no-swipe]")) return;
     if (swipeResetTimeoutRef.current) {
@@ -1079,24 +1088,21 @@ export default function DashboardPage() {
     }
     setSwipeOffset(0);
     setIsTransitioning(false);
-    isHorizontalSwipeRef.current = null;
-    const touch = e.targetTouches[0];
-    activeTouchIdRef.current = touch.identifier;
-    touchStartRef.current = touch.clientX;
-    touchStartYRef.current = touch.clientY;
-    touchLastXRef.current = touch.clientX;
+    resetSwipeTracking();
+    pointerIdRef.current = e.pointerId;
+    pointerStartXRef.current = e.clientX;
+    pointerStartYRef.current = e.clientY;
+    pointerLastXRef.current = e.clientX;
   };
 
-  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
     if (isModalOpen || isTransitioning) return;
-    if (touchStartRef.current === null || touchStartYRef.current === null) return;
-    const activeTouch = Array.from(e.targetTouches).find((t) => t.identifier === activeTouchIdRef.current);
-    if (!activeTouch) return;
+    if (pointerIdRef.current === null || pointerIdRef.current !== e.pointerId) return;
+    if (pointerStartXRef.current === null || pointerStartYRef.current === null) return;
 
-    const currentTouch = activeTouch.clientX;
-    const currentTouchY = activeTouch.clientY;
-    const diff = currentTouch - touchStartRef.current;
-    const verticalDelta = Math.abs(currentTouchY - touchStartYRef.current);
+    const diff = e.clientX - pointerStartXRef.current;
+    const verticalDelta = Math.abs(e.clientY - pointerStartYRef.current);
     const horizontalDelta = Math.abs(diff);
 
     if (isHorizontalSwipeRef.current === null) {
@@ -1121,30 +1127,27 @@ export default function DashboardPage() {
       setSwipeOffset(Math.max(-160, Math.min(160, diff)));
     }
 
-    touchLastXRef.current = currentTouch;
+    pointerLastXRef.current = e.clientX;
   };
 
-  const handleTouchEnd = () => {
-    if (touchStartRef.current === null || touchLastXRef.current === null || isHorizontalSwipeRef.current !== true) {
+  const handlePointerEnd = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
+    if (pointerIdRef.current !== e.pointerId) return;
+
+    if (pointerStartXRef.current === null || pointerLastXRef.current === null || isHorizontalSwipeRef.current !== true) {
       setSwipeOffset(0);
-      touchStartRef.current = null;
-      touchStartYRef.current = null;
-      touchLastXRef.current = null;
-      isHorizontalSwipeRef.current = null;
+      resetSwipeTracking();
       return;
     }
 
     const currentIndex = tabOrder.indexOf(tab);
     if (currentIndex === -1) {
       finishSwipeTransition();
-      touchStartRef.current = null;
-      touchStartYRef.current = null;
-      touchLastXRef.current = null;
-      isHorizontalSwipeRef.current = null;
+      resetSwipeTracking();
       return;
     }
 
-    const distance = touchStartRef.current - touchLastXRef.current;
+    const distance = pointerStartXRef.current - pointerLastXRef.current;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
@@ -1160,11 +1163,7 @@ export default function DashboardPage() {
       setSwipeOffset(0);
     }
 
-    touchStartRef.current = null;
-    touchStartYRef.current = null;
-    touchLastXRef.current = null;
-    activeTouchIdRef.current = null;
-    isHorizontalSwipeRef.current = null;
+    resetSwipeTracking();
   };
 
   useEffect(() => {
@@ -1172,7 +1171,7 @@ export default function DashboardPage() {
       if (swipeResetTimeoutRef.current) {
         clearTimeout(swipeResetTimeoutRef.current);
       }
-      activeTouchIdRef.current = null;
+      resetSwipeTracking();
     };
   }, []);
 
@@ -1203,7 +1202,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="hidden flex-wrap gap-2 md:flex">
+      <div className="hidden flex-wrap gap-2 md:mb-3 md:flex">
         <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
           <CalendarDays size={16} /> برنامه‌های من
         </button>
@@ -1223,10 +1222,10 @@ export default function DashboardPage() {
 
       <div
         className="relative md:contents"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isTransitioning ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
@@ -2064,9 +2063,11 @@ export default function DashboardPage() {
                 تغییر نام کاربری
                 <ChevronDown size={16} className={`transition ${profileSections.username ? "rotate-180" : ""}`} />
               </button>
-              {profileSections.username && (
+              <div
+                className={`grid transition-all duration-300 ease-out ${profileSections.username ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
                 <form
-                  className="space-y-2 px-4 pb-4"
+                  className="space-y-2 overflow-hidden px-4 pb-4"
                   onSubmit={async (e) => {
                     e.preventDefault();
                     setProfileLoading(true);
@@ -2086,7 +2087,7 @@ export default function DashboardPage() {
                   <input className="input" value={profileUsername} onChange={(e) => setProfileUsername(e.target.value)} />
                   <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
                 </form>
-              )}
+              </div>
             </div>
 
             <div className="rounded-2xl surface-block">
@@ -2099,8 +2100,10 @@ export default function DashboardPage() {
                 عکس پروفایل
                 <ChevronDown size={16} className={`transition ${profileSections.avatar ? "rotate-180" : ""}`} />
               </button>
-              {profileSections.avatar && (
-                <div className="px-4 pb-4">
+              <div
+                className={`grid transition-all duration-300 ease-out ${profileSections.avatar ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="overflow-hidden px-4 pb-4">
                   <AvatarUploader
                     currentAvatarUrl={user?.avatarUrl}
                     onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
@@ -2124,7 +2127,7 @@ export default function DashboardPage() {
                     }}
                   />
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="rounded-2xl surface-block">
@@ -2137,8 +2140,10 @@ export default function DashboardPage() {
                 تغییر رمز عبور
                 <ChevronDown size={16} className={`transition ${profileSections.password ? "rotate-180" : ""}`} />
               </button>
-              {profileSections.password && (
-                <div className="space-y-2 px-4 pb-4">
+              <div
+                className={`grid transition-all duration-300 ease-out ${profileSections.password ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="space-y-2 overflow-hidden px-4 pb-4">
                   <button
                     type="button"
                     className="btn-ghost"
@@ -2197,7 +2202,7 @@ export default function DashboardPage() {
                     تایید تغییر رمز
                   </button>
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5">
@@ -2210,13 +2215,15 @@ export default function DashboardPage() {
                 حذف اکانت
                 <ChevronDown size={16} className={`transition ${profileSections.delete ? "rotate-180" : ""}`} />
               </button>
-              {profileSections.delete && (
-                <div className="px-4 pb-4">
+              <div
+                className={`grid transition-all duration-300 ease-out ${profileSections.delete ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="overflow-hidden px-4 pb-4">
                   <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
                     حذف حساب کاربری
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </section>
