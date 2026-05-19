@@ -78,3 +78,36 @@ model Booking {
   answers        Json
   bookedAt       DateTime @default(now())
 }
+
+enum SmsLogType {
+  OTP
+  BOOKING_CREATED
+  BOOKING_CANCELED
+  BOOKING_REMINDER
+  GENERIC
+}
+
+enum SmsLogStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model SmsLog {
+  id              String       @id @default(cuid())
+  type            SmsLogType
+  status          SmsLogStatus
+  phone           String?
+  templateId      Int?
+  providerMessage String?
+  createdAt       DateTime     @default(now())
+}
+
+model SmsGlobalSetting {
+  id                    Int      @id @default(1)
+  bookingCreatedEnabled Boolean  @default(true)
+  bookingCanceledEnabled Boolean @default(true)
+  bookingReminderEnabled Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

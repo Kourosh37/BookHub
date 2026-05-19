@@ -63,6 +63,12 @@ export const updateSmsPreferencesSchema = z.object({
   bookingReminder: z.boolean(),
 });
 
+export const updateAdminSmsSettingsSchema = z.object({
+  bookingCreatedEnabled: z.boolean(),
+  bookingCanceledEnabled: z.boolean(),
+  bookingReminderEnabled: z.boolean(),
+});
+
 export const changePasswordSchema = z
   .object({
     code: z
