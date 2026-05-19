@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/admin-auth";
 
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") || 50), 1), 200);
   const query = (searchParams.get("q") || "").trim();
 
-  const where = query
+  const where: Prisma.UserWhereInput = query
     ? {
         OR: [
-          { phone: { contains: query, mode: "insensitive" } },
-          { username: { contains: query, mode: "insensitive" } },
+          { phone: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { username: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ],
       }
     : {};
