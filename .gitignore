@@ -17,6 +17,7 @@
 /build
 /images
 /public/uploads/
+/docker_images
 # misc
 .DS_Store
 *.pem
