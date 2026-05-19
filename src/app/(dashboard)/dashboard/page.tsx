@@ -226,12 +226,13 @@ export default function DashboardPage() {
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const bumpAvatarRefreshToken = useUIStore((s) => s.bumpAvatarRefreshToken);
 
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isHorizontalSwipe, setIsHorizontalSwipe] = useState<boolean | null>(null);
+  const touchStartRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchLastXRef = useRef<number | null>(null);
+  const activeTouchIdRef = useRef<number | null>(null);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const swipeResetTimeoutRef = useRef<number | null>(null);
 
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
@@ -816,26 +817,145 @@ export default function DashboardPage() {
     }
   }
 
+  function base64FromArrayBuffer(buffer: ArrayBuffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = Array.from(bytes.subarray(i, i + chunkSize));
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+  }
+
+  async function ensurePdfFont(doc: any) {
+    if (doc.getFontList && doc.getFontList().Vazirmatn) {
+      doc.setFont("Vazirmatn", "normal");
+      if (doc.setR2L) doc.setR2L(true);
+      return;
+    }
+
+    const res = await fetch("/fonts/vazirmatn-arabic-400-normal.woff");
+    if (!res.ok) throw new Error("FONT_LOAD_FAILED");
+    const base64 = base64FromArrayBuffer(await res.arrayBuffer());
+    doc.addFileToVFS("Vazirmatn.woff", base64);
+    doc.addFont("Vazirmatn.woff", "Vazirmatn", "normal");
+    doc.setFont("Vazirmatn", "normal");
+    if (doc.setR2L) doc.setR2L(true);
+  }
+
   async function exportBookingsAsPdf() {
     setExportingPdf(true);
     try {
-      const dataUrl = await captureExportPng();
-      const img = new window.Image();
-      img.src = dataUrl;
-      if (img.decode) {
-        await img.decode();
-      } else {
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("IMAGE_DECODE_FAILED"));
-        });
-      }
+      const now = new Date();
+      const context = buildExportContext(now);
+      setExportContext(context);
+      const rows = filteredBookings.map((b) => ({
+        schedule: b.schedule?.title || "-",
+        name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر",
+        phone: b.bookedByUser?.phone || "-",
+        time: b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-",
+      }));
+
       const { jsPDF } = await import("jspdf");
-      const orientation = img.width > img.height ? "landscape" : "portrait";
-      const pdf = new jsPDF({ orientation, unit: "pt", format: [img.width, img.height] });
-      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
-      const fileStamp = getExportFileStamp(new Date());
-      pdf.save(`bookings-${fileStamp}.pdf`);
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      await ensurePdfFont(doc);
+      doc.setProperties({
+        title: "گزارش رزروها",
+        subject: "Bookings Export",
+        author: "BookHub",
+        creator: "BookHub Dashboard",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 36;
+      const marginY = 40;
+      const rowPadding = 6;
+      const lineHeight = 14;
+      let y = marginY;
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(16);
+      doc.text("خروجی رزروها", pageWidth - marginX, y, { align: "right" });
+      y += 20;
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`${context.title} · ${context.count} رزرو`, pageWidth - marginX, y, { align: "right" });
+      y += 14;
+      doc.text(`زمان دانلود: ${context.stamp}`, pageWidth - marginX, y, { align: "right" });
+      y += 18;
+
+      const columns = [
+        { key: "schedule", label: "برنامه", width: 180 },
+        { key: "name", label: "رزروکننده", width: 140 },
+        { key: "phone", label: "شماره", width: 110 },
+        { key: "time", label: "زمان", width: 150 },
+      ];
+      const tableWidth = columns.reduce((sum, col) => sum + col.width, 0);
+      const tableStartX = pageWidth - marginX - tableWidth;
+
+      const drawHeader = () => {
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.75);
+        let cursorX = pageWidth - marginX;
+        const headerHeight = 24;
+        columns.forEach((col) => {
+          const x = cursorX - col.width;
+          doc.rect(x, y, col.width, headerHeight, "FD");
+          doc.setTextColor(30, 41, 59);
+          doc.setFontSize(10);
+          doc.text(col.label, x + col.width - rowPadding, y + 16, { align: "right" });
+          cursorX -= col.width;
+        });
+        y += headerHeight;
+      };
+
+      const drawRow = (row: (typeof rows)[number], stripe: boolean) => {
+        const cellLines = columns.map((col) => {
+          const value = String(row[col.key as keyof typeof row] ?? "-");
+          return doc.splitTextToSize(value, col.width - rowPadding * 2) as string[];
+        });
+        const rowHeight = Math.max(...cellLines.map((lines) => lines.length)) * lineHeight + rowPadding * 2;
+
+        if (y + rowHeight > pageHeight - marginY) {
+          doc.addPage();
+          y = marginY;
+          drawHeader();
+        }
+
+        let cursorX = pageWidth - marginX;
+        doc.setDrawColor(226, 232, 240);
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(9);
+        columns.forEach((col, idx) => {
+          const x = cursorX - col.width;
+          if (stripe) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(x, y, col.width, rowHeight, "F");
+          }
+          doc.rect(x, y, col.width, rowHeight, "S");
+          const textX = x + col.width - rowPadding;
+          const textY = y + rowPadding + lineHeight - 4;
+          doc.text(cellLines[idx], textX, textY, { align: "right" });
+          cursorX -= col.width;
+        });
+        y += rowHeight;
+      };
+
+      drawHeader();
+      rows.forEach((row, idx) => drawRow(row, idx % 2 === 1));
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i += 1) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`صفحه ${i} از ${pageCount}`, marginX, pageHeight - 18, { align: "left" });
+      }
+
+      const fileStamp = getExportFileStamp(now);
+      doc.save(`bookings-${fileStamp}.pdf`);
     } catch {
       toast.error("خروجی PDF ناموفق بود");
     } finally {
@@ -950,7 +1070,8 @@ export default function DashboardPage() {
   };
 
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
-    if (isModalOpen) return;
+    if (isModalOpen || isTransitioning) return;
+    if (e.targetTouches.length !== 1) return;
     const target = e.target as HTMLElement | null;
     if (target?.closest("input, textarea, select, button, a, [data-no-swipe]")) return;
     if (swipeResetTimeoutRef.current) {
@@ -958,69 +1079,72 @@ export default function DashboardPage() {
     }
     setSwipeOffset(0);
     setIsTransitioning(false);
-    setIsHorizontalSwipe(null);
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-    setTouchStartY(e.targetTouches[0].clientY);
+    isHorizontalSwipeRef.current = null;
+    const touch = e.targetTouches[0];
+    activeTouchIdRef.current = touch.identifier;
+    touchStartRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    touchLastXRef.current = touch.clientX;
   };
 
   const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
-    if (isModalOpen) return;
-    if (touchStart === null) return;
-    if (touchStartY === null) return;
+    if (isModalOpen || isTransitioning) return;
+    if (touchStartRef.current === null || touchStartYRef.current === null) return;
+    const activeTouch = Array.from(e.targetTouches).find((t) => t.identifier === activeTouchIdRef.current);
+    if (!activeTouch) return;
 
-    const currentTouch = e.targetTouches[0].clientX;
-    const currentTouchY = e.targetTouches[0].clientY;
-    const diff = currentTouch - touchStart;
-    const verticalDelta = Math.abs(currentTouchY - touchStartY);
+    const currentTouch = activeTouch.clientX;
+    const currentTouchY = activeTouch.clientY;
+    const diff = currentTouch - touchStartRef.current;
+    const verticalDelta = Math.abs(currentTouchY - touchStartYRef.current);
     const horizontalDelta = Math.abs(diff);
 
-    if (isHorizontalSwipe === null) {
+    if (isHorizontalSwipeRef.current === null) {
       if (horizontalDelta < swipeAxisThreshold && verticalDelta < swipeAxisThreshold) return;
       if (verticalDelta > swipeAxisThreshold && verticalDelta > horizontalDelta * swipeAxisRatio) {
-        setIsHorizontalSwipe(false);
+        isHorizontalSwipeRef.current = false;
         return;
       }
-      setIsHorizontalSwipe(horizontalDelta > verticalDelta * swipeAxisRatio);
+      isHorizontalSwipeRef.current = horizontalDelta > verticalDelta * swipeAxisRatio;
       if (horizontalDelta <= verticalDelta * swipeAxisRatio) return;
     }
 
-    if (!isHorizontalSwipe) return;
+    if (!isHorizontalSwipeRef.current) return;
 
     e.preventDefault();
 
     const currentIndex = tabOrder.indexOf(tab);
     if (currentIndex === -1) return;
     if ((currentIndex === 0 && diff > 0) || (currentIndex === tabOrder.length - 1 && diff < 0)) {
-      setSwipeOffset(diff * 0.3);
+      setSwipeOffset(Math.max(-36, Math.min(36, diff * 0.3)));
     } else {
-      setSwipeOffset(diff);
+      setSwipeOffset(Math.max(-160, Math.min(160, diff)));
     }
 
-    setTouchEnd(currentTouch);
+    touchLastXRef.current = currentTouch;
   };
 
   const handleTouchEnd = () => {
-    if (touchStart === null || touchEnd === null || touchStartY === null || isHorizontalSwipe !== true) {
+    if (touchStartRef.current === null || touchLastXRef.current === null || isHorizontalSwipeRef.current !== true) {
       setSwipeOffset(0);
-      setTouchStart(null);
-      setTouchStartY(null);
-      setTouchEnd(null);
-      setIsHorizontalSwipe(null);
+      touchStartRef.current = null;
+      touchStartYRef.current = null;
+      touchLastXRef.current = null;
+      isHorizontalSwipeRef.current = null;
       return;
     }
 
     const currentIndex = tabOrder.indexOf(tab);
     if (currentIndex === -1) {
       finishSwipeTransition();
-      setTouchStart(null);
-      setTouchStartY(null);
-      setTouchEnd(null);
-      setIsHorizontalSwipe(null);
+      touchStartRef.current = null;
+      touchStartYRef.current = null;
+      touchLastXRef.current = null;
+      isHorizontalSwipeRef.current = null;
       return;
     }
 
-    const distance = touchStart - touchEnd;
+    const distance = touchStartRef.current - touchLastXRef.current;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
@@ -1036,10 +1160,11 @@ export default function DashboardPage() {
       setSwipeOffset(0);
     }
 
-    setTouchStart(null);
-    setTouchStartY(null);
-    setTouchEnd(null);
-    setIsHorizontalSwipe(null);
+    touchStartRef.current = null;
+    touchStartYRef.current = null;
+    touchLastXRef.current = null;
+    activeTouchIdRef.current = null;
+    isHorizontalSwipeRef.current = null;
   };
 
   useEffect(() => {
@@ -1047,6 +1172,7 @@ export default function DashboardPage() {
       if (swipeResetTimeoutRef.current) {
         clearTimeout(swipeResetTimeoutRef.current);
       }
+      activeTouchIdRef.current = null;
     };
   }, []);
 
@@ -1100,12 +1226,14 @@ export default function DashboardPage() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isTransitioning ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
           opacity: isTransitioning ? 0.7 : 1,
           willChange: "transform, opacity",
           touchAction: "pan-y",
+          overscrollBehaviorX: "contain",
         }}
       >
         {Math.abs(swipeOffset) > 10 && (
@@ -1646,22 +1774,19 @@ export default function DashboardPage() {
             style={{ visibility: "hidden" }}
           >
             <div
-              className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 text-slate-900 shadow-xl"
+              className="border border-slate-200 bg-white p-6 text-slate-900"
               dir="rtl"
               style={{ fontFamily: "Vazirmatn, ui-sans-serif, system-ui" }}
             >
-              <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <div className="border-b border-slate-200 pb-3">
                 <div>
-                  <div className="text-lg font-extrabold">خروجی رزروها</div>
+                  <div className="text-lg font-bold">گزارش رزروها</div>
                   <div className="text-xs text-slate-500">{exportContext.title} · {exportContext.count} رزرو</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-[11px] text-slate-500">زمان دانلود: {exportContext.stamp}</div>
-                  <img src="/logo.svg" alt="BookHub" className="h-8 w-8" />
+                  <div className="mt-1 text-[11px] text-slate-500">زمان دانلود: {exportContext.stamp}</div>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="mt-4 border border-slate-200 bg-white p-3">
                 <table className="w-full border-separate border-spacing-0 text-xs">
                   <thead>
                     <tr className="bg-slate-100">
@@ -1684,10 +1809,6 @@ export default function DashboardPage() {
                 </table>
               </div>
 
-              <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                <span>bookhub.ir</span>
-                <span>رزروهای ثبت‌شده شما</span>
-              </div>
             </div>
           </div>
           <div className="space-y-3">

@@ -14,7 +14,8 @@ export const metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/logo-light.svg", type: "image/svg+xml", media: "(prefers-color-scheme: light)" },
+      { url: "/logo-dark.svg", type: "image/svg+xml", media: "(prefers-color-scheme: dark)" },
     ],
     shortcut: "/favicon.svg",
     apple: "/logo-light.svg",
