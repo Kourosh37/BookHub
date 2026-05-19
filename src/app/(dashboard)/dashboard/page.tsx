@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -57,10 +57,18 @@ type ListFilterState = {
 
 function toEnglishDigits(value: string) {
   return value
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+    .replace(/[Û°-Û¹]/g, (d) => String("Û°Û±Û²Û³Û´ÛµÛ¶Û·Û¸Û¹".indexOf(d)))
+    .replace(/[Ù -Ù©]/g, (d) => String("Ù Ù¡Ù¢Ù£Ù¤Ù¥Ù¦Ù§Ù¨Ù©".indexOf(d)));
 }
 
+function toPersianDigits(value: string) {
+  return value.replace(/\d/g, (d) => String.fromCharCode(0x06f0 + Number(d)));
+}
+function formatPhoneForExport(value: any) {
+  const normalized = toEnglishDigits(String(value ?? "").trim());
+  if (!normalized || normalized === "-") return "-";
+  return toPersianDigits(normalized);
+}
 function toYmd(dateObj: any) {
   if (!dateObj) return "";
   return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
@@ -135,15 +143,15 @@ function getRangeLengthMinutes(range: Range) {
 function renderAnswers(answers: any, questions: any, query: string) {
   const items = Array.isArray(questions) && questions.length > 0
     ? questions.map((q: any, idx: number) => ({
-        label: q?.label || `سوال ${idx + 1}`,
+        label: q?.label || `Ø³ÙˆØ§Ù„ ${idx + 1}`,
         value: Array.isArray(answers) ? answers[idx] : "-",
       }))
     : Array.isArray(answers)
-      ? answers.map((value: any, idx: number) => ({ label: `پاسخ ${idx + 1}`, value }))
+      ? answers.map((value: any, idx: number) => ({ label: `Ù¾Ø§Ø³Ø® ${idx + 1}`, value }))
       : [];
 
   if (items.length === 0) {
-    return <div className="text-xs text-slate-400">پاسخی ثبت نشده است.</div>;
+    return <div className="text-xs text-slate-400">Ù¾Ø§Ø³Ø®ÛŒ Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.</div>;
   }
 
   return (
@@ -188,7 +196,7 @@ function getRangeIssues(ranges: Range[]) {
 
   for (const item of sorted) {
     if (item.e <= item.s) {
-      issues[item.idx] = "زمان پایان باید بعد از زمان شروع باشد.";
+      issues[item.idx] = "Ø²Ù…Ø§Ù† Ù¾Ø§ÛŒØ§Ù† Ø¨Ø§ÛŒØ¯ Ø¨Ø¹Ø¯ Ø§Ø² Ø²Ù…Ø§Ù† Ø´Ø±ÙˆØ¹ Ø¨Ø§Ø´Ø¯.";
     }
   }
 
@@ -196,8 +204,8 @@ function getRangeIssues(ranges: Range[]) {
     const prev = sorted[i - 1];
     const cur = sorted[i];
     if (cur.s < prev.e) {
-      issues[cur.idx] = issues[cur.idx] || "این بازه با بازه قبلی همپوشانی دارد.";
-      issues[prev.idx] = issues[prev.idx] || "این بازه با بازه بعدی همپوشانی دارد.";
+      issues[cur.idx] = issues[cur.idx] || "Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡ Ø¨Ø§ Ø¨Ø§Ø²Ù‡ Ù‚Ø¨Ù„ÛŒ Ù‡Ù…Ù¾ÙˆØ´Ø§Ù†ÛŒ Ø¯Ø§Ø±Ø¯.";
+      issues[prev.idx] = issues[prev.idx] || "Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡ Ø¨Ø§ Ø¨Ø§Ø²Ù‡ Ø¨Ø¹Ø¯ÛŒ Ù‡Ù…Ù¾ÙˆØ´Ø§Ù†ÛŒ Ø¯Ø§Ø±Ø¯.";
     }
   }
 
@@ -629,22 +637,22 @@ export default function DashboardPage() {
     const f = new FormData(e.currentTarget);
 
     if (dayConfigs.length === 0) {
-      const message = "حداقل یک تاریخ انتخاب کنید";
+      const message = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© ØªØ§Ø±ÛŒØ® Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯";
       setCreateError(message);
       return toast.error(message);
     }
     if (dayConfigs.some((d) => d.date < todayTehranYmd)) {
-      const message = "تاریخ برنامه نباید قبل از امروز باشد";
+      const message = "ØªØ§Ø±ÛŒØ® Ø¨Ø±Ù†Ø§Ù…Ù‡ Ù†Ø¨Ø§ÛŒØ¯ Ù‚Ø¨Ù„ Ø§Ø² Ø§Ù…Ø±ÙˆØ² Ø¨Ø§Ø´Ø¯";
       setCreateError(message);
       return toast.error(message);
     }
     if (dayConfigs.some((d) => d.ranges.length === 0)) {
-      const message = "برای هر تاریخ حداقل یک بازه زمانی لازم است";
+      const message = "Ø¨Ø±Ø§ÛŒ Ù‡Ø± ØªØ§Ø±ÛŒØ® Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ø¨Ø§Ø²Ù‡ Ø²Ù…Ø§Ù†ÛŒ Ù„Ø§Ø²Ù… Ø§Ø³Øª";
       setCreateError(message);
       return toast.error(message);
     }
     if (isInvalidTimeConfig) {
-      const message = "تداخل یا نامعتبر بودن بازه‌های زمانی را اصلاح کنید";
+      const message = "ØªØ¯Ø§Ø®Ù„ ÛŒØ§ Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø¨ÙˆØ¯Ù† Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ÛŒ Ø²Ù…Ø§Ù†ÛŒ Ø±Ø§ Ø§ØµÙ„Ø§Ø­ Ú©Ù†ÛŒØ¯";
       setCreateError(message);
       return toast.error(message);
     }
@@ -667,7 +675,7 @@ export default function DashboardPage() {
     const data = await res.json();
     if (!res.ok) {
       setCreatingSchedule(false);
-      const message = data.details || data.error || "خطا";
+      const message = data.details || data.error || "Ø®Ø·Ø§";
       setCreateError(message);
       return toast.error(message);
     }
@@ -679,7 +687,7 @@ export default function DashboardPage() {
       return [data, ...prevList];
     });
 
-    toast.success("برنامه ساخته شد");
+    toast.success("Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø³Ø§Ø®ØªÙ‡ Ø´Ø¯");
     setCreatingSchedule(false);
     setCreateError("");
     setSelectedDates([]);
@@ -719,20 +727,20 @@ export default function DashboardPage() {
           const blob = await fetch(qrDataUrl).then((res) => res.blob());
           const file = new File([blob], "bookhub-qr.png", { type: blob.type || "image/png" });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: "لینک برنامه", url: qrModal.url, files: [file] });
+            await navigator.share({ title: "Ù„ÛŒÙ†Ú© Ø¨Ø±Ù†Ø§Ù…Ù‡", url: qrModal.url, files: [file] });
             return;
           }
         }
-        await navigator.share({ title: "لینک برنامه", url: qrModal.url });
+        await navigator.share({ title: "Ù„ÛŒÙ†Ú© Ø¨Ø±Ù†Ø§Ù…Ù‡", url: qrModal.url });
         return;
       } catch {
       }
     }
     try {
       await navigator.clipboard.writeText(qrModal.url);
-      toast.success("لینک کپی شد");
+      toast.success("Ù„ÛŒÙ†Ú© Ú©Ù¾ÛŒ Ø´Ø¯");
     } catch {
-      toast.error("امکان اشتراک‌گذاری وجود ندارد");
+      toast.error("Ø§Ù…Ú©Ø§Ù† Ø§Ø´ØªØ±Ø§Ú©â€ŒÚ¯Ø°Ø§Ø±ÛŒ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯");
     }
   }
 
@@ -749,7 +757,7 @@ export default function DashboardPage() {
     if (bookingFilters.scheduleIds.length === 1) {
       const selected = schedules.find((s: any) => s.id === bookingFilters.scheduleIds[0]);
       return {
-        title: selected?.title || "برنامه انتخابی",
+        title: selected?.title || "Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø§Ù†ØªØ®Ø§Ø¨ÛŒ",
         stamp: formatJalaliDateTime(now),
         count: filteredBookings.length,
       };
@@ -757,14 +765,14 @@ export default function DashboardPage() {
 
     if (bookingFilters.scheduleIds.length > 1) {
       return {
-        title: `چند برنامه (${bookingFilters.scheduleIds.length})`,
+        title: `Ú†Ù†Ø¯ Ø¨Ø±Ù†Ø§Ù…Ù‡ (${bookingFilters.scheduleIds.length})`,
         stamp: formatJalaliDateTime(now),
         count: filteredBookings.length,
       };
     }
 
     return {
-      title: "همه برنامه‌ها",
+      title: "Ù‡Ù…Ù‡ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§",
       stamp: formatJalaliDateTime(now),
       count: filteredBookings.length,
     };
@@ -810,7 +818,7 @@ export default function DashboardPage() {
       link.download = `bookings-${fileStamp}.png`;
       link.click();
     } catch {
-      toast.error("خروجی تصویر ناموفق بود");
+      toast.error("Ø®Ø±ÙˆØ¬ÛŒ ØªØµÙˆÛŒØ± Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯");
     } finally {
       setExportingImage(false);
       setIsExportMenuOpen(false);
@@ -829,19 +837,27 @@ export default function DashboardPage() {
   }
 
   async function ensurePdfFont(doc: any) {
-    if (doc.getFontList && doc.getFontList().Vazirmatn) {
+    try {
+      if (doc.getFontList && doc.getFontList().Vazirmatn) {
+        doc.setFont("Vazirmatn", "normal");
+        if (doc.setR2L) doc.setR2L(true);
+        return true;
+      }
+
+      const res = await fetch("/fonts/vazirmatn-arabic-400-normal.woff");
+      if (!res.ok) throw new Error("FONT_LOAD_FAILED");
+      const base64 = base64FromArrayBuffer(await res.arrayBuffer());
+      doc.addFileToVFS("Vazirmatn.woff", base64);
+      doc.addFont("Vazirmatn.woff", "Vazirmatn", "normal");
       doc.setFont("Vazirmatn", "normal");
       if (doc.setR2L) doc.setR2L(true);
-      return;
+      return true;
+    } catch (error) {
+      console.error("PDF font load failed:", error);
+      doc.setFont("helvetica", "normal");
+      if (doc.setR2L) doc.setR2L(false);
+      return false;
     }
-
-    const res = await fetch("/fonts/vazirmatn-arabic-400-normal.woff");
-    if (!res.ok) throw new Error("FONT_LOAD_FAILED");
-    const base64 = base64FromArrayBuffer(await res.arrayBuffer());
-    doc.addFileToVFS("Vazirmatn.woff", base64);
-    doc.addFont("Vazirmatn.woff", "Vazirmatn", "normal");
-    doc.setFont("Vazirmatn", "normal");
-    if (doc.setR2L) doc.setR2L(true);
   }
 
   async function exportBookingsAsPdf() {
@@ -852,8 +868,8 @@ export default function DashboardPage() {
       setExportContext(context);
       const rows = filteredBookings.map((b) => ({
         schedule: b.schedule?.title || "-",
-        name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر",
-        phone: b.bookedByUser?.phone || "-",
+        name: b.bookedByUser?.username || b.bookedByUser?.phone || "Ú©Ø§Ø±Ø¨Ø±",
+        phone: formatPhoneForExport(b.bookedByUser?.phone || "-"),
         time: b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-",
       }));
 
@@ -861,7 +877,7 @@ export default function DashboardPage() {
       const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       await ensurePdfFont(doc);
       doc.setProperties({
-        title: "گزارش رزروها",
+        title: "Ú¯Ø²Ø§Ø±Ø´ Ø±Ø²Ø±ÙˆÙ‡Ø§",
         subject: "Bookings Export",
         author: "BookHub",
         creator: "BookHub Dashboard",
@@ -877,20 +893,20 @@ export default function DashboardPage() {
 
       doc.setTextColor(15, 23, 42);
       doc.setFontSize(16);
-      doc.text("خروجی رزروها", pageWidth - marginX, y, { align: "right" });
+      doc.text("Ø®Ø±ÙˆØ¬ÛŒ Ø±Ø²Ø±ÙˆÙ‡Ø§", pageWidth - marginX, y, { align: "right" });
       y += 20;
       doc.setFontSize(10);
       doc.setTextColor(71, 85, 105);
-      doc.text(`${context.title} · ${context.count} رزرو`, pageWidth - marginX, y, { align: "right" });
+      doc.text(`${context.title} Â· ${context.count} Ø±Ø²Ø±Ùˆ`, pageWidth - marginX, y, { align: "right" });
       y += 14;
-      doc.text(`زمان دانلود: ${context.stamp}`, pageWidth - marginX, y, { align: "right" });
+      doc.text(`Ø²Ù…Ø§Ù† Ø¯Ø§Ù†Ù„ÙˆØ¯: ${context.stamp}`, pageWidth - marginX, y, { align: "right" });
       y += 18;
 
       const columns = [
-        { key: "schedule", label: "برنامه", width: 180 },
-        { key: "name", label: "رزروکننده", width: 140 },
-        { key: "phone", label: "شماره", width: 110 },
-        { key: "time", label: "زمان", width: 150 },
+        { key: "schedule", label: "Ø¨Ø±Ù†Ø§Ù…Ù‡", width: 180 },
+        { key: "name", label: "Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡", width: 140 },
+        { key: "phone", label: "Ø´Ù…Ø§Ø±Ù‡", width: 110 },
+        { key: "time", label: "Ø²Ù…Ø§Ù†", width: 150 },
       ];
       const tableWidth = columns.reduce((sum, col) => sum + col.width, 0);
       const tableStartX = pageWidth - marginX - tableWidth;
@@ -951,13 +967,13 @@ export default function DashboardPage() {
         doc.setPage(i);
         doc.setFontSize(9);
         doc.setTextColor(100, 116, 139);
-        doc.text(`صفحه ${i} از ${pageCount}`, marginX, pageHeight - 18, { align: "left" });
+        doc.text(`ØµÙØ­Ù‡ ${i} Ø§Ø² ${pageCount}`, marginX, pageHeight - 18, { align: "left" });
       }
 
       const fileStamp = getExportFileStamp(now);
       doc.save(`bookings-${fileStamp}.pdf`);
     } catch {
-      toast.error("خروجی PDF ناموفق بود");
+      toast.error("Ø®Ø±ÙˆØ¬ÛŒ PDF Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯");
     } finally {
       setExportingPdf(false);
       setIsExportMenuOpen(false);
@@ -970,8 +986,8 @@ export default function DashboardPage() {
     const res = await fetch(`/api/bookings/${cancelTarget.id}/cancel`, { method: "POST" });
     const data = await res.json();
     setCancelLoading(false);
-    if (!res.ok) return toast.error(data.details || data.error || "خطا در کنسل رزرو");
-    toast.success("رزرو با موفقیت کنسل شد");
+    if (!res.ok) return toast.error(data.details || data.error || "Ø®Ø·Ø§ Ø¯Ø± Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ");
+    toast.success("Ø±Ø²Ø±Ùˆ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ú©Ù†Ø³Ù„ Ø´Ø¯");
     setCancelTarget(null);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
@@ -991,8 +1007,8 @@ export default function DashboardPage() {
 
   async function saveScheduleTitle(scheduleId: string) {
     const title = editingTitle.trim();
-    if (title.length < 3) return toast.error("عنوان برنامه باید حداقل ۳ کاراکتر باشد");
-    if (title.length > 120) return toast.error("عنوان برنامه نمی‌تواند بیشتر از ۱۲۰ کاراکتر باشد");
+    if (title.length < 3) return toast.error("Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ Û³ Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯");
+    if (title.length > 120) return toast.error("Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±Ù†Ø§Ù…Ù‡ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ØªØ± Ø§Ø² Û±Û²Û° Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯");
 
     setSavingTitle(true);
     const res = await fetch(`/api/schedules/id/${scheduleId}`, {
@@ -1003,10 +1019,10 @@ export default function DashboardPage() {
     const data = await res.json();
     setSavingTitle(false);
 
-    if (!res.ok) return toast.error(data.details || data.error || "خطا در ویرایش عنوان برنامه");
+    if (!res.ok) return toast.error(data.details || data.error || "Ø®Ø·Ø§ Ø¯Ø± ÙˆÛŒØ±Ø§ÛŒØ´ Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±Ù†Ø§Ù…Ù‡");
 
     await queryClient.invalidateQueries({ queryKey: ["schedules", "my"] });
-    toast.success("نام برنامه ویرایش شد");
+    toast.success("Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ ÙˆÛŒØ±Ø§ÛŒØ´ Ø´Ø¯");
     stopEditScheduleTitle();
   }
 
@@ -1016,9 +1032,9 @@ export default function DashboardPage() {
     const res = await fetch(`/api/schedules/id/${deleteScheduleTarget.id}`, { method: "DELETE" });
     const data = await res.json();
     setDeletingSchedule(false);
-    if (!res.ok) return toast.error(data.details || data.error || "خطا در حذف برنامه");
+    if (!res.ok) return toast.error(data.details || data.error || "Ø®Ø·Ø§ Ø¯Ø± Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡");
 
-    toast.success("برنامه حذف شد");
+    toast.success("Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø­Ø°Ù Ø´Ø¯");
     setDeleteScheduleTarget(null);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
@@ -1042,7 +1058,7 @@ export default function DashboardPage() {
 
     if (!res.ok) {
       setSmsPreferences(previous);
-      setSmsPreferencesError(data.details || data.error || "خطا در ذخیره تنظیمات پیامک");
+      setSmsPreferencesError(data.details || data.error || "Ø®Ø·Ø§ Ø¯Ø± Ø°Ø®ÛŒØ±Ù‡ ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ù¾ÛŒØ§Ù…Ú©");
       return;
     }
 
@@ -1184,19 +1200,19 @@ export default function DashboardPage() {
             alt="avatar"
             sizeClassName="h-10 w-10"
             iconSize={16}
-            onClick={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
+            onClick={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "Ú©Ø§Ø±Ø¨Ø±")}
           />
           <div className="min-w-0">
-            <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
-            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "مدیریت زمان‌بندی، رزروها و پروفایل"}</p>
+            <h1 className="text-xl font-bold md:text-2xl">Ø¯Ø§Ø´Ø¨ÙˆØ±Ø¯ Ø±Ø²Ø±Ùˆ</h1>
+            <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} Ø¹Ø²ÛŒØ² Ø®ÙˆØ´ Ø¢Ù…Ø¯ÛŒØ¯` : "Ù…Ø¯ÛŒØ±ÛŒØª Ø²Ù…Ø§Ù†â€ŒØ¨Ù†Ø¯ÛŒØŒ Ø±Ø²Ø±ÙˆÙ‡Ø§ Ùˆ Ù¾Ø±ÙˆÙØ§ÛŒÙ„"}</p>
           </div>
           <div className="ms-auto flex items-center gap-2">
-            <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="ØªØºÛŒÛŒØ± ØªÙ…">
               {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
             </button>
-            <button onClick={logout} className="btn-danger header-action-btn px-3" aria-label="خروج" title="خروج">
+            <button onClick={logout} className="btn-danger header-action-btn px-3" aria-label="Ø®Ø±ÙˆØ¬" title="Ø®Ø±ÙˆØ¬">
               <LogOut size={18} className="icon-danger" />
-              <span className="hidden md:inline">خروج</span>
+              <span className="hidden md:inline">Ø®Ø±ÙˆØ¬</span>
             </button>
           </div>
         </div>
@@ -1204,19 +1220,19 @@ export default function DashboardPage() {
 
       <div className="hidden flex-wrap gap-2 md:mb-3 md:flex">
         <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("schedules")}>
-          <CalendarDays size={16} /> برنامه‌های من
+          <CalendarDays size={16} /> Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§ÛŒ Ù…Ù†
         </button>
         <button className={`btn ${tab === "bookings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("bookings")}>
-          <ListChecks size={16} /> رزروهای من
+          <ListChecks size={16} /> Ø±Ø²Ø±ÙˆÙ‡Ø§ÛŒ Ù…Ù†
         </button>
         <button className={`btn ${tab === "sessions" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("sessions")}>
-          <Clock3 size={16} /> جلسات من
+          <Clock3 size={16} /> Ø¬Ù„Ø³Ø§Øª Ù…Ù†
         </button>
         <button className={`btn ${tab === "profile" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("profile")}>
-          <UserCircle2 size={16} /> پروفایل
+          <UserCircle2 size={16} /> Ù¾Ø±ÙˆÙØ§ÛŒÙ„
         </button>
         <button className={`btn ${tab === "settings" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => setTab("settings")}>
-          <Settings size={16} /> تنظیمات
+          <Settings size={16} /> ØªÙ†Ø¸ÛŒÙ…Ø§Øª
         </button>
       </div>
 
@@ -1259,8 +1275,8 @@ export default function DashboardPage() {
         {tab === "schedules" && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="lg:col-span-2">
-            <h2 className="text-lg font-bold md:text-xl">برنامه‌های من</h2>
-            <p className="mt-1 text-sm text-slate-400">برنامه‌های زمانی خود را بسازید، ویرایش کنید و لینک رزرو هر برنامه را مدیریت کنید.</p>
+            <h2 className="text-lg font-bold md:text-xl">Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§ÛŒ Ù…Ù†</h2>
+            <p className="mt-1 text-sm text-slate-400">Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§ÛŒ Ø²Ù…Ø§Ù†ÛŒ Ø®ÙˆØ¯ Ø±Ø§ Ø¨Ø³Ø§Ø²ÛŒØ¯ØŒ ÙˆÛŒØ±Ø§ÛŒØ´ Ú©Ù†ÛŒØ¯ Ùˆ Ù„ÛŒÙ†Ú© Ø±Ø²Ø±Ùˆ Ù‡Ø± Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø±Ø§ Ù…Ø¯ÛŒØ±ÛŒØª Ú©Ù†ÛŒØ¯.</p>
           </div>
           <div className="md:hidden">
             <button
@@ -1268,7 +1284,7 @@ export default function DashboardPage() {
               className="btn-primary w-full"
               onClick={() => setShowCreateFormMobile((prev) => !prev)}
             >
-              <Plus size={16} /> {showCreateFormMobile ? "بستن فرم برنامه جدید" : "برنامه جدید"}
+              <Plus size={16} /> {showCreateFormMobile ? "Ø¨Ø³ØªÙ† ÙØ±Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø¬Ø¯ÛŒØ¯" : "Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø¬Ø¯ÛŒØ¯"}
             </button>
           </div>
 
@@ -1276,7 +1292,7 @@ export default function DashboardPage() {
             onSubmit={createSchedule}
             className={`card space-y-4 p-4 md:p-5 ${showCreateFormMobile ? "block" : "hidden md:block"}`}
           >
-            <h2 className="font-bold">ساخت برنامه جدید</h2>
+            <h2 className="font-bold">Ø³Ø§Ø®Øª Ø¨Ø±Ù†Ø§Ù…Ù‡ Ø¬Ø¯ÛŒØ¯</h2>
             {createError && (
               <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-sm text-rose-200">
                 {createError}
@@ -1284,11 +1300,11 @@ export default function DashboardPage() {
             )}
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">عنوان برنامه</label>
+              <label className="mb-2 block text-sm text-slate-300">Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±Ù†Ø§Ù…Ù‡</label>
               <input
                 className="input"
                 name="title"
-                placeholder="مثلاً مشاوره پایان‌نامه"
+                placeholder="Ù…Ø«Ù„Ø§Ù‹ Ù…Ø´Ø§ÙˆØ±Ù‡ Ù¾Ø§ÛŒØ§Ù†â€ŒÙ†Ø§Ù…Ù‡"
                 value={scheduleTitle}
                 onChange={(e) => setScheduleTitle(e.target.value)}
                 required
@@ -1296,7 +1312,7 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">انتخاب تاریخ‌ها</label>
+              <label className="mb-2 block text-sm text-slate-300">Ø§Ù†ØªØ®Ø§Ø¨ ØªØ§Ø±ÛŒØ®â€ŒÙ‡Ø§</label>
               <DatePicker
                 multiple
                 calendar={persian}
@@ -1323,7 +1339,7 @@ export default function DashboardPage() {
                 }}
                 render={(value, openCalendar) => (
                   <button type="button" onClick={openCalendar} className="btn-ghost w-full justify-between">
-                    <span className="flex items-center gap-2"><CalendarDays size={16} /> {selectedDates.length > 0 ? `${selectedDates.length} تاریخ انتخاب شده` : "انتخاب تاریخ"}</span>
+                    <span className="flex items-center gap-2"><CalendarDays size={16} /> {selectedDates.length > 0 ? `${selectedDates.length} ØªØ§Ø±ÛŒØ® Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡` : "Ø§Ù†ØªØ®Ø§Ø¨ ØªØ§Ø±ÛŒØ®"}</span>
                     <span className="text-xs text-slate-400">{value || ""}</span>
                   </button>
                 )}
@@ -1340,7 +1356,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm text-slate-300">مدت هر ارائه (دقیقه)</label>
+                <label className="mb-2 block text-sm text-slate-300">Ù…Ø¯Øª Ù‡Ø± Ø§Ø±Ø§Ø¦Ù‡ (Ø¯Ù‚ÛŒÙ‚Ù‡)</label>
                 <input
                   className="input"
                   name="slotDuration"
@@ -1352,7 +1368,7 @@ export default function DashboardPage() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-300">فاصله بین ارائه‌ها (دقیقه)</label>
+                <label className="mb-2 block text-sm text-slate-300">ÙØ§ØµÙ„Ù‡ Ø¨ÛŒÙ† Ø§Ø±Ø§Ø¦Ù‡â€ŒÙ‡Ø§ (Ø¯Ù‚ÛŒÙ‚Ù‡)</label>
                 <input
                   className="input"
                   name="gapMinutes"
@@ -1366,48 +1382,48 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-3 rounded-xl surface-block p-3">
-              <p className="text-sm text-slate-300">بازه‌های زمانی هر تاریخ</p>
-              <p className="text-xs text-slate-400">هر بازه باید حداقل به اندازه مدت جلسه باشد تا اسلات تولید شود.</p>
-              <p className="text-xs text-slate-400">فاصله بین ارائه‌ها باید عددی غیرمنفی باشد؛ اگر خیلی بزرگ باشد ممکن است تنها یک اسلات بسازد.</p>
-              <p className="text-xs text-slate-400">جمع کل اسلات‌های قابل تولید: {totalSlotCount}</p>
+              <p className="text-sm text-slate-300">Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ÛŒ Ø²Ù…Ø§Ù†ÛŒ Ù‡Ø± ØªØ§Ø±ÛŒØ®</p>
+              <p className="text-xs text-slate-400">Ù‡Ø± Ø¨Ø§Ø²Ù‡ Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ Ø¨Ù‡ Ø§Ù†Ø¯Ø§Ø²Ù‡ Ù…Ø¯Øª Ø¬Ù„Ø³Ù‡ Ø¨Ø§Ø´Ø¯ ØªØ§ Ø§Ø³Ù„Ø§Øª ØªÙˆÙ„ÛŒØ¯ Ø´ÙˆØ¯.</p>
+              <p className="text-xs text-slate-400">ÙØ§ØµÙ„Ù‡ Ø¨ÛŒÙ† Ø§Ø±Ø§Ø¦Ù‡â€ŒÙ‡Ø§ Ø¨Ø§ÛŒØ¯ Ø¹Ø¯Ø¯ÛŒ ØºÛŒØ±Ù…Ù†ÙÛŒ Ø¨Ø§Ø´Ø¯Ø› Ø§Ú¯Ø± Ø®ÛŒÙ„ÛŒ Ø¨Ø²Ø±Ú¯ Ø¨Ø§Ø´Ø¯ Ù…Ù…Ú©Ù† Ø§Ø³Øª ØªÙ†Ù‡Ø§ ÛŒÚ© Ø§Ø³Ù„Ø§Øª Ø¨Ø³Ø§Ø²Ø¯.</p>
+              <p className="text-xs text-slate-400">Ø¬Ù…Ø¹ Ú©Ù„ Ø§Ø³Ù„Ø§Øªâ€ŒÙ‡Ø§ÛŒ Ù‚Ø§Ø¨Ù„ ØªÙˆÙ„ÛŒØ¯: {totalSlotCount}</p>
               {totalSlotCount === 0 && (
-                <p className="text-xs text-rose-300">هیچ اسلاتی تولید نمی‌شود. بازه‌ها یا مدت جلسه را اصلاح کنید.</p>
+                <p className="text-xs text-rose-300">Ù‡ÛŒÚ† Ø§Ø³Ù„Ø§ØªÛŒ ØªÙˆÙ„ÛŒØ¯ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯. Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ ÛŒØ§ Ù…Ø¯Øª Ø¬Ù„Ø³Ù‡ Ø±Ø§ Ø§ØµÙ„Ø§Ø­ Ú©Ù†ÛŒØ¯.</p>
               )}
               {totalSlotCount > 0 && totalSlotCount < 3 && (
-                <p className="text-xs text-amber-200">اسلات‌های کمی تولید می‌شوند؛ ممکن است نیاز به بازه بیشتر داشته باشید.</p>
+                <p className="text-xs text-amber-200">Ø§Ø³Ù„Ø§Øªâ€ŒÙ‡Ø§ÛŒ Ú©Ù…ÛŒ ØªÙˆÙ„ÛŒØ¯ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯Ø› Ù…Ù…Ú©Ù† Ø§Ø³Øª Ù†ÛŒØ§Ø² Ø¨Ù‡ Ø¨Ø§Ø²Ù‡ Ø¨ÛŒØ´ØªØ± Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´ÛŒØ¯.</p>
               )}
               {!canCreateSchedule && (
-                <p className="text-xs text-rose-300">تا زمان اصلاح بازه‌ها امکان ساخت برنامه وجود ندارد.</p>
+                <p className="text-xs text-rose-300">ØªØ§ Ø²Ù…Ø§Ù† Ø§ØµÙ„Ø§Ø­ Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ Ø§Ù…Ú©Ø§Ù† Ø³Ø§Ø®Øª Ø¨Ø±Ù†Ø§Ù…Ù‡ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯.</p>
               )}
               {dayConfigs.map((d) => (
                 <div key={d.date} className="rounded-xl surface-block p-3">
                   <div className="mb-2 text-sm text-cyan-300">{toJalaliLabel(d.date)}</div>
                   {rangeIssuesByDate.get(d.date)?.some(Boolean) && (
-                    <p className="mb-2 text-xs text-rose-300">حداقل یکی از بازه‌های این تاریخ مشکل دارد.</p>
+                    <p className="mb-2 text-xs text-rose-300">Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ©ÛŒ Ø§Ø² Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ÛŒ Ø§ÛŒÙ† ØªØ§Ø±ÛŒØ® Ù…Ø´Ú©Ù„ Ø¯Ø§Ø±Ø¯.</p>
                   )}
                   {(slotCountByDate.get(d.date) ?? 0) === 0 && (
-                    <p className="mb-2 text-xs text-rose-300">برای این تاریخ اسلاتی تولید نمی‌شود.</p>
+                    <p className="mb-2 text-xs text-rose-300">Ø¨Ø±Ø§ÛŒ Ø§ÛŒÙ† ØªØ§Ø±ÛŒØ® Ø§Ø³Ù„Ø§ØªÛŒ ØªÙˆÙ„ÛŒØ¯ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
                   )}
                   {(slotCountByDate.get(d.date) ?? 0) > 0 && (slotCountByDate.get(d.date) ?? 0) < 2 && (
-                    <p className="mb-2 text-xs text-amber-200">فقط یک اسلات برای این تاریخ ساخته می‌شود.</p>
+                    <p className="mb-2 text-xs text-amber-200">ÙÙ‚Ø· ÛŒÚ© Ø§Ø³Ù„Ø§Øª Ø¨Ø±Ø§ÛŒ Ø§ÛŒÙ† ØªØ§Ø±ÛŒØ® Ø³Ø§Ø®ØªÙ‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
                   )}
                   <div className="space-y-2">
                     {d.ranges.map((r, i) => (
                       <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <div className="md:col-span-3 text-xs text-slate-400">
-                          طول بازه: {getRangeLengthMinutes(r)} دقیقه
+                          Ø·ÙˆÙ„ Ø¨Ø§Ø²Ù‡: {getRangeLengthMinutes(r)} Ø¯Ù‚ÛŒÙ‚Ù‡
                           {slotDurationMinutes > 0 && getRangeLengthMinutes(r) < slotDurationMinutes && (
-                            <span className="text-rose-300"> · کوتاه‌تر از مدت جلسه است</span>
+                            <span className="text-rose-300"> Â· Ú©ÙˆØªØ§Ù‡â€ŒØªØ± Ø§Ø² Ù…Ø¯Øª Ø¬Ù„Ø³Ù‡ Ø§Ø³Øª</span>
                           )}
                           {slotDurationMinutes > 0 && getRangeLengthMinutes(r) === slotDurationMinutes && (
-                            <span className="text-amber-200"> · فقط یک جلسه جا می‌شود</span>
+                            <span className="text-amber-200"> Â· ÙÙ‚Ø· ÛŒÚ© Ø¬Ù„Ø³Ù‡ Ø¬Ø§ Ù…ÛŒâ€ŒØ´ÙˆØ¯</span>
                           )}
                           {gapMinutesValue > 0 && getRangeLengthMinutes(r) <= slotDurationMinutes + gapMinutesValue && (
-                            <span className="text-amber-200"> · فاصله بزرگ است و احتمالاً فقط یک اسلات می‌سازد</span>
+                            <span className="text-amber-200"> Â· ÙØ§ØµÙ„Ù‡ Ø¨Ø²Ø±Ú¯ Ø§Ø³Øª Ùˆ Ø§Ø­ØªÙ…Ø§Ù„Ø§Ù‹ ÙÙ‚Ø· ÛŒÚ© Ø§Ø³Ù„Ø§Øª Ù…ÛŒâ€ŒØ³Ø§Ø²Ø¯</span>
                           )}
                         </div>
                         <div className="min-w-0">
-                          <label className="mb-1 block text-xs text-slate-400">شروع</label>
+                          <label className="mb-1 block text-xs text-slate-400">Ø´Ø±ÙˆØ¹</label>
                           <input
                             className={`input time-input min-w-0 ${rangeIssuesByDate.get(d.date)?.[i] ? "border-rose-400/70 ring-2 ring-rose-400/30" : ""}`}
                             type="time"
@@ -1416,7 +1432,7 @@ export default function DashboardPage() {
                           />
                         </div>
                         <div className="min-w-0">
-                          <label className="mb-1 block text-xs text-slate-400">پایان</label>
+                          <label className="mb-1 block text-xs text-slate-400">Ù¾Ø§ÛŒØ§Ù†</label>
                           <input
                             className={`input time-input min-w-0 ${rangeIssuesByDate.get(d.date)?.[i] ? "border-rose-400/70 ring-2 ring-rose-400/30" : ""}`}
                             type="time"
@@ -1433,10 +1449,10 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <button type="button" className="btn-ghost mt-2" onClick={() => addRange(d.date)}><Plus size={16} /> افزودن بازه</button>
+                  <button type="button" className="btn-ghost mt-2" onClick={() => addRange(d.date)}><Plus size={16} /> Ø§ÙØ²ÙˆØ¯Ù† Ø¨Ø§Ø²Ù‡</button>
                 </div>
               ))}
-              {isInvalidTimeConfig && <p className="text-sm text-rose-300">در بعضی تاریخ‌ها تداخل یا ترتیب نادرست بازه وجود دارد.</p>}
+              {isInvalidTimeConfig && <p className="text-sm text-rose-300">Ø¯Ø± Ø¨Ø¹Ø¶ÛŒ ØªØ§Ø±ÛŒØ®â€ŒÙ‡Ø§ ØªØ¯Ø§Ø®Ù„ ÛŒØ§ ØªØ±ØªÛŒØ¨ Ù†Ø§Ø¯Ø±Ø³Øª Ø¨Ø§Ø²Ù‡ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯.</p>}
               {createError && !isInvalidTimeConfig && (
                 <p className="text-sm text-rose-300">{createError}</p>
               )}
@@ -1444,8 +1460,8 @@ export default function DashboardPage() {
 
             <div className="space-y-2 rounded-xl surface-block p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium">سوالات فرم رزرو</p>
-                <button type="button" className="btn-ghost" onClick={addQuestion} disabled={questions.length >= 5}><Plus size={16} /> افزودن سوال</button>
+                <p className="font-medium">Ø³ÙˆØ§Ù„Ø§Øª ÙØ±Ù… Ø±Ø²Ø±Ùˆ</p>
+                <button type="button" className="btn-ghost" onClick={addQuestion} disabled={questions.length >= 5}><Plus size={16} /> Ø§ÙØ²ÙˆØ¯Ù† Ø³ÙˆØ§Ù„</button>
               </div>
               {questions.map((q, i) => (
                 <div key={i} className="grid gap-2 rounded-lg surface-block p-2">
@@ -1454,43 +1470,43 @@ export default function DashboardPage() {
                       type="button"
                       className="btn-ghost"
                       onClick={() => setQuestions((prev) => prev.filter((_, idx) => idx !== i))}
-                      aria-label="حذف سوال"
-                      title="حذف سوال"
+                      aria-label="Ø­Ø°Ù Ø³ÙˆØ§Ù„"
+                      title="Ø­Ø°Ù Ø³ÙˆØ§Ù„"
                     >
                       <Trash2 size={14} className="icon-danger" />
-                      <span>حذف سوال</span>
+                      <span>Ø­Ø°Ù Ø³ÙˆØ§Ù„</span>
                     </button>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-400">متن سوال</label>
+                    <label className="mb-1 block text-xs text-slate-400">Ù…ØªÙ† Ø³ÙˆØ§Ù„</label>
                     <input
                       className="input"
-                      placeholder={`متن سوال ${i + 1}`}
+                      placeholder={`Ù…ØªÙ† Ø³ÙˆØ§Ù„ ${i + 1}`}
                       value={q.label}
                       onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, label: e.target.value } : x)))}
                     />
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs text-slate-400">نوع پاسخ</label>
+                      <label className="mb-1 block text-xs text-slate-400">Ù†ÙˆØ¹ Ù¾Ø§Ø³Ø®</label>
                       <select
                         className="input"
                         value={q.type}
                         onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, type: e.target.value as "text" | "textarea" } : x)))}
                       >
-                        <option value="text">متن کوتاه</option>
-                        <option value="textarea">متن بلند</option>
+                        <option value="text">Ù…ØªÙ† Ú©ÙˆØªØ§Ù‡</option>
+                        <option value="textarea">Ù…ØªÙ† Ø¨Ù„Ù†Ø¯</option>
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-slate-400">الزامی بودن</label>
+                      <label className="mb-1 block text-xs text-slate-400">Ø§Ù„Ø²Ø§Ù…ÛŒ Ø¨ÙˆØ¯Ù†</label>
                       <label className="flex h-11 items-center gap-2 rounded-xl surface-block px-3 text-sm">
                         <input
                           type="checkbox"
                           checked={q.required}
                           onChange={(e) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? { ...x, required: e.target.checked } : x)))}
                         />
-                        اجباری
+                        Ø§Ø¬Ø¨Ø§Ø±ÛŒ
                       </label>
                     </div>
                   </div>
@@ -1499,7 +1515,7 @@ export default function DashboardPage() {
             </div>
 
             <button className="btn-primary w-full" disabled={!canCreateSchedule || creatingSchedule}>
-              <Clock3 size={16} /> {creatingSchedule ? "در حال ساخت..." : "ایجاد برنامه"}
+              <Clock3 size={16} /> {creatingSchedule ? "Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª..." : "Ø§ÛŒØ¬Ø§Ø¯ Ø¨Ø±Ù†Ø§Ù…Ù‡"}
             </button>
           </form>
 
@@ -1508,7 +1524,7 @@ export default function DashboardPage() {
               <div className="card p-4 transition hover:-translate-y-0.5 hover:border-cyan-700" key={s.id}>
                 {editingScheduleId === s.id ? (
                   <div className="space-y-2">
-                    <label className="block text-xs text-slate-400">ویرایش نام برنامه</label>
+                    <label className="block text-xs text-slate-400">ÙˆÛŒØ±Ø§ÛŒØ´ Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡</label>
                     <input
                       className="input"
                       value={editingTitle}
@@ -1522,10 +1538,10 @@ export default function DashboardPage() {
                         onClick={() => saveScheduleTitle(s.id)}
                         disabled={savingTitle}
                       >
-                        {savingTitle ? "در حال ذخیره..." : "ذخیره"}
+                        {savingTitle ? "Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡..." : "Ø°Ø®ÛŒØ±Ù‡"}
                       </button>
                       <button type="button" className="btn-ghost" onClick={stopEditScheduleTitle} disabled={savingTitle}>
-                        انصراف
+                        Ø§Ù†ØµØ±Ø§Ù
                       </button>
                     </div>
                   </div>
@@ -1534,13 +1550,13 @@ export default function DashboardPage() {
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold break-words text-base">{s.title}</h3>
                       <span className="rounded-full border border-cyan-700/60 bg-cyan-900/20 px-2 py-1 text-xs text-cyan-200">
-                        برنامه
+                        Ø¨Ø±Ù†Ø§Ù…Ù‡
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">
                       {s.createdAt
                         ? new Date(s.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })
-                        : "تاریخ نامشخص"}
+                        : "ØªØ§Ø±ÛŒØ® Ù†Ø§Ù…Ø´Ø®Øµ"}
                     </p>
                   </div>
                 )}
@@ -1548,9 +1564,9 @@ export default function DashboardPage() {
                   <a className="block text-cyan-300 break-all" href={getShareUrl(s.shareId)}>{getShareUrl(s.shareId)}</a>
                   <div className="flex flex-wrap gap-2">
                     {editingScheduleId !== s.id && (
-                      <button type="button" className="btn-ghost" onClick={() => startEditScheduleTitle(s)} aria-label="ویرایش نام برنامه" title="ویرایش نام برنامه">
+                      <button type="button" className="btn-ghost" onClick={() => startEditScheduleTitle(s)} aria-label="ÙˆÛŒØ±Ø§ÛŒØ´ Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡" title="ÙˆÛŒØ±Ø§ÛŒØ´ Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡">
                         <Pencil size={14} />
-                        <span className="hidden md:inline">ویرایش نام</span>
+                        <span className="hidden md:inline">ÙˆÛŒØ±Ø§ÛŒØ´ Ù†Ø§Ù…</span>
                       </button>
                     )}
                     <button
@@ -1558,33 +1574,33 @@ export default function DashboardPage() {
                       className="btn-ghost"
                       onClick={async () => {
                         await navigator.clipboard.writeText(getShareUrl(s.shareId));
-                        toast.success("لینک کپی شد");
+                        toast.success("Ù„ÛŒÙ†Ú© Ú©Ù¾ÛŒ Ø´Ø¯");
                       }}
-                      aria-label="کپی لینک برنامه"
-                      title="کپی لینک برنامه"
+                      aria-label="Ú©Ù¾ÛŒ Ù„ÛŒÙ†Ú© Ø¨Ø±Ù†Ø§Ù…Ù‡"
+                      title="Ú©Ù¾ÛŒ Ù„ÛŒÙ†Ú© Ø¨Ø±Ù†Ø§Ù…Ù‡"
                     >
                       <Copy size={14} />
-                      <span className="hidden md:inline">کپی لینک</span>
+                      <span className="hidden md:inline">Ú©Ù¾ÛŒ Ù„ÛŒÙ†Ú©</span>
                     </button>
                     <button
                       type="button"
                       className="btn-ghost"
                       onClick={() => openQrModal(s)}
-                      aria-label="نمایش QR برنامه"
-                      title="نمایش QR برنامه"
+                      aria-label="Ù†Ù…Ø§ÛŒØ´ QR Ø¨Ø±Ù†Ø§Ù…Ù‡"
+                      title="Ù†Ù…Ø§ÛŒØ´ QR Ø¨Ø±Ù†Ø§Ù…Ù‡"
                     >
                       <QrCode size={14} />
-                      <span className="hidden md:inline">QR برنامه</span>
+                      <span className="hidden md:inline">QR Ø¨Ø±Ù†Ø§Ù…Ù‡</span>
                     </button>
                     <button
                       type="button"
                       className="btn-ghost"
                       onClick={() => setDeleteScheduleTarget(s)}
-                      aria-label="حذف برنامه"
-                      title="حذف برنامه"
+                      aria-label="Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡"
+                      title="Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡"
                     >
                       <Trash2 size={14} className="icon-danger" />
-                      <span className="hidden md:inline">حذف برنامه</span>
+                      <span className="hidden md:inline">Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡</span>
                     </button>
                   </div>
                 </div>
@@ -1595,11 +1611,11 @@ export default function DashboardPage() {
       )}
 
       {tab === "bookings" && (
-        <section className="card relative overflow-visible p-4">
-          <h2 className="mb-4 text-lg font-bold md:text-xl">رزروهای من</h2>
-          <p className="-mt-2 mb-4 text-sm text-slate-400">لیست رزروهایی که دیگران روی برنامه‌های شما ثبت کرده‌اند را ببینید و در صورت نیاز کنسل کنید.</p>
+        <section className="card relative overflow-visible p-4 md:mt-2">
+          <h2 className="mb-4 text-lg font-bold md:text-xl">Ø±Ø²Ø±ÙˆÙ‡Ø§ÛŒ Ù…Ù†</h2>
+          <p className="-mt-2 mb-4 text-sm text-slate-400">Ù„ÛŒØ³Øª Ø±Ø²Ø±ÙˆÙ‡Ø§ÛŒÛŒ Ú©Ù‡ Ø¯ÛŒÚ¯Ø±Ø§Ù† Ø±ÙˆÛŒ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§ÛŒ Ø´Ù…Ø§ Ø«Ø¨Øª Ú©Ø±Ø¯Ù‡â€ŒØ§Ù†Ø¯ Ø±Ø§ Ø¨Ø¨ÛŒÙ†ÛŒØ¯ Ùˆ Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø² Ú©Ù†Ø³Ù„ Ú©Ù†ÛŒØ¯.</p>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <label className="block text-sm text-slate-300">فیلتر بر اساس برنامه</label>
+            <label className="block text-sm text-slate-300">ÙÛŒÙ„ØªØ± Ø¨Ø± Ø§Ø³Ø§Ø³ Ø¨Ø±Ù†Ø§Ù…Ù‡</label>
             <div ref={exportMenuRef} className="relative">
               <button
                 type="button"
@@ -1609,7 +1625,7 @@ export default function DashboardPage() {
                 aria-expanded={isExportMenuOpen}
               >
                 <Download size={16} />
-                <span className="hidden sm:inline">خروجی گرفتن</span>
+                <span className="hidden sm:inline">Ø®Ø±ÙˆØ¬ÛŒ Ú¯Ø±ÙØªÙ†</span>
               </button>
               <div
                 className={`dropdown-panel absolute left-0 z-50 mt-2 w-48 origin-top-left rounded-2xl shadow-xl transition-all duration-200 ${
@@ -1636,7 +1652,7 @@ export default function DashboardPage() {
                   onClick={exportBookingsAsPdf}
                   disabled={exportingPdf}
                 >
-                  <FileText size={14} /> {exportingPdf ? "در حال ساخت PDF" : "PDF"}
+                  <FileText size={14} /> {exportingPdf ? "Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª PDF" : "PDF"}
                 </button>
                 <button
                   type="button"
@@ -1644,7 +1660,7 @@ export default function DashboardPage() {
                   onClick={exportBookingsAsImage}
                   disabled={exportingImage}
                 >
-                  <FileImage size={14} /> {exportingImage ? "در حال ساخت تصویر" : "تصویر"}
+                  <FileImage size={14} /> {exportingImage ? "Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª ØªØµÙˆÛŒØ±" : "ØªØµÙˆÛŒØ±"}
                 </button>
               </div>
             </div>
@@ -1652,7 +1668,7 @@ export default function DashboardPage() {
           <div className="mb-4 grid gap-2 rounded-2xl border border-slate-700/40 bg-slate-500/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <input
               className="input h-10"
-              placeholder="جستجو در رزروها (نام، شماره، پاسخ‌ها...)"
+              placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø±Ø²Ø±ÙˆÙ‡Ø§ (Ù†Ø§Ù…ØŒ Ø´Ù…Ø§Ø±Ù‡ØŒ Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§...)"
               value={bookingFilterDraft.query}
               onChange={(e) => {
                 const value = e.target.value;
@@ -1665,12 +1681,12 @@ export default function DashboardPage() {
               className="btn-ghost h-10"
               onClick={() => setBookingFilterOpen((prev) => !prev)}
             >
-              فیلتر بیشتر
+              ÙÛŒÙ„ØªØ± Ø¨ÛŒØ´ØªØ±
             </button>
             {bookingFilterOpen && (
               <div className="sm:col-span-2 grid gap-2 rounded-xl border border-slate-700/40 bg-slate-900/40 p-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">از تاریخ</label>
+                  <label className="mb-1 block text-xs text-slate-400">Ø§Ø² ØªØ§Ø±ÛŒØ®</label>
                   <input
                     className="input h-10"
                     type="date"
@@ -1679,7 +1695,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">تا تاریخ</label>
+                  <label className="mb-1 block text-xs text-slate-400">ØªØ§ ØªØ§Ø±ÛŒØ®</label>
                   <input
                     className="input h-10"
                     type="date"
@@ -1688,27 +1704,27 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">مرتب‌سازی</label>
+                  <label className="mb-1 block text-xs text-slate-400">Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ</label>
                   <select
                     className="input h-10"
                     value={bookingFilterDraft.sort}
                     onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, sort: e.target.value as ListFilterState["sort"] }))}
                   >
-                    <option value="time-asc">زمان (نزدیک‌ترین)</option>
-                    <option value="time-desc">زمان (دورترین)</option>
-                    <option value="name-asc">نام برنامه (الف-ی)</option>
-                    <option value="name-desc">نام برنامه (ی-الف)</option>
+                    <option value="time-asc">Ø²Ù…Ø§Ù† (Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ†)</option>
+                    <option value="time-desc">Ø²Ù…Ø§Ù† (Ø¯ÙˆØ±ØªØ±ÛŒÙ†)</option>
+                    <option value="name-asc">Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ (Ø§Ù„Ù-ÛŒ)</option>
+                    <option value="name-desc">Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ (ÛŒ-Ø§Ù„Ù)</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs text-slate-400">فیلتر برنامه‌ها</label>
+                  <label className="mb-1 block text-xs text-slate-400">ÙÛŒÙ„ØªØ± Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className={`rounded-full border px-3 py-1 text-xs transition ${bookingFilterDraft.scheduleIds.length === 0 ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
                       onClick={() => setBookingFilterDraft((prev) => ({ ...prev, scheduleIds: [] }))}
                     >
-                      همه برنامه‌ها
+                      Ù‡Ù…Ù‡ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§
                     </button>
                     {bookingScheduleOptions.map((s) => {
                       const active = bookingFilterDraft.scheduleIds.includes(s.id);
@@ -1738,7 +1754,7 @@ export default function DashboardPage() {
                     checked={bookingFilterDraft.includePast}
                     onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
                   />
-                  نمایش رزروهای گذشته
+                  Ù†Ù…Ø§ÛŒØ´ Ø±Ø²Ø±ÙˆÙ‡Ø§ÛŒ Ú¯Ø°Ø´ØªÙ‡
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -1749,7 +1765,7 @@ export default function DashboardPage() {
                       setBookingFilterOpen(false);
                     }}
                   >
-                    اعمال فیلتر
+                    Ø§Ø¹Ù…Ø§Ù„ ÙÛŒÙ„ØªØ±
                   </button>
                     <button
                       type="button"
@@ -1760,7 +1776,7 @@ export default function DashboardPage() {
                       setBookingFilterOpen(false);
                     }}
                   >
-                    ریست
+                    Ø±ÛŒØ³Øª
                   </button>
                 </div>
               </div>
@@ -1779,9 +1795,9 @@ export default function DashboardPage() {
             >
               <div className="border-b border-slate-200 pb-3">
                 <div>
-                  <div className="text-lg font-bold">گزارش رزروها</div>
-                  <div className="text-xs text-slate-500">{exportContext.title} · {exportContext.count} رزرو</div>
-                  <div className="mt-1 text-[11px] text-slate-500">زمان دانلود: {exportContext.stamp}</div>
+                  <div className="text-lg font-bold">Ú¯Ø²Ø§Ø±Ø´ Ø±Ø²Ø±ÙˆÙ‡Ø§</div>
+                  <div className="text-xs text-slate-500">{exportContext.title} Â· {exportContext.count} Ø±Ø²Ø±Ùˆ</div>
+                  <div className="mt-1 text-[11px] text-slate-500">Ø²Ù…Ø§Ù† Ø¯Ø§Ù†Ù„ÙˆØ¯: {exportContext.stamp}</div>
                 </div>
               </div>
 
@@ -1789,18 +1805,18 @@ export default function DashboardPage() {
                 <table className="w-full border-separate border-spacing-0 text-xs">
                   <thead>
                     <tr className="bg-slate-100">
-                      <th className="rounded-tr-2xl border-b border-slate-200 p-2 text-right">برنامه</th>
-                      <th className="border-b border-slate-200 p-2 text-right">رزروکننده</th>
-                      <th className="border-b border-slate-200 p-2 text-right">شماره</th>
-                      <th className="rounded-tl-2xl border-b border-slate-200 p-2 text-right">زمان</th>
+                      <th className="rounded-tr-2xl border-b border-slate-200 p-2 text-right">Ø¨Ø±Ù†Ø§Ù…Ù‡</th>
+                      <th className="border-b border-slate-200 p-2 text-right">Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡</th>
+                      <th className="border-b border-slate-200 p-2 text-right">Ø´Ù…Ø§Ø±Ù‡</th>
+                      <th className="rounded-tl-2xl border-b border-slate-200 p-2 text-right">Ø²Ù…Ø§Ù†</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredBookings.map((b, idx) => (
                       <tr key={b.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
                         <td className="border-b border-slate-100 p-2">{b.schedule?.title || "-"}</td>
-                        <td className="border-b border-slate-100 p-2">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر"}</td>
-                        <td className="border-b border-slate-100 p-2" dir="ltr">{b.bookedByUser?.phone || "-"}</td>
+                        <td className="border-b border-slate-100 p-2">{b.bookedByUser?.username || b.bookedByUser?.phone || "Ú©Ø§Ø±Ø¨Ø±"}</td>
+                        <td className="border-b border-slate-100 p-2">{formatPhoneForExport(b.bookedByUser?.phone || "-")}</td>
                         <td className="border-b border-slate-100 p-2">{b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}</td>
                       </tr>
                     ))}
@@ -1811,15 +1827,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {filteredBookings.length === 0 && <div className="text-sm text-slate-400">نتیجه‌ای برای فیلتر انتخابی پیدا نشد.</div>}
+            {filteredBookings.length === 0 && <div className="text-sm text-slate-400">Ù†ØªÛŒØ¬Ù‡â€ŒØ§ÛŒ Ø¨Ø±Ø§ÛŒ ÙÛŒÙ„ØªØ± Ø§Ù†ØªØ®Ø§Ø¨ÛŒ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.</div>}
             {filteredBookings.map((b) => (
               <div key={b.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{highlightText(b.schedule.title, bookingFilters.query)}</div>
                 <div className="text-sm text-slate-400">
-                  نام رزروکننده: {highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر", bookingFilters.query)}
+                  Ù†Ø§Ù… Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡: {highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "Ú©Ø§Ø±Ø¨Ø±", bookingFilters.query)}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-                  <span>شماره رزروکننده:</span>
+                  <span>Ø´Ù…Ø§Ø±Ù‡ Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡:</span>
                   <span dir="ltr">{highlightText(b.bookedByUser?.phone || "-", bookingFilters.query)}</span>
                   {b.bookedByUser?.phone && (
                     <button
@@ -1827,10 +1843,10 @@ export default function DashboardPage() {
                       className="rounded-md p-1 text-slate-400 transition hover:bg-slate-500/10 hover:text-cyan-300"
                       onClick={async () => {
                         await navigator.clipboard.writeText(b.bookedByUser.phone);
-                        toast.success("شماره کپی شد");
+                        toast.success("Ø´Ù…Ø§Ø±Ù‡ Ú©Ù¾ÛŒ Ø´Ø¯");
                       }}
-                      aria-label="کپی شماره رزروکننده"
-                      title="کپی شماره رزروکننده"
+                      aria-label="Ú©Ù¾ÛŒ Ø´Ù…Ø§Ø±Ù‡ Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡"
+                      title="Ú©Ù¾ÛŒ Ø´Ù…Ø§Ø±Ù‡ Ø±Ø²Ø±ÙˆÚ©Ù†Ù†Ø¯Ù‡"
                     >
                       <Copy size={12} />
                     </button>
@@ -1842,15 +1858,15 @@ export default function DashboardPage() {
                     alt="booker avatar"
                     sizeClassName="h-8 w-8"
                     iconSize={14}
-                    onClick={() => openAvatarPreview(b.bookedByUser?.avatarUrl, b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر")}
+                    onClick={() => openAvatarPreview(b.bookedByUser?.avatarUrl, b.bookedByUser?.username || b.bookedByUser?.phone || "Ú©Ø§Ø±Ø¨Ø±")}
                   />
-                  <div className="text-xs text-slate-400">{highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر مهمان", bookingFilters.query)}</div>
+                  <div className="text-xs text-slate-400">{highlightText(b.bookedByUser?.username || b.bookedByUser?.phone || "Ú©Ø§Ø±Ø¨Ø± Ù…Ù‡Ù…Ø§Ù†", bookingFilters.query)}</div>
                 </div>
                 <div className="text-sm text-slate-400">
-                  زمان: {b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}
+                  Ø²Ù…Ø§Ù†: {b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}
                 </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
-                  <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
+                  <div className="mb-2 text-xs text-slate-400">Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§ÛŒ ÙØ±Ù…</div>
                   {renderAnswers(b.answers, b.schedule?.questions, bookingFilters.query)}
                 </div>
                 <div className="mt-3">
@@ -1858,11 +1874,11 @@ export default function DashboardPage() {
                     type="button"
                     className="btn-danger"
                     onClick={() => setCancelTarget(b)}
-                    aria-label="کنسل رزرو"
-                    title="کنسل رزرو"
+                    aria-label="Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ"
+                    title="Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ"
                   >
                     <XCircle size={14} className="icon-danger" />
-                    <span>کنسل رزرو</span>
+                    <span>Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ</span>
                   </button>
                 </div>
               </div>
@@ -1872,13 +1888,13 @@ export default function DashboardPage() {
       )}
 
       {tab === "sessions" && (
-        <section className="card p-4">
-          <h2 className="mb-4 text-lg font-bold md:text-xl">جلسات من</h2>
-          <p className="-mt-2 mb-4 text-sm text-slate-400">جلسه‌هایی که خودتان رزرو کرده‌اید همراه با زمان و پاسخ‌های ثبت‌شده نمایش داده می‌شوند.</p>
+        <section className="card p-4 md:mt-2">
+          <h2 className="mb-4 text-lg font-bold md:text-xl">Ø¬Ù„Ø³Ø§Øª Ù…Ù†</h2>
+          <p className="-mt-2 mb-4 text-sm text-slate-400">Ø¬Ù„Ø³Ù‡â€ŒÙ‡Ø§ÛŒÛŒ Ú©Ù‡ Ø®ÙˆØ¯ØªØ§Ù† Ø±Ø²Ø±Ùˆ Ú©Ø±Ø¯Ù‡â€ŒØ§ÛŒØ¯ Ù‡Ù…Ø±Ø§Ù‡ Ø¨Ø§ Ø²Ù…Ø§Ù† Ùˆ Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§ÛŒ Ø«Ø¨Øªâ€ŒØ´Ø¯Ù‡ Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯.</p>
           <div className="mb-4 grid gap-2 rounded-2xl border border-slate-700/40 bg-slate-500/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <input
               className="input h-10"
-              placeholder="جستجو در جلسات (نام برنامه، ارائه‌دهنده، پاسخ‌ها...)"
+              placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø¬Ù„Ø³Ø§Øª (Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ØŒ Ø§Ø±Ø§Ø¦Ù‡â€ŒØ¯Ù‡Ù†Ø¯Ù‡ØŒ Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§...)"
               value={sessionFilterDraft.query}
               onChange={(e) => {
                 const value = e.target.value;
@@ -1891,12 +1907,12 @@ export default function DashboardPage() {
               className="btn-ghost h-10"
               onClick={() => setSessionFilterOpen((prev) => !prev)}
             >
-              فیلتر بیشتر
+              ÙÛŒÙ„ØªØ± Ø¨ÛŒØ´ØªØ±
             </button>
             {sessionFilterOpen && (
               <div className="sm:col-span-2 grid gap-2 rounded-xl border border-slate-700/40 bg-slate-900/40 p-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">از تاریخ</label>
+                  <label className="mb-1 block text-xs text-slate-400">Ø§Ø² ØªØ§Ø±ÛŒØ®</label>
                   <input
                     className="input h-10"
                     type="date"
@@ -1905,7 +1921,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">تا تاریخ</label>
+                  <label className="mb-1 block text-xs text-slate-400">ØªØ§ ØªØ§Ø±ÛŒØ®</label>
                   <input
                     className="input h-10"
                     type="date"
@@ -1914,27 +1930,27 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">مرتب‌سازی</label>
+                  <label className="mb-1 block text-xs text-slate-400">Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ</label>
                   <select
                     className="input h-10"
                     value={sessionFilterDraft.sort}
                     onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, sort: e.target.value as ListFilterState["sort"] }))}
                   >
-                    <option value="time-asc">زمان (نزدیک‌ترین)</option>
-                    <option value="time-desc">زمان (دورترین)</option>
-                    <option value="name-asc">نام برنامه (الف-ی)</option>
-                    <option value="name-desc">نام برنامه (ی-الف)</option>
+                    <option value="time-asc">Ø²Ù…Ø§Ù† (Ù†Ø²Ø¯ÛŒÚ©â€ŒØªØ±ÛŒÙ†)</option>
+                    <option value="time-desc">Ø²Ù…Ø§Ù† (Ø¯ÙˆØ±ØªØ±ÛŒÙ†)</option>
+                    <option value="name-asc">Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ (Ø§Ù„Ù-ÛŒ)</option>
+                    <option value="name-desc">Ù†Ø§Ù… Ø¨Ø±Ù†Ø§Ù…Ù‡ (ÛŒ-Ø§Ù„Ù)</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs text-slate-400">فیلتر برنامه‌ها</label>
+                  <label className="mb-1 block text-xs text-slate-400">ÙÛŒÙ„ØªØ± Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className={`rounded-full border px-3 py-1 text-xs transition ${sessionFilterDraft.scheduleIds.length === 0 ? "border-cyan-400 bg-cyan-500/20 text-cyan-200" : "border-slate-700 text-slate-300 hover:border-cyan-500"}`}
                       onClick={() => setSessionFilterDraft((prev) => ({ ...prev, scheduleIds: [] }))}
                     >
-                      همه برنامه‌ها
+                      Ù‡Ù…Ù‡ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒÙ‡Ø§
                     </button>
                     {sessionScheduleOptions.map((s) => {
                       const active = sessionFilterDraft.scheduleIds.includes(s.id);
@@ -1964,7 +1980,7 @@ export default function DashboardPage() {
                     checked={sessionFilterDraft.includePast}
                     onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
                   />
-                  نمایش جلسات گذشته
+                  Ù†Ù…Ø§ÛŒØ´ Ø¬Ù„Ø³Ø§Øª Ú¯Ø°Ø´ØªÙ‡
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -1975,7 +1991,7 @@ export default function DashboardPage() {
                       setSessionFilterOpen(false);
                     }}
                   >
-                    اعمال فیلتر
+                    Ø§Ø¹Ù…Ø§Ù„ ÙÛŒÙ„ØªØ±
                   </button>
                   <button
                     type="button"
@@ -1986,7 +2002,7 @@ export default function DashboardPage() {
                       setSessionFilterOpen(false);
                     }}
                   >
-                    ریست
+                    Ø±ÛŒØ³Øª
                   </button>
                 </div>
               </div>
@@ -1994,19 +2010,19 @@ export default function DashboardPage() {
           </div>
           {nextSession && nextSession.timeSlot?.startTime && (
             <div className="mb-4 rounded-xl border border-cyan-700/40 bg-cyan-500/10 p-3 text-sm text-cyan-200">
-              <div className="font-semibold">جلسه بعدی شما</div>
+              <div className="font-semibold">Ø¬Ù„Ø³Ù‡ Ø¨Ø¹Ø¯ÛŒ Ø´Ù…Ø§</div>
               <div className="mt-1 text-xs text-slate-300">
-                {highlightText(nextSession.schedule?.title || "جلسه", sessionFilters.query)} · {formatJalaliDateTime(new Date(nextSession.timeSlot.startTime))}
+                {highlightText(nextSession.schedule?.title || "Ø¬Ù„Ø³Ù‡", sessionFilters.query)} Â· {formatJalaliDateTime(new Date(nextSession.timeSlot.startTime))}
               </div>
               {minutesUntil(new Date(nextSession.timeSlot.startTime)) >= 0 && (
                 <div className="mt-1 text-xs text-slate-300">
-                  شروع تا {minutesUntil(new Date(nextSession.timeSlot.startTime))} دقیقه دیگر
+                  Ø´Ø±ÙˆØ¹ ØªØ§ {minutesUntil(new Date(nextSession.timeSlot.startTime))} Ø¯Ù‚ÛŒÙ‚Ù‡ Ø¯ÛŒÚ¯Ø±
                 </div>
               )}
             </div>
           )}
           <div className="space-y-3">
-            {filteredMySessions.length === 0 && <div className="text-sm text-slate-400">نتیجه‌ای برای فیلتر انتخابی پیدا نشد.</div>}
+            {filteredMySessions.length === 0 && <div className="text-sm text-slate-400">Ù†ØªÛŒØ¬Ù‡â€ŒØ§ÛŒ Ø¨Ø±Ø§ÛŒ ÙÛŒÙ„ØªØ± Ø§Ù†ØªØ®Ø§Ø¨ÛŒ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.</div>}
             {filteredMySessions.map((s) => (
               <div key={s.id} className="rounded-xl surface-block p-3">
                 <div className="font-medium break-words">{highlightText(s.schedule?.title || "-", sessionFilters.query)}</div>
@@ -2016,18 +2032,18 @@ export default function DashboardPage() {
                     alt="host avatar"
                     sizeClassName="h-8 w-8"
                     iconSize={14}
-                    onClick={() => openAvatarPreview(s.schedule?.user?.avatarUrl, s.schedule?.user?.username || s.schedule?.user?.phone || "ارائه‌دهنده")}
+                    onClick={() => openAvatarPreview(s.schedule?.user?.avatarUrl, s.schedule?.user?.username || s.schedule?.user?.phone || "Ø§Ø±Ø§Ø¦Ù‡â€ŒØ¯Ù‡Ù†Ø¯Ù‡")}
                   />
-                  <div className="text-sm text-slate-400">ارائه‌دهنده: {highlightText(s.schedule?.user?.username || s.schedule?.user?.phone || "-", sessionFilters.query)}</div>
+                  <div className="text-sm text-slate-400">Ø§Ø±Ø§Ø¦Ù‡â€ŒØ¯Ù‡Ù†Ø¯Ù‡: {highlightText(s.schedule?.user?.username || s.schedule?.user?.phone || "-", sessionFilters.query)}</div>
                 </div>
                 <div className="text-sm text-slate-400">
-                  زمان شروع: {s.timeSlot?.startTime ? formatJalaliDateTime(new Date(s.timeSlot.startTime)) : "-"}
+                  Ø²Ù…Ø§Ù† Ø´Ø±ÙˆØ¹: {s.timeSlot?.startTime ? formatJalaliDateTime(new Date(s.timeSlot.startTime)) : "-"}
                 </div>
                 <div className="text-sm text-slate-400">
-                  زمان پایان: {s.timeSlot?.endTime ? formatJalaliDateTime(new Date(s.timeSlot.endTime)) : "-"}
+                  Ø²Ù…Ø§Ù† Ù¾Ø§ÛŒØ§Ù†: {s.timeSlot?.endTime ? formatJalaliDateTime(new Date(s.timeSlot.endTime)) : "-"}
                 </div>
                 <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-500/5 p-3">
-                  <div className="mb-2 text-xs text-slate-400">پاسخ‌های فرم</div>
+                  <div className="mb-2 text-xs text-slate-400">Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§ÛŒ ÙØ±Ù…</div>
                   {renderAnswers(s.answers, s.schedule?.questions, sessionFilters.query)}
                 </div>
                 <div className="mt-3">
@@ -2035,11 +2051,11 @@ export default function DashboardPage() {
                     type="button"
                     className="btn-danger"
                     onClick={() => setCancelTarget(s)}
-                    aria-label="کنسل رزرو"
-                    title="کنسل رزرو"
+                    aria-label="Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ"
+                    title="Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ"
                   >
                     <XCircle size={14} className="icon-danger" />
-                    <span>کنسل رزرو</span>
+                    <span>Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ</span>
                   </button>
                 </div>
               </div>
@@ -2049,9 +2065,9 @@ export default function DashboardPage() {
       )}
 
       {tab === "profile" && (
-        <section className="card space-y-4 p-4">
-          <h2 className="text-lg font-bold md:text-xl">پروفایل</h2>
-          <p className="text-sm text-slate-400">مدیریت نام کاربری، رمز عبور، عکس پروفایل و حذف حساب کاربری.</p>
+        <section className="card space-y-4 p-4 md:mt-2">
+          <h2 className="text-lg font-bold md:text-xl">Ù¾Ø±ÙˆÙØ§ÛŒÙ„</h2>
+          <p className="text-sm text-slate-400">Ù…Ø¯ÛŒØ±ÛŒØª Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒØŒ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±ØŒ Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ùˆ Ø­Ø°Ù Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ.</p>
           <div className="space-y-3">
             <div className="rounded-2xl surface-block">
               <button
@@ -2060,7 +2076,7 @@ export default function DashboardPage() {
                 onClick={() => toggleProfileSection("username")}
                 aria-expanded={profileSections.username}
               >
-                تغییر نام کاربری
+                ØªØºÛŒÛŒØ± Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ
                 <ChevronDown size={16} className={`transition ${profileSections.username ? "rotate-180" : ""}`} />
               </button>
               <div
@@ -2078,14 +2094,14 @@ export default function DashboardPage() {
                     });
                     const data = await res.json();
                     setProfileLoading(false);
-                    if (!res.ok) return toast.error(data.details || data.error || "خطا");
+                    if (!res.ok) return toast.error(data.details || data.error || "Ø®Ø·Ø§");
                     queryClient.setQueryData(["auth", "me"], data);
-                    toast.success("پروفایل به‌روزرسانی شد");
+                    toast.success("Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯");
                   }}
                 >
-                  <label className="block text-sm text-slate-300">نام کاربری</label>
+                  <label className="block text-sm text-slate-300">Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ</label>
                   <input className="input" value={profileUsername} onChange={(e) => setProfileUsername(e.target.value)} />
-                  <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
+                  <button className="btn-primary" disabled={profileLoading}>{profileLoading ? "Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡..." : "Ø°Ø®ÛŒØ±Ù‡ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ"}</button>
                 </form>
               </div>
             </div>
@@ -2097,7 +2113,7 @@ export default function DashboardPage() {
                 onClick={() => toggleProfileSection("avatar")}
                 aria-expanded={profileSections.avatar}
               >
-                عکس پروفایل
+                Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„
                 <ChevronDown size={16} className={`transition ${profileSections.avatar ? "rotate-180" : ""}`} />
               </button>
               <div
@@ -2106,7 +2122,7 @@ export default function DashboardPage() {
                 <div className="overflow-hidden px-4 pb-4">
                   <AvatarUploader
                     currentAvatarUrl={user?.avatarUrl}
-                    onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
+                    onPreview={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "Ú©Ø§Ø±Ø¨Ø±")}
                     onUploaded={(avatarUrl) => {
                       queryClient.setQueryData(["auth", "me"], (prev: any) => ({ ...(prev || {}), avatarUrl }));
                       bumpAvatarRefreshToken();
@@ -2137,7 +2153,7 @@ export default function DashboardPage() {
                 onClick={() => toggleProfileSection("password")}
                 aria-expanded={profileSections.password}
               >
-                تغییر رمز عبور
+                ØªØºÛŒÛŒØ± Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±
                 <ChevronDown size={16} className={`transition ${profileSections.password ? "rotate-180" : ""}`} />
               </button>
               <div
@@ -2154,31 +2170,31 @@ export default function DashboardPage() {
                         const res = await fetch("/api/profile/password/request-otp", { method: "POST" });
                         const data = await res.json();
                         if (!res.ok) {
-                          const msg = data.details || data.error || "خطا";
+                          const msg = data.details || data.error || "Ø®Ø·Ø§";
                           const match = String(msg).match(/(\d+)/);
                           if (match) setPasswordOtpCooldown(Number(match[1]));
                           return toast.error(msg);
                         }
                         setPasswordOtpCooldown(120);
-                        toast.success("کد تایید ارسال شد");
+                        toast.success("Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯");
                       } finally {
                         setRequestingPasswordOtp(false);
                       }
                     }}
                     disabled={requestingPasswordOtp || passwordOtpCooldown > 0}
                   >
-                    {requestingPasswordOtp ? "در حال ارسال..." : passwordOtpCooldown > 0 ? `ارسال مجدد تا ${passwordOtpCooldown} ثانیه` : "ارسال کد تایید"}
+                    {requestingPasswordOtp ? "Ø¯Ø± Ø­Ø§Ù„ Ø§Ø±Ø³Ø§Ù„..." : passwordOtpCooldown > 0 ? `Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯ ØªØ§ ${passwordOtpCooldown} Ø«Ø§Ù†ÛŒÙ‡` : "Ø§Ø±Ø³Ø§Ù„ Ú©Ø¯ ØªØ§ÛŒÛŒØ¯"}
                   </button>
                   <p className="text-xs text-slate-400">{OTP_DELAY_NOTICE}</p>
-                  <input className="input" type="tel" inputMode="numeric" pattern="[0-9۰-۹٠-٩]*" autoComplete="one-time-code" placeholder="کد تایید" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
+                  <input className="input" type="tel" inputMode="numeric" pattern="[0-9Û°-Û¹Ù -Ù©]*" autoComplete="one-time-code" placeholder="Ú©Ø¯ ØªØ§ÛŒÛŒØ¯" value={passwordCode} onChange={(e) => setPasswordCode(e.target.value)} />
                   <div className="relative">
-                    <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="رمز عبور جدید" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                    <input className="input ps-10" type={showNewPassword ? "text" : "password"} placeholder="Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¬Ø¯ÛŒØ¯" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
                     <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowNewPassword((p) => !p)}>
                       {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                   <div className="relative">
-                    <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="تکرار رمز عبور جدید" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                    <input className="input ps-10" type={showConfirmPassword ? "text" : "password"} placeholder="ØªÚ©Ø±Ø§Ø± Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¬Ø¯ÛŒØ¯" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
                     <button type="button" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" onClick={() => setShowConfirmPassword((p) => !p)}>
                       {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -2192,14 +2208,14 @@ export default function DashboardPage() {
                         body: JSON.stringify({ code: passwordCode, newPassword, confirmPassword: confirmNewPassword }),
                       });
                       const data = await res.json();
-                      if (!res.ok) return toast.error(data.details || data.error || "خطا");
-                      toast.success("رمز عبور تغییر کرد");
+                      if (!res.ok) return toast.error(data.details || data.error || "Ø®Ø·Ø§");
+                      toast.success("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± ØªØºÛŒÛŒØ± Ú©Ø±Ø¯");
                       setPasswordCode("");
                       setNewPassword("");
                       setConfirmNewPassword("");
                     }}
                   >
-                    تایید تغییر رمز
+                    ØªØ§ÛŒÛŒØ¯ ØªØºÛŒÛŒØ± Ø±Ù…Ø²
                   </button>
                 </div>
               </div>
@@ -2212,7 +2228,7 @@ export default function DashboardPage() {
                 onClick={() => toggleProfileSection("delete")}
                 aria-expanded={profileSections.delete}
               >
-                حذف اکانت
+                Ø­Ø°Ù Ø§Ú©Ø§Ù†Øª
                 <ChevronDown size={16} className={`transition ${profileSections.delete ? "rotate-180" : ""}`} />
               </button>
               <div
@@ -2220,7 +2236,7 @@ export default function DashboardPage() {
               >
                 <div className="overflow-hidden px-4 pb-4">
                   <button className="btn-danger" onClick={() => setDeleteAccountOpen(true)}>
-                    حذف حساب کاربری
+                    Ø­Ø°Ù Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ
                   </button>
                 </div>
               </div>
@@ -2230,19 +2246,19 @@ export default function DashboardPage() {
       )}
 
       {tab === "settings" && (
-        <section className="card space-y-4 p-4">
-          <h2 className="text-lg font-bold md:text-xl">تنظیمات</h2>
-          <p className="text-sm text-slate-400">کنترل دریافت پیامک‌های مربوط به رزروها و جلسات.</p>
+        <section className="card space-y-4 p-4 md:mt-2">
+          <h2 className="text-lg font-bold md:text-xl">ØªÙ†Ø¸ÛŒÙ…Ø§Øª</h2>
+          <p className="text-sm text-slate-400">Ú©Ù†ØªØ±Ù„ Ø¯Ø±ÛŒØ§ÙØª Ù¾ÛŒØ§Ù…Ú©â€ŒÙ‡Ø§ÛŒ Ù…Ø±Ø¨ÙˆØ· Ø¨Ù‡ Ø±Ø²Ø±ÙˆÙ‡Ø§ Ùˆ Ø¬Ù„Ø³Ø§Øª.</p>
 
           <div className="space-y-3">
             <div className="rounded-2xl surface-block p-4">
-              <h3 className="text-sm font-semibold text-slate-200">پیامک‌های رزرو</h3>
-              <p className="mt-1 text-xs text-slate-400">با خاموش کردن هر گزینه، پیامک مربوطه برای شما ارسال نمی‌شود.</p>
+              <h3 className="text-sm font-semibold text-slate-200">Ù¾ÛŒØ§Ù…Ú©â€ŒÙ‡Ø§ÛŒ Ø±Ø²Ø±Ùˆ</h3>
+              <p className="mt-1 text-xs text-slate-400">Ø¨Ø§ Ø®Ø§Ù…ÙˆØ´ Ú©Ø±Ø¯Ù† Ù‡Ø± Ú¯Ø²ÛŒÙ†Ù‡ØŒ Ù¾ÛŒØ§Ù…Ú© Ù…Ø±Ø¨ÙˆØ·Ù‡ Ø¨Ø±Ø§ÛŒ Ø´Ù…Ø§ Ø§Ø±Ø³Ø§Ù„ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
               <div className="mt-3 space-y-2">
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
                   <span>
-                    <span className="block text-slate-200">رزرو جدید</span>
-                    <span className="block text-xs text-slate-400">اطلاع‌رسانی ثبت رزرو جدید</span>
+                    <span className="block text-slate-200">Ø±Ø²Ø±Ùˆ Ø¬Ø¯ÛŒØ¯</span>
+                    <span className="block text-xs text-slate-400">Ø§Ø·Ù„Ø§Ø¹â€ŒØ±Ø³Ø§Ù†ÛŒ Ø«Ø¨Øª Ø±Ø²Ø±Ùˆ Ø¬Ø¯ÛŒØ¯</span>
                   </span>
                   <input
                     type="checkbox"
@@ -2253,8 +2269,8 @@ export default function DashboardPage() {
                 </label>
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
                   <span>
-                    <span className="block text-slate-200">کنسل شدن رزرو</span>
-                    <span className="block text-xs text-slate-400">اطلاع‌رسانی لغو رزرو</span>
+                    <span className="block text-slate-200">Ú©Ù†Ø³Ù„ Ø´Ø¯Ù† Ø±Ø²Ø±Ùˆ</span>
+                    <span className="block text-xs text-slate-400">Ø§Ø·Ù„Ø§Ø¹â€ŒØ±Ø³Ø§Ù†ÛŒ Ù„ØºÙˆ Ø±Ø²Ø±Ùˆ</span>
                   </span>
                   <input
                     type="checkbox"
@@ -2265,8 +2281,8 @@ export default function DashboardPage() {
                 </label>
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
                   <span>
-                    <span className="block text-slate-200">یادآوری جلسه</span>
-                    <span className="block text-xs text-slate-400">۱۰ دقیقه قبل از شروع جلسه</span>
+                    <span className="block text-slate-200">ÛŒØ§Ø¯Ø¢ÙˆØ±ÛŒ Ø¬Ù„Ø³Ù‡</span>
+                    <span className="block text-xs text-slate-400">Û±Û° Ø¯Ù‚ÛŒÙ‚Ù‡ Ù‚Ø¨Ù„ Ø§Ø² Ø´Ø±ÙˆØ¹ Ø¬Ù„Ø³Ù‡</span>
                   </span>
                   <input
                     type="checkbox"
@@ -2277,7 +2293,7 @@ export default function DashboardPage() {
                 </label>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                {smsPreferencesSaving && <span className="text-cyan-200">در حال ذخیره تنظیمات...</span>}
+                {smsPreferencesSaving && <span className="text-cyan-200">Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡ ØªÙ†Ø¸ÛŒÙ…Ø§Øª...</span>}
                 {smsPreferencesError && <span className="text-rose-300">{smsPreferencesError}</span>}
               </div>
             </div>
@@ -2290,22 +2306,22 @@ export default function DashboardPage() {
       {cancelTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
           <div className="card w-full max-w-md p-4">
-            <h3 className="text-lg font-bold">تأیید کنسل رزرو</h3>
+            <h3 className="text-lg font-bold">ØªØ£ÛŒÛŒØ¯ Ú©Ù†Ø³Ù„ Ø±Ø²Ø±Ùˆ</h3>
             <p className="mt-2 text-sm text-slate-300">
-              مطمئن هستید که می‌خواهید این رزرو را کنسل کنید؟
+              Ù…Ø·Ù…Ø¦Ù† Ù‡Ø³ØªÛŒØ¯ Ú©Ù‡ Ù…ÛŒâ€ŒØ®ÙˆØ§Ù‡ÛŒØ¯ Ø§ÛŒÙ† Ø±Ø²Ø±Ùˆ Ø±Ø§ Ú©Ù†Ø³Ù„ Ú©Ù†ÛŒØ¯ØŸ
             </p>
             <p className="mt-2 text-xs text-slate-400">
-              برنامه: {cancelTarget.schedule?.title || "-"}
+              Ø¨Ø±Ù†Ø§Ù…Ù‡: {cancelTarget.schedule?.title || "-"}
             </p>
             <p className="text-xs text-slate-400">
-              زمان: {new Date(cancelTarget.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
+              Ø²Ù…Ø§Ù†: {new Date(cancelTarget.timeSlot?.startTime).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="btn-ghost" onClick={() => setCancelTarget(null)} disabled={cancelLoading}>
-                انصراف
+                Ø§Ù†ØµØ±Ø§Ù
               </button>
               <button type="button" className="btn-danger" onClick={cancelBooking} disabled={cancelLoading}>
-                {cancelLoading ? "در حال کنسل..." : "بله، کنسل کن"}
+                {cancelLoading ? "Ø¯Ø± Ø­Ø§Ù„ Ú©Ù†Ø³Ù„..." : "Ø¨Ù„Ù‡ØŒ Ú©Ù†Ø³Ù„ Ú©Ù†"}
               </button>
             </div>
           </div>
@@ -2315,12 +2331,12 @@ export default function DashboardPage() {
       {deleteScheduleTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
           <div className="card w-full max-w-md p-4">
-            <h3 className="text-lg font-bold">تأیید حذف برنامه</h3>
+            <h3 className="text-lg font-bold">ØªØ£ÛŒÛŒØ¯ Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡</h3>
             <p className="mt-2 text-sm text-slate-300">
-              با حذف برنامه، تمام رزروها و بازه‌های این برنامه هم حذف می‌شوند. ادامه می‌دهید؟
+              Ø¨Ø§ Ø­Ø°Ù Ø¨Ø±Ù†Ø§Ù…Ù‡ØŒ ØªÙ…Ø§Ù… Ø±Ø²Ø±ÙˆÙ‡Ø§ Ùˆ Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ÛŒ Ø§ÛŒÙ† Ø¨Ø±Ù†Ø§Ù…Ù‡ Ù‡Ù… Ø­Ø°Ù Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯. Ø§Ø¯Ø§Ù…Ù‡ Ù…ÛŒâ€ŒØ¯Ù‡ÛŒØ¯ØŸ
             </p>
             <p className="mt-2 text-xs text-slate-400">
-              عنوان برنامه: {deleteScheduleTarget.title || "-"}
+              Ø¹Ù†ÙˆØ§Ù† Ø¨Ø±Ù†Ø§Ù…Ù‡: {deleteScheduleTarget.title || "-"}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -2329,10 +2345,10 @@ export default function DashboardPage() {
                 onClick={() => setDeleteScheduleTarget(null)}
                 disabled={deletingSchedule}
               >
-                انصراف
+                Ø§Ù†ØµØ±Ø§Ù
               </button>
               <button type="button" className="btn-danger" onClick={deleteSchedule} disabled={deletingSchedule}>
-                {deletingSchedule ? "در حال حذف..." : "بله، حذف کن"}
+                {deletingSchedule ? "Ø¯Ø± Ø­Ø§Ù„ Ø­Ø°Ù..." : "Ø¨Ù„Ù‡ØŒ Ø­Ø°Ù Ú©Ù†"}
               </button>
             </div>
           </div>
@@ -2342,8 +2358,8 @@ export default function DashboardPage() {
       {qrModal && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/80 p-4" onClick={() => setQrModal(null)}>
           <div className="card w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">اشتراک‌گذاری برنامه</h3>
-            <p className="mt-1 text-sm text-slate-400">{qrModal.schedule?.title || "برنامه"}</p>
+            <h3 className="text-lg font-bold">Ø§Ø´ØªØ±Ø§Ú©â€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø¨Ø±Ù†Ø§Ù…Ù‡</h3>
+            <p className="mt-1 text-sm text-slate-400">{qrModal.schedule?.title || "Ø¨Ø±Ù†Ø§Ù…Ù‡"}</p>
             <a className="mt-2 block break-all text-xs text-cyan-300" href={qrModal.url} target="_blank" rel="noreferrer">
               {qrModal.url}
             </a>
@@ -2351,19 +2367,19 @@ export default function DashboardPage() {
               {qrDataUrl ? (
                 <img src={qrDataUrl} alt="QR" className="h-48 w-48" />
               ) : (
-                <div className="text-xs text-slate-500">در حال ساخت QR...</div>
+                <div className="text-xs text-slate-500">Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª QR...</div>
               )}
             </div>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               {qrDataUrl && (
                 <a className="btn-ghost" href={qrDataUrl} download={`bookhub-${qrModal.schedule?.shareId || "schedule"}.png`}>
-                  <Download size={16} /> دانلود QR
+                  <Download size={16} /> Ø¯Ø§Ù†Ù„ÙˆØ¯ QR
                 </a>
               )}
               <button type="button" className="btn-primary" onClick={shareQrLink}>
-                <Share2 size={16} /> اشتراک‌گذاری
+                <Share2 size={16} /> Ø§Ø´ØªØ±Ø§Ú©â€ŒÚ¯Ø°Ø§Ø±ÛŒ
               </button>
-              <button type="button" className="btn-ghost" onClick={() => setQrModal(null)}>بستن</button>
+              <button type="button" className="btn-ghost" onClick={() => setQrModal(null)}>Ø¨Ø³ØªÙ†</button>
             </div>
           </div>
         </div>
@@ -2410,7 +2426,7 @@ export default function DashboardPage() {
               unoptimized
             />
             <div className="mt-4 flex justify-end">
-              <button type="button" className="btn-ghost" onClick={() => setAvatarPreview(null)}>بستن</button>
+              <button type="button" className="btn-ghost" onClick={() => setAvatarPreview(null)}>Ø¨Ø³ØªÙ†</button>
             </div>
           </div>
         </div>
@@ -2419,8 +2435,8 @@ export default function DashboardPage() {
       {deleteAccountOpen && (
         <div className="fixed inset-0 z-[82] grid place-items-center bg-slate-950/80 p-4">
           <div className="card w-full max-w-md p-4">
-            <h3 className="text-lg font-bold">حذف حساب کاربری</h3>
-            <p className="mt-2 text-sm text-slate-300">این عملیات قابل بازگشت نیست. ادامه می‌دهید؟</p>
+            <h3 className="text-lg font-bold">Ø­Ø°Ù Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ</h3>
+            <p className="mt-2 text-sm text-slate-300">Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ù†ÛŒØ³Øª. Ø§Ø¯Ø§Ù…Ù‡ Ù…ÛŒâ€ŒØ¯Ù‡ÛŒØ¯ØŸ</p>
             <div className="mt-4 space-y-3">
               <button
                 type="button"
@@ -2432,13 +2448,13 @@ export default function DashboardPage() {
                     const res = await fetch("/api/profile/delete/request-otp", { method: "POST" });
                     const data = await res.json();
                     if (!res.ok) {
-                      const msg = data.details || data.error || "خطا";
+                      const msg = data.details || data.error || "Ø®Ø·Ø§";
                       const match = String(msg).match(/(\d+)/);
                       if (match) setDeleteOtpCooldown(Number(match[1]));
                       return toast.error(msg);
                     }
                     setDeleteOtpCooldown(120);
-                    toast.success("کد تایید ارسال شد");
+                    toast.success("Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯");
                   } finally {
                     setRequestingDeleteOtp(false);
                   }
@@ -2446,28 +2462,28 @@ export default function DashboardPage() {
                 disabled={requestingDeleteOtp || deleteOtpCooldown > 0}
               >
                 {requestingDeleteOtp
-                  ? "در حال ارسال..."
+                  ? "Ø¯Ø± Ø­Ø§Ù„ Ø§Ø±Ø³Ø§Ù„..."
                   : deleteOtpCooldown > 0
-                    ? `ارسال مجدد تا ${deleteOtpCooldown} ثانیه`
-                    : "ارسال کد تایید حذف"}
+                    ? `Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯ ØªØ§ ${deleteOtpCooldown} Ø«Ø§Ù†ÛŒÙ‡`
+                    : "Ø§Ø±Ø³Ø§Ù„ Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø­Ø°Ù"}
               </button>
               <input
                 className="input"
                 type="tel"
                 inputMode="numeric"
-                pattern="[0-9۰-۹٠-٩]*"
+                pattern="[0-9Û°-Û¹Ù -Ù©]*"
                 autoComplete="one-time-code"
-                placeholder="کد تایید ۶ رقمی"
+                placeholder="Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Û¶ Ø±Ù‚Ù…ÛŒ"
                 value={deleteCode}
                 onChange={(e) => setDeleteCode(e.target.value)}
               />
               <div className="flex justify-end gap-2">
-                <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>انصراف</button>
+                <button type="button" className="btn-ghost" onClick={() => setDeleteAccountOpen(false)}>Ø§Ù†ØµØ±Ø§Ù</button>
                 <button
                   type="button"
                   className="btn-danger"
                   onClick={async () => {
-                    if (!deleteCode.trim()) return toast.error("کد تایید را وارد کنید");
+                    if (!deleteCode.trim()) return toast.error("Ú©Ø¯ ØªØ§ÛŒÛŒØ¯ Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯");
                     setDeletingAccount(true);
                     const res = await fetch("/api/profile/delete/confirm", {
                       method: "POST",
@@ -2476,13 +2492,13 @@ export default function DashboardPage() {
                     });
                     setDeletingAccount(false);
                     const data = await res.json();
-                    if (!res.ok) return toast.error(data.details || data.error || "حذف حساب ناموفق بود");
+                    if (!res.ok) return toast.error(data.details || data.error || "Ø­Ø°Ù Ø­Ø³Ø§Ø¨ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯");
                     await fetch("/api/auth/logout", { method: "POST" });
                     window.location.href = "/login";
                   }}
                   disabled={deletingAccount}
                 >
-                  {deletingAccount ? "در حال حذف..." : "تایید حذف"}
+                  {deletingAccount ? "Ø¯Ø± Ø­Ø§Ù„ Ø­Ø°Ù..." : "ØªØ§ÛŒÛŒØ¯ Ø­Ø°Ù"}
                 </button>
               </div>
             </div>
@@ -2492,3 +2508,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+
