@@ -2024,7 +2024,6 @@ export default function DashboardPage() {
       {tab === "settings" && (
         <section className="card space-y-4 p-4 md:mt-2">
           <h2 className="text-lg font-bold md:text-xl">تنظیمات</h2>
-          <p className="text-sm text-slate-400">کنترل دریافت پیامک‌های مربوط به رزروها و جلسات.</p>
 
           <div className="space-y-3">
             <div className="rounded-2xl surface-block">
