@@ -1,48 +1,15 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Moon, Sun, Shield, LogOut, Users, CalendarDays, ListChecks, Clock3, Phone, Search } from "lucide-react";
+import { Moon, Sun, Shield, LogOut } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUIStore } from "@/store/ui-store";
 import { ThemeLogo } from "@/components/theme-logo";
-import { UserAvatar } from "@/components/user-avatar";
-
-type AdminStats = {
-  totalUsers: number;
-  totalSchedules: number;
-  totalBookings: number;
-  bookingsToday: number;
-  bookingsWeek: number;
-  bookingsMonth: number;
-  sessionsToday: number;
-  sessionsWeek: number;
-  sessionsMonth: number;
-  upcomingSessions: number;
-};
-
-type SmsCounts = Record<string, number>;
-
-type SmsSettings = {
-  bookingCreatedEnabled: boolean;
-  bookingCanceledEnabled: boolean;
-  bookingReminderEnabled: boolean;
-};
-
-type AdminUser = {
-  id: string;
-  phone: string | null;
-  username: string | null;
-  avatarUrl: string | null;
-  createdAt: string;
-};
-
-type UsersResponse = {
-  items: AdminUser[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+import { AdminSmsSection } from "@/features/admin/components/AdminSmsSection";
+import { AdminStatsSection } from "@/features/admin/components/AdminStatsSection";
+import { AdminUsersSection } from "@/features/admin/components/AdminUsersSection";
+import type { AdminStats, SmsCounts, SmsSettings, UsersResponse } from "@/features/admin/types/admin";
 
 export default function AdminPanelPage() {
   const theme = useUIStore((s) => s.theme);
@@ -296,110 +263,19 @@ export default function AdminPanelPage() {
 
       {overviewError && <div className="card p-4 text-sm text-rose-300">{overviewError}</div>}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="card space-y-2 p-4"><div className="flex items-center justify-between text-sm text-slate-400">کاربران<Users size={16} /></div><div className="text-2xl font-bold">{stats?.totalUsers ?? "-"}</div></div>
-        <div className="card space-y-2 p-4"><div className="flex items-center justify-between text-sm text-slate-400">برنامه‌ها<CalendarDays size={16} /></div><div className="text-2xl font-bold">{stats?.totalSchedules ?? "-"}</div></div>
-        <div className="card space-y-2 p-4"><div className="flex items-center justify-between text-sm text-slate-400">رزروها<ListChecks size={16} /></div><div className="text-2xl font-bold">{stats?.totalBookings ?? "-"}</div></div>
-        <div className="card space-y-2 p-4"><div className="flex items-center justify-between text-sm text-slate-400">جلسات آینده<Clock3 size={16} /></div><div className="text-2xl font-bold">{stats?.upcomingSessions ?? "-"}</div></div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="card space-y-4 p-4">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">آمار رزروها</h2>{overviewLoading && <span className="text-xs text-slate-400">در حال به‌روزرسانی...</span>}</div>
-          <div className="grid gap-2 text-sm text-slate-300">
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">رزروهای امروز <span className="font-semibold text-slate-100">{stats?.bookingsToday ?? "-"}</span></div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">رزروهای ۷ روز اخیر <span className="font-semibold text-slate-100">{stats?.bookingsWeek ?? "-"}</span></div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">رزروهای ۳۰ روز اخیر <span className="font-semibold text-slate-100">{stats?.bookingsMonth ?? "-"}</span></div>
-          </div>
-        </div>
-        <div className="card space-y-4 p-4">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">جلسات انجام‌شده</h2></div>
-          <div className="grid gap-2 text-sm text-slate-300">
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">جلسات امروز <span className="font-semibold text-slate-100">{stats?.sessionsToday ?? "-"}</span></div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">جلسات ۷ روز اخیر <span className="font-semibold text-slate-100">{stats?.sessionsWeek ?? "-"}</span></div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">جلسات ۳۰ روز اخیر <span className="font-semibold text-slate-100">{stats?.sessionsMonth ?? "-"}</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="card space-y-4 p-4">
-          <h2 className="text-base font-semibold">آمار پیامک‌ها</h2>
-          <div className="grid gap-2 text-sm text-slate-300">
-            {smsCountCards.map((entry) => (
-              <div key={entry.key} className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">{entry.label}<span className="font-semibold text-slate-100">{entry.value}</span></div>
-            ))}
-          </div>
-        </div>
-        <div className="card space-y-4 p-4">
-          <div className="flex items-center justify-between"><h2 className="text-base font-semibold">کنترل پیامک‌ها</h2>{smsSaving && <span className="text-xs text-slate-400">در حال ذخیره...</span>}</div>
-          {smsSettings ? (
-            <div className="grid gap-2 text-sm text-slate-300">
-              <label className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">رزرو جدید<input type="checkbox" checked={smsSettings.bookingCreatedEnabled} onChange={(e) => updateSmsSetting({ ...smsSettings, bookingCreatedEnabled: e.target.checked })} disabled={smsSaving} /></label>
-              <label className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">لغو رزرو<input type="checkbox" checked={smsSettings.bookingCanceledEnabled} onChange={(e) => updateSmsSetting({ ...smsSettings, bookingCanceledEnabled: e.target.checked })} disabled={smsSaving} /></label>
-              <label className="flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">یادآوری جلسه<input type="checkbox" checked={smsSettings.bookingReminderEnabled} onChange={(e) => updateSmsSetting({ ...smsSettings, bookingReminderEnabled: e.target.checked })} disabled={smsSaving} /></label>
-              <div className="text-xs text-slate-400">با خاموش کردن هر گزینه، پیامک مربوطه برای همه کاربران ارسال نمی‌شود.</div>
-            </div>
-          ) : (
-            <div className="text-sm text-slate-400">تنظیمات پیامک در دسترس نیست.</div>
-          )}
-        </div>
-      </section>
-
-      <section className="card space-y-4 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-base font-semibold">لیست کاربران</div>
-          <div className="ms-auto flex w-full max-w-md items-center gap-2 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm text-slate-300">
-            <Search size={16} />
-            <input
-              className="w-full bg-transparent outline-none"
-              placeholder="جستجو با شماره موبایل یا نام کاربری"
-              value={usersQuery}
-              onChange={(e) => {
-                setUsersQuery(e.target.value);
-                setUsersPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {usersError && <div className="text-sm text-rose-300">{usersError}</div>}
-          {usersLoading && <div className="text-sm text-slate-400">در حال دریافت کاربران...</div>}
-
-          {users?.items?.length ? (
-            users.items.map((user) => (
-              <div key={user.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2">
-                <UserAvatar
-                  src={user.avatarUrl}
-                  alt="avatar"
-                  sizeClassName="h-9 w-9"
-                  iconSize={16}
-                  onClick={() => setAvatarPreview({ url: normalizePreviewUrl(user.avatarUrl), name: user.username || user.phone || "کاربر" })}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm break-words">{user.username || "کاربر"}</div>
-                  <div className="text-xs text-slate-400">عضویت: {new Date(user.createdAt).toLocaleDateString("fa-IR")}</div>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-300">
-                  <Phone size={14} />
-                  <span dir="ltr">{user.phone || "-"}</span>
-                </div>
-              </div>
-            ))
-          ) : (
-            !usersLoading && <div className="text-sm text-slate-400">کاربری پیدا نشد.</div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-700/50 pt-3 text-sm">
-          <span className="text-slate-400">صفحه {users?.page || usersPage} از {usersTotalPages} · مجموع {users?.total ?? 0} کاربر</span>
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn-ghost" disabled={(users?.page || usersPage) <= 1 || usersLoading} onClick={() => setUsersPage((p) => Math.max(1, p - 1))}>قبلی</button>
-            <button type="button" className="btn-ghost" disabled={(users?.page || usersPage) >= usersTotalPages || usersLoading} onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}>بعدی</button>
-          </div>
-        </div>
-      </section>
+      <AdminStatsSection stats={stats} overviewLoading={overviewLoading} />
+      <AdminSmsSection smsCountCards={smsCountCards} smsSaving={smsSaving} smsSettings={smsSettings} updateSmsSetting={updateSmsSetting} />
+      <AdminUsersSection
+        users={users}
+        usersQuery={usersQuery}
+        setUsersQuery={setUsersQuery}
+        setUsersPage={setUsersPage}
+        usersPage={usersPage}
+        usersTotalPages={usersTotalPages}
+        usersLoading={usersLoading}
+        usersError={usersError}
+        onAvatarClick={(avatarUrl, displayName) => setAvatarPreview({ url: normalizePreviewUrl(avatarUrl), name: displayName })}
+      />
 
       {avatarPreview && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreview(null)}>
