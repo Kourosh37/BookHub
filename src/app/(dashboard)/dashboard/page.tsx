@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
@@ -37,9 +37,10 @@ import {
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUIStore } from "@/store/ui-store";
+import { dashboardDefaultListFilters, useDashboardPageStore, type ListFilterState } from "@/store/dashboard-page-store";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 import { formatDurationFromMinutesFa, formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
-import { defaultSmsPreferences, normalizeSmsPreferences } from "@/lib/sms-preferences";
+import { normalizeSmsPreferences, type SmsPreferences } from "@/lib/sms-preferences";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -47,14 +48,6 @@ type DayItem = { date: string; ranges: Range[] };
 type ProfileSectionKey = "username" | "avatar" | "password" | "delete";
 type SettingsSectionKey = "sms";
 type QrModalState = { schedule: any; url: string };
-type ListFilterState = {
-  query: string;
-  from: string;
-  to: string;
-  scheduleIds: string[];
-  sort: "time-asc" | "time-desc" | "name-asc" | "name-desc";
-};
-
 function toEnglishDigits(value: string) {
   return value
     .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
@@ -234,78 +227,105 @@ export default function DashboardPage() {
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const bumpAvatarRefreshToken = useUIStore((s) => s.bumpAvatarRefreshToken);
 
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [creatingSchedule, setCreatingSchedule] = useState(false);
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [savingTitle, setSavingTitle] = useState(false);
-  const [deleteScheduleTarget, setDeleteScheduleTarget] = useState<any | null>(null);
-  const [deletingSchedule, setDeletingSchedule] = useState(false);
-  const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const selectedDates = useDashboardPageStore((s) => s.selectedDates);
+  const setSelectedDates = useDashboardPageStore((s) => s.setSelectedDates);
+  const dayConfigs = useDashboardPageStore((s) => s.dayConfigs);
+  const setDayConfigs = useDashboardPageStore((s) => s.setDayConfigs);
+  const questions = useDashboardPageStore((s) => s.questions);
+  const setQuestions = useDashboardPageStore((s) => s.setQuestions);
+  const baseUrl = useDashboardPageStore((s) => s.baseUrl);
+  const setBaseUrl = useDashboardPageStore((s) => s.setBaseUrl);
+  const cancelTarget = useDashboardPageStore((s) => s.cancelTarget);
+  const setCancelTarget = useDashboardPageStore((s) => s.setCancelTarget);
+  const cancelLoading = useDashboardPageStore((s) => s.cancelLoading);
+  const setCancelLoading = useDashboardPageStore((s) => s.setCancelLoading);
+  const creatingSchedule = useDashboardPageStore((s) => s.creatingSchedule);
+  const setCreatingSchedule = useDashboardPageStore((s) => s.setCreatingSchedule);
+  const editingScheduleId = useDashboardPageStore((s) => s.editingScheduleId);
+  const setEditingScheduleId = useDashboardPageStore((s) => s.setEditingScheduleId);
+  const editingTitle = useDashboardPageStore((s) => s.editingTitle);
+  const setEditingTitle = useDashboardPageStore((s) => s.setEditingTitle);
+  const savingTitle = useDashboardPageStore((s) => s.savingTitle);
+  const setSavingTitle = useDashboardPageStore((s) => s.setSavingTitle);
+  const deleteScheduleTarget = useDashboardPageStore((s) => s.deleteScheduleTarget);
+  const setDeleteScheduleTarget = useDashboardPageStore((s) => s.setDeleteScheduleTarget);
+  const deletingSchedule = useDashboardPageStore((s) => s.deletingSchedule);
+  const setDeletingSchedule = useDashboardPageStore((s) => s.setDeletingSchedule);
+  const showCreateFormMobile = useDashboardPageStore((s) => s.showCreateFormMobile);
+  const setShowCreateFormMobile = useDashboardPageStore((s) => s.setShowCreateFormMobile);
+  const isExportMenuOpen = useDashboardPageStore((s) => s.isExportMenuOpen);
+  const setIsExportMenuOpen = useDashboardPageStore((s) => s.setIsExportMenuOpen);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  const [createError, setCreateError] = useState("");
-  const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
-  const [gapMinutesValue, setGapMinutesValue] = useState(10);
-  const [scheduleTitle, setScheduleTitle] = useState("");
-  const [profileUsername, setProfileUsername] = useState("");
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [smsPreferences, setSmsPreferences] = useState(defaultSmsPreferences);
-  const [smsPreferencesSaving, setSmsPreferencesSaving] = useState(false);
-  const [smsPreferencesError, setSmsPreferencesError] = useState("");
-  const [requestingPasswordOtp, setRequestingPasswordOtp] = useState(false);
-  const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
-  const [passwordCode, setPasswordCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [deleteCode, setDeleteCode] = useState("");
-  const [deleteOtpCooldown, setDeleteOtpCooldown] = useState(0);
-  const [requestingDeleteOtp, setRequestingDeleteOtp] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<{ url: string; name: string } | null>(null);
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [qrModal, setQrModal] = useState<QrModalState | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [exportingImage, setExportingImage] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportContext, setExportContext] = useState({ title: "", stamp: "", count: 0 });
-  const [profileSections, setProfileSections] = useState<Record<ProfileSectionKey, boolean>>({
-    username: false,
-    avatar: false,
-    password: false,
-    delete: false,
-  });
-  const [settingsSections, setSettingsSections] = useState<Record<SettingsSectionKey, boolean>>({
-    sms: false,
-  });
-  const defaultListFilters: ListFilterState = {
-    query: "",
-    from: "",
-    to: "",
-    scheduleIds: [],
-    sort: "time-asc",
-  };
-  const [bookingFilters, setBookingFilters] = useState<ListFilterState>({
-    ...defaultListFilters,
-  });
-  const [bookingFilterDraft, setBookingFilterDraft] = useState<ListFilterState>({
-    ...defaultListFilters,
-  });
-  const [bookingFilterOpen, setBookingFilterOpen] = useState(false);
-  const [sessionFilters, setSessionFilters] = useState<ListFilterState>({
-    ...defaultListFilters,
-  });
-  const [sessionFilterDraft, setSessionFilterDraft] = useState<ListFilterState>({
-    ...defaultListFilters,
-  });
-  const [sessionFilterOpen, setSessionFilterOpen] = useState(false);
+  const createError = useDashboardPageStore((s) => s.createError);
+  const setCreateError = useDashboardPageStore((s) => s.setCreateError);
+  const slotDurationMinutes = useDashboardPageStore((s) => s.slotDurationMinutes);
+  const setSlotDurationMinutes = useDashboardPageStore((s) => s.setSlotDurationMinutes);
+  const gapMinutesValue = useDashboardPageStore((s) => s.gapMinutesValue);
+  const setGapMinutesValue = useDashboardPageStore((s) => s.setGapMinutesValue);
+  const scheduleTitle = useDashboardPageStore((s) => s.scheduleTitle);
+  const setScheduleTitle = useDashboardPageStore((s) => s.setScheduleTitle);
+  const profileUsername = useDashboardPageStore((s) => s.profileUsername);
+  const setProfileUsername = useDashboardPageStore((s) => s.setProfileUsername);
+  const profileLoading = useDashboardPageStore((s) => s.profileLoading);
+  const setProfileLoading = useDashboardPageStore((s) => s.setProfileLoading);
+  const smsPreferences = useDashboardPageStore((s) => s.smsPreferences);
+  const setSmsPreferences = useDashboardPageStore((s) => s.setSmsPreferences);
+  const smsPreferencesSaving = useDashboardPageStore((s) => s.smsPreferencesSaving);
+  const setSmsPreferencesSaving = useDashboardPageStore((s) => s.setSmsPreferencesSaving);
+  const smsPreferencesError = useDashboardPageStore((s) => s.smsPreferencesError);
+  const setSmsPreferencesError = useDashboardPageStore((s) => s.setSmsPreferencesError);
+  const requestingPasswordOtp = useDashboardPageStore((s) => s.requestingPasswordOtp);
+  const setRequestingPasswordOtp = useDashboardPageStore((s) => s.setRequestingPasswordOtp);
+  const passwordOtpCooldown = useDashboardPageStore((s) => s.passwordOtpCooldown);
+  const setPasswordOtpCooldown = useDashboardPageStore((s) => s.setPasswordOtpCooldown);
+  const passwordCode = useDashboardPageStore((s) => s.passwordCode);
+  const setPasswordCode = useDashboardPageStore((s) => s.setPasswordCode);
+  const newPassword = useDashboardPageStore((s) => s.newPassword);
+  const setNewPassword = useDashboardPageStore((s) => s.setNewPassword);
+  const confirmNewPassword = useDashboardPageStore((s) => s.confirmNewPassword);
+  const setConfirmNewPassword = useDashboardPageStore((s) => s.setConfirmNewPassword);
+  const deleteCode = useDashboardPageStore((s) => s.deleteCode);
+  const setDeleteCode = useDashboardPageStore((s) => s.setDeleteCode);
+  const deleteOtpCooldown = useDashboardPageStore((s) => s.deleteOtpCooldown);
+  const setDeleteOtpCooldown = useDashboardPageStore((s) => s.setDeleteOtpCooldown);
+  const requestingDeleteOtp = useDashboardPageStore((s) => s.requestingDeleteOtp);
+  const setRequestingDeleteOtp = useDashboardPageStore((s) => s.setRequestingDeleteOtp);
+  const deletingAccount = useDashboardPageStore((s) => s.deletingAccount);
+  const setDeletingAccount = useDashboardPageStore((s) => s.setDeletingAccount);
+  const avatarPreview = useDashboardPageStore((s) => s.avatarPreview);
+  const setAvatarPreview = useDashboardPageStore((s) => s.setAvatarPreview);
+  const deleteAccountOpen = useDashboardPageStore((s) => s.deleteAccountOpen);
+  const setDeleteAccountOpen = useDashboardPageStore((s) => s.setDeleteAccountOpen);
+  const showNewPassword = useDashboardPageStore((s) => s.showNewPassword);
+  const setShowNewPassword = useDashboardPageStore((s) => s.setShowNewPassword);
+  const showConfirmPassword = useDashboardPageStore((s) => s.showConfirmPassword);
+  const setShowConfirmPassword = useDashboardPageStore((s) => s.setShowConfirmPassword);
+  const qrModal = useDashboardPageStore((s) => s.qrModal);
+  const setQrModal = useDashboardPageStore((s) => s.setQrModal);
+  const qrDataUrl = useDashboardPageStore((s) => s.qrDataUrl);
+  const setQrDataUrl = useDashboardPageStore((s) => s.setQrDataUrl);
+  const exportingImage = useDashboardPageStore((s) => s.exportingImage);
+  const setExportingImage = useDashboardPageStore((s) => s.setExportingImage);
+  const exportingPdf = useDashboardPageStore((s) => s.exportingPdf);
+  const setExportingPdf = useDashboardPageStore((s) => s.setExportingPdf);
+  const exportContext = useDashboardPageStore((s) => s.exportContext);
+  const setExportContext = useDashboardPageStore((s) => s.setExportContext);
+  const profileSections = useDashboardPageStore((s) => s.profileSections);
+  const setProfileSections = useDashboardPageStore((s) => s.setProfileSections);
+  const settingsSections = useDashboardPageStore((s) => s.settingsSections);
+  const setSettingsSections = useDashboardPageStore((s) => s.setSettingsSections);
+  const bookingFilters = useDashboardPageStore((s) => s.bookingFilters);
+  const setBookingFilters = useDashboardPageStore((s) => s.setBookingFilters);
+  const bookingFilterDraft = useDashboardPageStore((s) => s.bookingFilterDraft);
+  const setBookingFilterDraft = useDashboardPageStore((s) => s.setBookingFilterDraft);
+  const bookingFilterOpen = useDashboardPageStore((s) => s.bookingFilterOpen);
+  const setBookingFilterOpen = useDashboardPageStore((s) => s.setBookingFilterOpen);
+  const sessionFilters = useDashboardPageStore((s) => s.sessionFilters);
+  const setSessionFilters = useDashboardPageStore((s) => s.setSessionFilters);
+  const sessionFilterDraft = useDashboardPageStore((s) => s.sessionFilterDraft);
+  const setSessionFilterDraft = useDashboardPageStore((s) => s.setSessionFilterDraft);
+  const sessionFilterOpen = useDashboardPageStore((s) => s.sessionFilterOpen);
+  const setSessionFilterOpen = useDashboardPageStore((s) => s.setSessionFilterOpen);
 
   useEffect(() => {
     if (passwordOtpCooldown <= 0) return;
@@ -1031,7 +1051,7 @@ export default function DashboardPage() {
     ]);
   }
 
-  async function updateSmsPreferences(nextPrefs: typeof defaultSmsPreferences) {
+  async function updateSmsPreferences(nextPrefs: SmsPreferences) {
     setSmsPreferencesSaving(true);
     setSmsPreferencesError("");
     const previous = smsPreferences;
@@ -1599,8 +1619,8 @@ export default function DashboardPage() {
                       type="button"
                       className="btn-ghost"
                       onClick={() => {
-                      setBookingFilterDraft(defaultListFilters);
-                      setBookingFilters(defaultListFilters);
+                      setBookingFilterDraft({ ...dashboardDefaultListFilters });
+                      setBookingFilters({ ...dashboardDefaultListFilters });
                       setBookingFilterOpen(false);
                     }}
                   >
@@ -1773,8 +1793,8 @@ export default function DashboardPage() {
                     type="button"
                     className="btn-ghost"
                     onClick={() => {
-                      setSessionFilterDraft(defaultListFilters);
-                      setSessionFilters(defaultListFilters);
+                      setSessionFilterDraft({ ...dashboardDefaultListFilters });
+                      setSessionFilters({ ...dashboardDefaultListFilters });
                       setSessionFilterOpen(false);
                     }}
                   >
