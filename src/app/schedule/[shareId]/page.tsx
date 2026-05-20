@@ -1,8 +1,11 @@
-﻿"use client";
+"use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import DatePicker from "react-multi-date-picker";
 import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
@@ -10,10 +13,11 @@ import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
-import { UserAvatar } from "@/shared/ui/user-avatar";
 import Image from "next/image";
+import { UserAvatar } from "@/shared/ui/user-avatar";
 import { PublicHeader } from "@/shared/ui/public-header";
 import { useUIStore } from "@/shared/store/ui-store";
+import { usePublicScheduleUIStore } from "@/features/schedule/store/public-schedule-ui-store";
 
 function toEnglishDigits(value: string) {
   return value
@@ -26,36 +30,40 @@ function toGregorianYmd(dateObj: any) {
   return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
 }
 
+const bookingFormSchema = z.object({
+  answers: z.array(z.string()),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
 export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
   const queryClient = useQueryClient();
   const theme = useUIStore((s) => s.theme);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState("");
-  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [bookingError, setBookingError] = useState("");
+  const selectedDate = usePublicScheduleUIStore((s) => s.selectedDate);
+  const setSelectedDate = usePublicScheduleUIStore((s) => s.setSelectedDate);
+  const selectedSlot = usePublicScheduleUIStore((s) => s.selectedSlot);
+  const setSelectedSlot = usePublicScheduleUIStore((s) => s.setSelectedSlot);
+  const avatarPreviewOpen = usePublicScheduleUIStore((s) => s.avatarPreviewOpen);
+  const setAvatarPreviewOpen = usePublicScheduleUIStore((s) => s.setAvatarPreviewOpen);
+  const bookingError = usePublicScheduleUIStore((s) => s.bookingError);
+  const setBookingError = usePublicScheduleUIStore((s) => s.setBookingError);
+
+  const authQuery = useQuery({
+    queryKey: ["auth", "me", "schedule-gate"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!res.ok) throw new Error("UNAUTHORIZED");
+      return res.json();
+    },
+    retry: false,
+  });
 
   useEffect(() => {
-    let active = true;
-    async function checkAuth() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!res.ok) {
-          const next = `/schedule/${params.shareId}`;
-          window.location.replace(`/login?next=${encodeURIComponent(next)}`);
-          return;
-        }
-        if (active) setAuthChecked(true);
-      } catch {
-        const next = `/schedule/${params.shareId}`;
-        window.location.replace(`/login?next=${encodeURIComponent(next)}`);
-      }
+    if (authQuery.isError) {
+      const next = `/schedule/${params.shareId}`;
+      window.location.replace(`/login?next=${encodeURIComponent(next)}`);
     }
-    void checkAuth();
-    return () => {
-      active = false;
-    };
-  }, [params.shareId]);
+  }, [authQuery.isError, params.shareId]);
 
   const scheduleQuery = useQuery({
     queryKey: ["schedule", "public", params.shareId],
@@ -95,6 +103,16 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
   const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
+
+  const bookingForm = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: { answers: [] },
+  });
+
+  useEffect(() => {
+    bookingForm.reset({ answers: questions.map(() => "") });
+  }, [bookingForm, questions]);
+
   const previewAvatarUrl = useMemo(() => {
     const src = schedule?.user?.avatarUrl;
     if (!src) return theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg";
@@ -108,19 +126,16 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     return src;
   }, [schedule?.user?.avatarUrl, theme]);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const answers = questions.map((_: any, i: number) => String(formData.get(`q-${i}`) || ""));
+  const submitBooking = bookingForm.handleSubmit((values) => {
     setBookingError("");
-
     bookingMutation.mutate(
-      { timeSlotId: selectedSlot, answers },
+      { timeSlotId: selectedSlot, answers: values.answers },
       {
         onSuccess: async () => {
           toast.success("رزرو با موفقیت ثبت شد");
           setSelectedSlot("");
           setBookingError("");
+          bookingForm.reset({ answers: questions.map(() => "") });
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ["schedule", "public", params.shareId] }),
             queryClient.invalidateQueries({
@@ -135,9 +150,9 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         },
       },
     );
-  }
+  });
 
-  if (!authChecked) {
+  if (authQuery.isPending || authQuery.isError) {
     return (
       <main className="page-shell py-4 md:py-6">
         <PublicHeader compact />
@@ -211,12 +226,12 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         )}
 
         {selectedSlot && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-xl surface-block p-3">
+          <form onSubmit={submitBooking} className="space-y-3 rounded-xl surface-block p-3">
             {questions.map((q: any, i: number) =>
               q.type === "textarea" ? (
-                <textarea key={i} className="input min-h-24" name={`q-${i}`} placeholder={q.label} required={q.required} />
+                <textarea key={i} className="input min-h-24" placeholder={q.label} required={q.required} {...bookingForm.register(`answers.${i}`)} />
               ) : (
-                <input key={i} className="input" name={`q-${i}`} placeholder={q.label} required={q.required} />
+                <input key={i} className="input" placeholder={q.label} required={q.required} {...bookingForm.register(`answers.${i}`)} />
               ),
             )}
             <button className="btn-primary w-full" disabled={bookingMutation.isPending}>
@@ -247,4 +262,3 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     </main>
   );
 }
-

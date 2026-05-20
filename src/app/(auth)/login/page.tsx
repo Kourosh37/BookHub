@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Eye, EyeOff, ShieldCheck, Smartphone } from "lucide-react";
@@ -11,6 +11,7 @@ import { passwordLoginSchema, phoneSchema, verifyOtpSchema } from "@/lib/validat
 import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 import { PublicHeader } from "@/shared/ui/public-header";
+import { useLoginUIStore } from "@/features/auth/store/login-ui-store";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -25,11 +26,16 @@ type VerifyInput = z.infer<typeof verifyOtpSchema>;
 type PasswordInput = z.infer<typeof passwordLoginSchema>;
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"phone" | "password">("phone");
-  const [codeSent, setCodeSent] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpPhone, setOtpPhone] = useState("");
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const mode = useLoginUIStore((s) => s.mode);
+  const setMode = useLoginUIStore((s) => s.setMode);
+  const codeSent = useLoginUIStore((s) => s.codeSent);
+  const setCodeSent = useLoginUIStore((s) => s.setCodeSent);
+  const showPassword = useLoginUIStore((s) => s.showPassword);
+  const setShowPassword = useLoginUIStore((s) => s.setShowPassword);
+  const otpPhone = useLoginUIStore((s) => s.otpPhone);
+  const setOtpPhone = useLoginUIStore((s) => s.setOtpPhone);
+  const resendCooldown = useLoginUIStore((s) => s.resendCooldown);
+  const setResendCooldown = useLoginUIStore((s) => s.setResendCooldown);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -53,7 +59,7 @@ export default function LoginPage() {
       setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [resendCooldown]);
+  }, [resendCooldown, setResendCooldown]);
 
   function extractRetryAfterSeconds(errorMessage: string) {
     const match = errorMessage.match(/(\d+)/);

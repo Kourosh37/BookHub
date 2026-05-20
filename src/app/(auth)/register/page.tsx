@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
@@ -11,6 +11,7 @@ import { requestOtpSchema, verifyOtpSchema } from "@/lib/validations";
 import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 import { PublicHeader } from "@/shared/ui/public-header";
+import { useRegisterUIStore } from "@/features/auth/store/register-ui-store";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -24,11 +25,16 @@ type RegisterInput = z.infer<typeof registerFormSchema>;
 type VerifyInput = z.infer<typeof verifyOtpSchema>;
 
 export default function RegisterPage() {
-  const [codeSent, setCodeSent] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otpPhone, setOtpPhone] = useState("");
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const codeSent = useRegisterUIStore((s) => s.codeSent);
+  const setCodeSent = useRegisterUIStore((s) => s.setCodeSent);
+  const showPassword = useRegisterUIStore((s) => s.showPassword);
+  const setShowPassword = useRegisterUIStore((s) => s.setShowPassword);
+  const showConfirmPassword = useRegisterUIStore((s) => s.showConfirmPassword);
+  const setShowConfirmPassword = useRegisterUIStore((s) => s.setShowConfirmPassword);
+  const otpPhone = useRegisterUIStore((s) => s.otpPhone);
+  const setOtpPhone = useRegisterUIStore((s) => s.setOtpPhone);
+  const resendCooldown = useRegisterUIStore((s) => s.resendCooldown);
+  const setResendCooldown = useRegisterUIStore((s) => s.setResendCooldown);
 
   const nextParam = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -54,7 +60,7 @@ export default function RegisterPage() {
       setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [resendCooldown]);
+  }, [resendCooldown, setResendCooldown]);
 
   function extractRetryAfterSeconds(errorMessage: string) {
     const match = errorMessage.match(/(\d+)/);

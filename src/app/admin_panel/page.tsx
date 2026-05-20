@@ -1,43 +1,50 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo } from "react";
 import { Moon, Sun, Shield, LogOut } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useUIStore } from "@/shared/store/ui-store";
 import { ThemeLogo } from "@/shared/ui/theme-logo";
 import { AdminSmsSection } from "@/features/admin/components/AdminSmsSection";
 import { AdminStatsSection } from "@/features/admin/components/AdminStatsSection";
 import { AdminUsersSection } from "@/features/admin/components/AdminUsersSection";
 import type { AdminStats, SmsCounts, SmsSettings, UsersResponse } from "@/features/admin/types/admin";
+import { useAdminPanelUIStore } from "@/features/admin/store/admin-panel-ui-store";
+
+const adminLoginSchema = z.object({
+  username: z.string().min(1, "نام کاربری الزامی است"),
+  password: z.string().min(1, "رمز عبور الزامی است"),
+});
+
+type AdminLoginInput = z.infer<typeof adminLoginSchema>;
+
+type OverviewResponse = {
+  stats: AdminStats | null;
+  smsCounts: SmsCounts;
+  smsSettings: SmsSettings | null;
+};
 
 export default function AdminPanelPage() {
+  const queryClient = useQueryClient();
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const usersQuery = useAdminPanelUIStore((s) => s.usersQuery);
+  const setUsersQuery = useAdminPanelUIStore((s) => s.setUsersQuery);
+  const usersPage = useAdminPanelUIStore((s) => s.usersPage);
+  const setUsersPage = useAdminPanelUIStore((s) => s.setUsersPage);
+  const usersPageSize = useAdminPanelUIStore((s) => s.usersPageSize);
+  const avatarPreview = useAdminPanelUIStore((s) => s.avatarPreview);
+  const setAvatarPreview = useAdminPanelUIStore((s) => s.setAvatarPreview);
 
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [configured, setConfigured] = useState(true);
-  const [checking, setChecking] = useState(true);
-
-  const [loginError, setLoginError] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [overviewLoading, setOverviewLoading] = useState(false);
-  const [overviewError, setOverviewError] = useState("");
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [smsCounts, setSmsCounts] = useState<SmsCounts>({});
-  const [smsSettings, setSmsSettings] = useState<SmsSettings | null>(null);
-  const [smsSaving, setSmsSaving] = useState(false);
-
-  const [users, setUsers] = useState<UsersResponse | null>(null);
-  const [usersQuery, setUsersQuery] = useState("");
-  const [usersPage, setUsersPage] = useState(1);
-  const [usersPageSize] = useState(20);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState("");
-  const [avatarPreview, setAvatarPreview] = useState<{ url: string; name: string } | null>(null);
+  const loginForm = useForm<AdminLoginInput>({
+    resolver: zodResolver(adminLoginSchema),
+    defaultValues: { username: "", password: "" },
+  });
 
   function normalizePreviewUrl(src?: string | null) {
     if (!src) return theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg";
@@ -51,87 +58,98 @@ export default function AdminPanelPage() {
     return src;
   }
 
-  useEffect(() => {
-    let active = true;
-    async function check() {
-      setChecking(true);
+  const adminMeQuery = useQuery({
+    queryKey: ["admin", "me"],
+    queryFn: async () => {
       const res = await fetch("/api/admin/me", { cache: "no-store" });
-      if (!active) return;
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setConfigured(Boolean(data?.configured));
-        setIsAdmin(false);
-      } else {
-        setIsAdmin(true);
+        return { isAdmin: false, configured: Boolean(data?.configured) };
       }
-      setChecking(false);
-    }
-    check();
-    return () => {
-      active = false;
-    };
-  }, []);
+      return { isAdmin: true, configured: true };
+    },
+  });
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    let active = true;
+  const isAdmin = adminMeQuery.data?.isAdmin ?? false;
+  const configured = adminMeQuery.data?.configured ?? true;
 
-    async function loadOverview() {
-      setOverviewLoading(true);
-      setOverviewError("");
+  const overviewQuery = useQuery({
+    queryKey: ["admin", "overview"],
+    enabled: isAdmin,
+    queryFn: async (): Promise<OverviewResponse> => {
       const res = await fetch("/api/admin/overview", { cache: "no-store" });
-      if (!active) return;
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setOverviewError(data?.error || "خطا در دریافت اطلاعات");
-        setOverviewLoading(false);
-        return;
-      }
-      const data = await res.json();
-      setStats(data.stats || null);
-      setSmsCounts(data.smsCounts || {});
-      setSmsSettings(data.smsSettings || null);
-      setOverviewLoading(false);
-    }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "خطا در دریافت اطلاعات");
+      return {
+        stats: data.stats || null,
+        smsCounts: data.smsCounts || {},
+        smsSettings: data.smsSettings || null,
+      };
+    },
+  });
 
-    loadOverview();
-    return () => {
-      active = false;
-    };
-  }, [isAdmin]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    let active = true;
-
-    async function loadUsers() {
+  const usersListQuery = useQuery({
+    queryKey: ["admin", "users", usersQuery, usersPage, usersPageSize],
+    enabled: isAdmin,
+    queryFn: async (): Promise<UsersResponse> => {
       const url = new URL("/api/admin/users", window.location.origin);
       if (usersQuery.trim()) url.searchParams.set("q", usersQuery.trim());
       url.searchParams.set("page", String(usersPage));
       url.searchParams.set("pageSize", String(usersPageSize));
-
-      setUsersLoading(true);
-      setUsersError("");
       const res = await fetch(url.toString(), { cache: "no-store" });
-      if (!active) return;
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setUsersError(data?.error || "خطا در دریافت کاربران");
-        setUsersLoading(false);
-        return;
-      }
-      const data = await res.json();
-      setUsers(data);
-      setUsersLoading(false);
-    }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "خطا در دریافت کاربران");
+      return data;
+    },
+  });
 
-    loadUsers();
-    return () => {
-      active = false;
-    };
-  }, [isAdmin, usersQuery, usersPage, usersPageSize]);
+  const loginMutation = useMutation({
+    mutationFn: async (payload: AdminLoginInput) => {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "ورود ناموفق بود");
+      return data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+      ]);
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => fetch("/api/admin/logout", { method: "POST" }),
+    onSuccess: async () => {
+      await queryClient.setQueryData(["admin", "me"], { isAdmin: false, configured: true });
+    },
+  });
+
+  const smsMutation = useMutation({
+    mutationFn: async (next: SmsSettings) => {
+      const res = await fetch("/api/admin/sms-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || data?.details || "خطا در ذخیره تنظیمات پیامک");
+      return data as SmsSettings;
+    },
+    onSuccess: (nextSmsSettings) => {
+      queryClient.setQueryData(["admin", "overview"], (prev: OverviewResponse | undefined) =>
+        prev ? { ...prev, smsSettings: nextSmsSettings } : prev,
+      );
+    },
+  });
 
   const smsCountCards = useMemo(() => {
+    const smsCounts = overviewQuery.data?.smsCounts || {};
     const entries = [
       { key: "BOOKING_CREATED", label: "رزرو جدید" },
       { key: "BOOKING_CANCELED", label: "لغو رزرو" },
@@ -139,54 +157,17 @@ export default function AdminPanelPage() {
       { key: "OTP", label: "کد تایید" },
     ];
     return entries.map((entry) => ({ ...entry, value: smsCounts[entry.key] || 0 }));
-  }, [smsCounts]);
+  }, [overviewQuery.data?.smsCounts]);
 
+  const users = usersListQuery.data ?? null;
   const usersTotalPages = Math.max(1, Math.ceil((users?.total || 0) / (users?.pageSize || usersPageSize)));
+  const overviewError = (overviewQuery.error as Error | null)?.message || (smsMutation.error as Error | null)?.message || "";
 
-  async function handleLogin(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoginError("");
-    setLoginLoading(true);
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setLoginLoading(false);
-    if (!res.ok) {
-      setLoginError(data?.error || "ورود ناموفق بود");
-      return;
-    }
-    setIsAdmin(true);
-  }
+  const handleLogin = loginForm.handleSubmit(async (values) => {
+    await loginMutation.mutateAsync(values);
+  });
 
-  async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    setIsAdmin(false);
-  }
-
-  async function updateSmsSetting(next: SmsSettings) {
-    if (!smsSettings) return;
-    setSmsSaving(true);
-    const previous = smsSettings;
-    setSmsSettings(next);
-    const res = await fetch("/api/admin/sms-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(next),
-    });
-    const data = await res.json().catch(() => ({}));
-    setSmsSaving(false);
-    if (!res.ok) {
-      setSmsSettings(previous);
-      setOverviewError(data?.error || data?.details || "خطا در ذخیره تنظیمات پیامک");
-      return;
-    }
-    setSmsSettings(data);
-  }
-
-  if (checking) {
+  if (adminMeQuery.isPending) {
     return (
       <main className="page-shell py-8">
         <div className="card p-6 text-center text-sm text-slate-400">در حال بررسی دسترسی...</div>
@@ -225,15 +206,17 @@ export default function AdminPanelPage() {
             </div>
             <div>
               <label className="mb-2 block text-sm text-slate-300">نام کاربری</label>
-              <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+              <input className="input" autoComplete="username" {...loginForm.register("username")} />
+              {loginForm.formState.errors.username && <p className="mt-1 text-xs text-rose-300">{loginForm.formState.errors.username.message}</p>}
             </div>
             <div>
               <label className="mb-2 block text-sm text-slate-300">رمز عبور</label>
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+              <input className="input" type="password" autoComplete="current-password" {...loginForm.register("password")} />
+              {loginForm.formState.errors.password && <p className="mt-1 text-xs text-rose-300">{loginForm.formState.errors.password.message}</p>}
             </div>
-            {loginError && <div className="text-sm text-rose-300">{loginError}</div>}
-            <button className="btn-primary w-full" disabled={loginLoading}>
-              {loginLoading ? "در حال ورود..." : "ورود"}
+            {loginMutation.isError && <div className="text-sm text-rose-300">{(loginMutation.error as Error).message}</div>}
+            <button className="btn-primary w-full" disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? "در حال ورود..." : "ورود"}
             </button>
             <Link href="/" className="btn-ghost w-full justify-center">رفتن به سایت</Link>
           </form>
@@ -257,14 +240,21 @@ export default function AdminPanelPage() {
             {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
           </button>
           <Link href="/" className="btn-ghost">رفتن به سایت</Link>
-          <button type="button" className="btn-danger" onClick={handleLogout}><LogOut size={16} className="icon-danger" /> خروج</button>
+          <button type="button" className="btn-danger" onClick={() => logoutMutation.mutate()}><LogOut size={16} className="icon-danger" /> خروج</button>
         </div>
       </div>
 
       {overviewError && <div className="card p-4 text-sm text-rose-300">{overviewError}</div>}
 
-      <AdminStatsSection stats={stats} overviewLoading={overviewLoading} />
-      <AdminSmsSection smsCountCards={smsCountCards} smsSaving={smsSaving} smsSettings={smsSettings} updateSmsSetting={updateSmsSetting} />
+      <AdminStatsSection stats={overviewQuery.data?.stats || null} overviewLoading={overviewQuery.isFetching} />
+      <AdminSmsSection
+        smsCountCards={smsCountCards}
+        smsSaving={smsMutation.isPending}
+        smsSettings={overviewQuery.data?.smsSettings || null}
+        updateSmsSetting={async (next) => {
+          await smsMutation.mutateAsync(next);
+        }}
+      />
       <AdminUsersSection
         users={users}
         usersQuery={usersQuery}
@@ -272,8 +262,8 @@ export default function AdminPanelPage() {
         setUsersPage={setUsersPage}
         usersPage={usersPage}
         usersTotalPages={usersTotalPages}
-        usersLoading={usersLoading}
-        usersError={usersError}
+        usersLoading={usersListQuery.isFetching}
+        usersError={(usersListQuery.error as Error | null)?.message || ""}
         onAvatarClick={(avatarUrl, displayName) => setAvatarPreview({ url: normalizePreviewUrl(avatarUrl), name: displayName })}
       />
 
@@ -289,4 +279,3 @@ export default function AdminPanelPage() {
     </main>
   );
 }
-
