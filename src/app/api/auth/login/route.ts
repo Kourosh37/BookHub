@@ -1,3 +1,5 @@
-import { POST as verifyOtpPost } from "@/app/api/auth/verify-otp/route";
+﻿import { verifyAuthOtp } from "@/services/auth/auth-service";
 
-export const POST = verifyOtpPost;
+export async function POST(req: Request) {
+  return verifyAuthOtp(req);
+}

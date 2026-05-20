@@ -1,3 +1,5 @@
-import { POST as requestOtpPost } from "@/app/api/auth/request-otp/route";
+﻿import { requestOtp } from "@/services/auth/auth-service";
 
-export const POST = requestOtpPost;
+export async function POST(req: Request) {
+  return requestOtp(req);
+}

@@ -1,38 +1,7 @@
-﻿import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/auth";
-import { cleanupExpiredBookingsAndSlots } from "@/lib/cleanup";
+﻿import { bookingsMine } from "@/services/bookings/bookings-service";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
-    const session = await requireSession();
-    await cleanupExpiredBookingsAndSlots();
-
-    const bookings = await prisma.booking.findMany({
-      where: {
-        bookedByUserId: session.userId,
-      },
-      include: {
-        schedule: {
-          include: {
-            user: {
-              select: { phone: true, username: true, avatarUrl: true },
-            },
-          },
-        },
-        timeSlot: true,
-      },
-      orderBy: { timeSlot: { startTime: "asc" } },
-    });
-
-    return NextResponse.json(bookings, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate",
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "عدم دسترسی" }, { status: 401 });
-  }
+  return bookingsMine();
 }
