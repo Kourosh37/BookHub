@@ -1,12 +1,14 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { cleanupExpiredBookingsAndSlots } from "@/lib/cleanup";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const session = await requireSession();
+    await cleanupExpiredBookingsAndSlots();
     const url = new URL(req.url);
     const scheduleId = url.searchParams.get("scheduleId");
 

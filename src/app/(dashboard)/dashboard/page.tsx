@@ -38,7 +38,7 @@ import { AvatarUploader } from "@/components/avatar-uploader";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUIStore } from "@/store/ui-store";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
-import { formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
+import { formatDurationFromMinutesFa, formatJalaliDateTime, minutesUntil } from "@/lib/date-time";
 import { defaultSmsPreferences, normalizeSmsPreferences } from "@/lib/sms-preferences";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
@@ -51,7 +51,6 @@ type ListFilterState = {
   query: string;
   from: string;
   to: string;
-  includePast: boolean;
   scheduleIds: string[];
   sort: "time-asc" | "time-desc" | "name-asc" | "name-desc";
 };
@@ -290,7 +289,6 @@ export default function DashboardPage() {
     query: "",
     from: "",
     to: "",
-    includePast: false,
     scheduleIds: [],
     sort: "time-asc",
   };
@@ -372,10 +370,8 @@ export default function DashboardPage() {
     return list.filter((item) => {
       const start = item?.timeSlot?.startTime ? new Date(item.timeSlot.startTime).getTime() : null;
       if (filters.scheduleIds.length > 0 && !filters.scheduleIds.includes(item?.scheduleId)) return false;
-      if (!filters.includePast) {
-        const end = item?.timeSlot?.endTime || item?.timeSlot?.startTime;
-        if (end && new Date(end).getTime() < now) return false;
-      }
+      const end = item?.timeSlot?.endTime || item?.timeSlot?.startTime;
+      if (end && new Date(end).getTime() < now) return false;
       if (fromDate && start !== null && start < fromDate.getTime()) return false;
       if (toDate && start !== null && start > toDate.getTime()) return false;
       if (query && !queryMatch(item, query)) return false;
@@ -1251,7 +1247,7 @@ export default function DashboardPage() {
                     {d.ranges.map((r, i) => (
                       <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <div className="md:col-span-3 text-xs text-slate-400">
-                          طول بازه: {getRangeLengthMinutes(r)} دقیقه
+                          طول بازه: {formatDurationFromMinutesFa(getRangeLengthMinutes(r))}
                           {slotDurationMinutes > 0 && getRangeLengthMinutes(r) < slotDurationMinutes && (
                             <span className="text-rose-300"> · کوتاه‌تر از مدت جلسه است</span>
                           )}
@@ -1588,14 +1584,6 @@ export default function DashboardPage() {
                     })}
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={bookingFilterDraft.includePast}
-                    onChange={(e) => setBookingFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
-                  />
-                  نمایش رزروهای گذشته
-                </label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1770,14 +1758,6 @@ export default function DashboardPage() {
                     })}
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={sessionFilterDraft.includePast}
-                    onChange={(e) => setSessionFilterDraft((prev) => ({ ...prev, includePast: e.target.checked }))}
-                  />
-                  نمایش جلسات گذشته
-                </label>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1812,7 +1792,7 @@ export default function DashboardPage() {
               </div>
               {minutesUntil(new Date(nextSession.timeSlot.startTime)) >= 0 && (
                 <div className="mt-1 text-xs text-slate-300">
-                  شروع تا {minutesUntil(new Date(nextSession.timeSlot.startTime))} دقیقه دیگر
+                  شروع تا {formatDurationFromMinutesFa(minutesUntil(new Date(nextSession.timeSlot.startTime)))} دیگر
                 </div>
               )}
             </div>

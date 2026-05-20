@@ -1,12 +1,14 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { cleanupExpiredBookingsAndSlots } from "@/lib/cleanup";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const session = await requireSession();
+    await cleanupExpiredBookingsAndSlots();
 
     const bookings = await prisma.booking.findMany({
       where: {

@@ -25,3 +25,20 @@ export function formatJalaliDateTime(date: Date) {
 export function minutesUntil(date: Date) {
   return Math.floor((date.getTime() - Date.now()) / 60000);
 }
+
+function toFaNumber(value: number) {
+  return new Intl.NumberFormat("fa-IR").format(value);
+}
+
+export function formatDurationFromMinutesFa(totalMinutes: number) {
+  const safeMinutes = Math.max(0, Math.floor(totalMinutes));
+  const days = Math.floor(safeMinutes / (24 * 60));
+  const hours = Math.floor((safeMinutes % (24 * 60)) / 60);
+  const minutes = safeMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${toFaNumber(days)} روز`);
+  if (hours > 0) parts.push(`${toFaNumber(hours)} ساعت`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${toFaNumber(minutes)} دقیقه`);
+  return parts.join(" و ");
+}

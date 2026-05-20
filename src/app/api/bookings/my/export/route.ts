@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { cleanupExpiredBookingsAndSlots } from "@/lib/cleanup";
 
 function toJalaliDateTime(date: Date) {
   const dateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
@@ -31,6 +32,7 @@ function csvEscape(value: string) {
 export async function GET(req: Request) {
   try {
     const session = await requireSession();
+    await cleanupExpiredBookingsAndSlots();
     const url = new URL(req.url);
     const scheduleId = url.searchParams.get("scheduleId");
     const scheduleIds = scheduleId
@@ -107,7 +109,7 @@ export async function GET(req: Request) {
       .join("\n");
 
     const fileName = `bookings-${stamp}.csv`;
-    return new NextResponse(`\ufeff${csv}`, {
+    return new NextResponse(`\ufeff${csv}` , {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename=\"${fileName}\"`,
