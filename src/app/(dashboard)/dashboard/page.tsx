@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
@@ -45,6 +45,7 @@ type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
 type DayItem = { date: string; ranges: Range[] };
 type ProfileSectionKey = "username" | "avatar" | "password" | "delete";
+type SettingsSectionKey = "sms";
 type QrModalState = { schedule: any; url: string };
 type ListFilterState = {
   query: string;
@@ -234,15 +235,6 @@ export default function DashboardPage() {
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const bumpAvatarRefreshToken = useUIStore((s) => s.bumpAvatarRefreshToken);
 
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const pointerIdRef = useRef<number | null>(null);
-  const pointerStartXRef = useRef<number | null>(null);
-  const pointerStartYRef = useRef<number | null>(null);
-  const pointerLastXRef = useRef<number | null>(null);
-  const isHorizontalSwipeRef = useRef<boolean | null>(null);
-  const swipeResetTimeoutRef = useRef<number | null>(null);
-
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [dayConfigs, setDayConfigs] = useState<DayItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -258,7 +250,6 @@ export default function DashboardPage() {
   const [showCreateFormMobile, setShowCreateFormMobile] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  const bookingsExportRef = useRef<HTMLDivElement | null>(null);
   const [createError, setCreateError] = useState("");
   const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
   const [gapMinutesValue, setGapMinutesValue] = useState(10);
@@ -287,10 +278,13 @@ export default function DashboardPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportContext, setExportContext] = useState({ title: "", stamp: "", count: 0 });
   const [profileSections, setProfileSections] = useState<Record<ProfileSectionKey, boolean>>({
-    username: true,
+    username: false,
     avatar: false,
     password: false,
     delete: false,
+  });
+  const [settingsSections, setSettingsSections] = useState<Record<SettingsSectionKey, boolean>>({
+    sms: false,
   });
   const defaultListFilters: ListFilterState = {
     query: "",
@@ -356,6 +350,10 @@ export default function DashboardPage() {
 
   function toggleProfileSection(key: ProfileSectionKey) {
     setProfileSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleSettingsSection(key: SettingsSectionKey) {
+    setSettingsSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   function parseDateInput(value: string, endOfDay = false) {
@@ -778,41 +776,136 @@ export default function DashboardPage() {
     };
   }
 
-  async function captureExportPng() {
-    if (!bookingsExportRef.current) throw new Error("NO_EXPORT_TARGET");
+  function splitTextToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+    const normalized = String(text || "-");
+    const words = normalized.split(" ");
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (ctx.measureText(candidate).width <= maxWidth || !current) {
+        current = candidate;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : ["-"];
+  }
+
+  function buildExportRows() {
+    return filteredBookings.map((b) => ({
+      schedule: b.schedule?.title || "-",
+      name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر",
+      phone: formatPhoneForExport(b.bookedByUser?.phone || "-"),
+      time: b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-",
+    }));
+  }
+
+  async function renderExportCanvas() {
     const now = new Date();
     setExportContext(buildExportContext(now));
+    const rows = buildExportRows();
+    const context = buildExportContext(now);
 
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    if (typeof document !== "undefined" && "fonts" in document) {
+      await Promise.allSettled([
+        document.fonts.load("400 12px Vazirmatn"),
+        document.fonts.load("700 18px Vazirmatn"),
+      ]);
+    }
 
-    const { toPng } = await import("html-to-image");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("CANVAS_CONTEXT_FAILED");
 
-    const target = bookingsExportRef.current;
-    const prevVisibility = target.style.visibility;
-    const prevOpacity = target.style.opacity;
-    target.style.visibility = "visible";
-    target.style.opacity = "1";
-    return toPng(bookingsExportRef.current, {
-      cacheBust: true,
-      pixelRatio: 2,
-      backgroundColor: "#f8fafc",
-      style: {
-        transform: 'scale(1)',
-        transformOrigin: 'top left',
-      },
-    }).finally(() => {
-      target.style.visibility = prevVisibility;
-      target.style.opacity = prevOpacity;
+    const padding = 24;
+    const tableTop = 108;
+    const headerHeight = 34;
+    const lineHeight = 18;
+    const cellPad = 8;
+    const cols = [
+      { key: "schedule", label: "برنامه", width: 270 },
+      { key: "name", label: "رزروکننده", width: 220 },
+      { key: "phone", label: "شماره", width: 170 },
+      { key: "time", label: "زمان", width: 280 },
+    ] as const;
+    const tableWidth = cols.reduce((sum, c) => sum + c.width, 0);
+    const baseWidth = padding * 2 + tableWidth;
+
+    ctx.font = '12px "Vazirmatn", Tahoma, sans-serif';
+    const rowHeights = rows.map((row) => {
+      const maxLines = Math.max(
+        ...cols.map((col) => splitTextToLines(ctx, String(row[col.key]), col.width - cellPad * 2).length),
+      );
+      return Math.max(30, maxLines * lineHeight + cellPad * 2);
     });
+    const tableHeight = headerHeight + rowHeights.reduce((sum, h) => sum + h, 0);
+    const baseHeight = tableTop + tableHeight + padding;
+
+    canvas.width = baseWidth * 2;
+    canvas.height = baseHeight * 2;
+    ctx.scale(2, 2);
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+    ctx.direction = "rtl";
+    ctx.textAlign = "right";
+
+    ctx.fillStyle = "#0f172a";
+    ctx.font = '700 22px "Vazirmatn", Tahoma, sans-serif';
+    ctx.fillText("گزارش رزروها", baseWidth - padding, 40);
+    ctx.fillStyle = "#475569";
+    ctx.font = '400 12px "Vazirmatn", Tahoma, sans-serif';
+    ctx.fillText(`${context.title} · ${context.count} رزرو`, baseWidth - padding, 64);
+    ctx.fillText(`زمان دانلود: ${context.stamp}`, baseWidth - padding, 84);
+
+    let y = tableTop;
+    let x = padding;
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.fillStyle = "#f1f5f9";
+    ctx.lineWidth = 1;
+    cols.forEach((col) => {
+      ctx.fillRect(x, y, col.width, headerHeight);
+      ctx.strokeRect(x, y, col.width, headerHeight);
+      ctx.fillStyle = "#1e293b";
+      ctx.font = '700 12px "Vazirmatn", Tahoma, sans-serif';
+      ctx.fillText(col.label, x + col.width - cellPad, y + 22);
+      ctx.fillStyle = "#f1f5f9";
+      x += col.width;
+    });
+    y += headerHeight;
+
+    rows.forEach((row, idx) => {
+      const rowHeight = rowHeights[idx];
+      let rowX = padding;
+      cols.forEach((col) => {
+        ctx.fillStyle = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
+        ctx.fillRect(rowX, y, col.width, rowHeight);
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.strokeRect(rowX, y, col.width, rowHeight);
+        const lines = splitTextToLines(ctx, String(row[col.key]), col.width - cellPad * 2);
+        ctx.fillStyle = "#0f172a";
+        ctx.font = '400 12px "Vazirmatn", Tahoma, sans-serif';
+        lines.forEach((line, lineIdx) => {
+          ctx.fillText(line, rowX + col.width - cellPad, y + cellPad + 14 + lineIdx * lineHeight);
+        });
+        rowX += col.width;
+      });
+      y += rowHeight;
+    });
+
+    return { canvas, now };
   }
 
   async function exportBookingsAsImage() {
-    if (!bookingsExportRef.current) return;
     setExportingImage(true);
     try {
-      const dataUrl = await captureExportPng();
-      const fileStamp = getExportFileStamp(new Date());
+      const { canvas, now } = await renderExportCanvas();
+      const dataUrl = canvas.toDataURL("image/png");
+      const fileStamp = getExportFileStamp(now);
       const link = document.createElement("a");
       link.href = dataUrl;
       link.download = `bookings-${fileStamp}.png`;
@@ -825,57 +918,14 @@ export default function DashboardPage() {
     }
   }
 
-  function base64FromArrayBuffer(buffer: ArrayBuffer) {
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = Array.from(bytes.subarray(i, i + chunkSize));
-      binary += String.fromCharCode.apply(null, chunk);
-    }
-    return btoa(binary);
-  }
-
-  async function ensurePdfFont(doc: any) {
-    try {
-      if (doc.getFontList && doc.getFontList().Vazirmatn) {
-        doc.setFont("Vazirmatn", "normal");
-        if (doc.setR2L) doc.setR2L(true);
-        return true;
-      }
-
-      const res = await fetch("/fonts/vazirmatn-arabic-400-normal.woff");
-      if (!res.ok) throw new Error("FONT_LOAD_FAILED");
-      const base64 = base64FromArrayBuffer(await res.arrayBuffer());
-      doc.addFileToVFS("Vazirmatn.woff", base64);
-      doc.addFont("Vazirmatn.woff", "Vazirmatn", "normal");
-      doc.setFont("Vazirmatn", "normal");
-      if (doc.setR2L) doc.setR2L(true);
-      return true;
-    } catch (error) {
-      console.error("PDF font load failed:", error);
-      doc.setFont("helvetica", "normal");
-      if (doc.setR2L) doc.setR2L(false);
-      return false;
-    }
-  }
-
   async function exportBookingsAsPdf() {
     setExportingPdf(true);
     try {
-      const now = new Date();
-      const context = buildExportContext(now);
-      setExportContext(context);
-      const rows = filteredBookings.map((b) => ({
-        schedule: b.schedule?.title || "-",
-        name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر",
-        phone: formatPhoneForExport(b.bookedByUser?.phone || "-"),
-        time: b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-",
-      }));
+      const { canvas, now } = await renderExportCanvas();
+      const pngDataUrl = canvas.toDataURL("image/png");
 
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-      await ensurePdfFont(doc);
       doc.setProperties({
         title: "گزارش رزروها",
         subject: "Bookings Export",
@@ -886,82 +936,24 @@ export default function DashboardPage() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const marginX = 36;
-      const marginY = 40;
-      const rowPadding = 6;
-      const lineHeight = 14;
-      let y = marginY;
+      const marginY = 28;
+      const contentWidth = pageWidth - marginX * 2;
+      const contentHeight = pageHeight - marginY * 2;
+      const imageMeta = doc.getImageProperties(pngDataUrl);
+      const renderedHeight = (imageMeta.height * contentWidth) / imageMeta.width;
+      let positionY = marginY;
+      let remainingHeight = renderedHeight;
 
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(16);
-      doc.text("خروجی رزروها", pageWidth - marginX, y, { align: "right" });
-      y += 20;
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      doc.text(`${context.title} · ${context.count} رزرو`, pageWidth - marginX, y, { align: "right" });
-      y += 14;
-      doc.text(`زمان دانلود: ${context.stamp}`, pageWidth - marginX, y, { align: "right" });
-      y += 18;
+      doc.addImage(pngDataUrl, "PNG", marginX, positionY, contentWidth, renderedHeight, undefined, "FAST");
+      remainingHeight -= contentHeight;
 
-      const columns = [
-        { key: "schedule", label: "برنامه", width: 180 },
-        { key: "name", label: "رزروکننده", width: 140 },
-        { key: "phone", label: "شماره", width: 110 },
-        { key: "time", label: "زمان", width: 150 },
-      ];
-      const tableWidth = columns.reduce((sum, col) => sum + col.width, 0);
-      const tableStartX = pageWidth - marginX - tableWidth;
+      while (remainingHeight > 0) {
+        doc.addPage();
+        positionY = marginY - (renderedHeight - remainingHeight);
+        doc.addImage(pngDataUrl, "PNG", marginX, positionY, contentWidth, renderedHeight, undefined, "FAST");
+        remainingHeight -= contentHeight;
+      }
 
-      const drawHeader = () => {
-        doc.setFillColor(241, 245, 249);
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.75);
-        let cursorX = pageWidth - marginX;
-        const headerHeight = 24;
-        columns.forEach((col) => {
-          const x = cursorX - col.width;
-          doc.rect(x, y, col.width, headerHeight, "FD");
-          doc.setTextColor(30, 41, 59);
-          doc.setFontSize(10);
-          doc.text(col.label, x + col.width - rowPadding, y + 16, { align: "right" });
-          cursorX -= col.width;
-        });
-        y += headerHeight;
-      };
-
-      const drawRow = (row: (typeof rows)[number], stripe: boolean) => {
-        const cellLines = columns.map((col) => {
-          const value = String(row[col.key as keyof typeof row] ?? "-");
-          return doc.splitTextToSize(value, col.width - rowPadding * 2) as string[];
-        });
-        const rowHeight = Math.max(...cellLines.map((lines) => lines.length)) * lineHeight + rowPadding * 2;
-
-        if (y + rowHeight > pageHeight - marginY) {
-          doc.addPage();
-          y = marginY;
-          drawHeader();
-        }
-
-        let cursorX = pageWidth - marginX;
-        doc.setDrawColor(226, 232, 240);
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(9);
-        columns.forEach((col, idx) => {
-          const x = cursorX - col.width;
-          if (stripe) {
-            doc.setFillColor(248, 250, 252);
-            doc.rect(x, y, col.width, rowHeight, "F");
-          }
-          doc.rect(x, y, col.width, rowHeight, "S");
-          const textX = x + col.width - rowPadding;
-          const textY = y + rowPadding + lineHeight - 4;
-          doc.text(cellLines[idx], textX, textY, { align: "right" });
-          cursorX -= col.width;
-        });
-        y += rowHeight;
-      };
-
-      drawHeader();
-      rows.forEach((row, idx) => drawRow(row, idx % 2 === 1));
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i += 1) {
         doc.setPage(i);
@@ -1072,124 +1064,6 @@ export default function DashboardPage() {
     "profile",
     "settings",
   ];
-  const minSwipeDistance = 60;
-  const swipeAxisThreshold = 12;
-  const swipeAxisRatio = 1.15;
-  const isModalOpen = Boolean(cancelTarget || deleteScheduleTarget || qrModal || avatarPreview || deleteAccountOpen);
-
-  const finishSwipeTransition = () => {
-    if (swipeResetTimeoutRef.current) {
-      clearTimeout(swipeResetTimeoutRef.current);
-    }
-    setIsTransitioning(false);
-    setSwipeOffset(0);
-  };
-
-  const resetSwipeTracking = () => {
-    pointerIdRef.current = null;
-    pointerStartXRef.current = null;
-    pointerStartYRef.current = null;
-    pointerLastXRef.current = null;
-    isHorizontalSwipeRef.current = null;
-  };
-
-  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch") return;
-    if (isModalOpen || isTransitioning) return;
-    if (!e.isPrimary) return;
-    const target = e.target as HTMLElement | null;
-    if (target?.closest("input, textarea, select, button, a, [data-no-swipe]")) return;
-    if (swipeResetTimeoutRef.current) {
-      clearTimeout(swipeResetTimeoutRef.current);
-    }
-    setSwipeOffset(0);
-    setIsTransitioning(false);
-    resetSwipeTracking();
-    pointerIdRef.current = e.pointerId;
-    pointerStartXRef.current = e.clientX;
-    pointerStartYRef.current = e.clientY;
-    pointerLastXRef.current = e.clientX;
-  };
-
-  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch") return;
-    if (isModalOpen || isTransitioning) return;
-    if (pointerIdRef.current === null || pointerIdRef.current !== e.pointerId) return;
-    if (pointerStartXRef.current === null || pointerStartYRef.current === null) return;
-
-    const diff = e.clientX - pointerStartXRef.current;
-    const verticalDelta = Math.abs(e.clientY - pointerStartYRef.current);
-    const horizontalDelta = Math.abs(diff);
-
-    if (isHorizontalSwipeRef.current === null) {
-      if (horizontalDelta < swipeAxisThreshold && verticalDelta < swipeAxisThreshold) return;
-      if (verticalDelta > swipeAxisThreshold && verticalDelta > horizontalDelta * swipeAxisRatio) {
-        isHorizontalSwipeRef.current = false;
-        return;
-      }
-      isHorizontalSwipeRef.current = horizontalDelta > verticalDelta * swipeAxisRatio;
-      if (horizontalDelta <= verticalDelta * swipeAxisRatio) return;
-    }
-
-    if (!isHorizontalSwipeRef.current) return;
-
-    e.preventDefault();
-
-    const currentIndex = tabOrder.indexOf(tab);
-    if (currentIndex === -1) return;
-    if ((currentIndex === 0 && diff > 0) || (currentIndex === tabOrder.length - 1 && diff < 0)) {
-      setSwipeOffset(Math.max(-36, Math.min(36, diff * 0.3)));
-    } else {
-      setSwipeOffset(Math.max(-160, Math.min(160, diff)));
-    }
-
-    pointerLastXRef.current = e.clientX;
-  };
-
-  const handlePointerEnd = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "touch") return;
-    if (pointerIdRef.current !== e.pointerId) return;
-
-    if (pointerStartXRef.current === null || pointerLastXRef.current === null || isHorizontalSwipeRef.current !== true) {
-      setSwipeOffset(0);
-      resetSwipeTracking();
-      return;
-    }
-
-    const currentIndex = tabOrder.indexOf(tab);
-    if (currentIndex === -1) {
-      finishSwipeTransition();
-      resetSwipeTracking();
-      return;
-    }
-
-    const distance = pointerStartXRef.current - pointerLastXRef.current;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe && currentIndex < tabOrder.length - 1) {
-      setIsTransitioning(true);
-      setTab(tabOrder[currentIndex + 1]);
-      swipeResetTimeoutRef.current = window.setTimeout(finishSwipeTransition, 300);
-    } else if (isRightSwipe && currentIndex > 0) {
-      setIsTransitioning(true);
-      setTab(tabOrder[currentIndex - 1]);
-      swipeResetTimeoutRef.current = window.setTimeout(finishSwipeTransition, 300);
-    } else {
-      setSwipeOffset(0);
-    }
-
-    resetSwipeTracking();
-  };
-
-  useEffect(() => {
-    return () => {
-      if (swipeResetTimeoutRef.current) {
-        clearTimeout(swipeResetTimeoutRef.current);
-      }
-      resetSwipeTracking();
-    };
-  }, []);
 
   return (
     <main className="page-shell w-full space-y-6 overflow-x-hidden py-4 pb-[calc(96px+env(safe-area-inset-bottom))] md:py-6 md:pb-6">
@@ -1236,41 +1110,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div
-        className="relative md:contents"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerEnd}
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: isTransitioning ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-          opacity: isTransitioning ? 0.7 : 1,
-          willChange: "transform, opacity",
-          touchAction: "pan-y",
-          overscrollBehaviorX: "contain",
-        }}
-      >
-        {Math.abs(swipeOffset) > 10 && (
-          <>
-            {swipeOffset > 0 && tabOrder.indexOf(tab) > 0 && (
-          <div 
-            className="pointer-events-none fixed left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-cyan-500/20 p-3 backdrop-blur-sm md:hidden"
-            style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 0.8) }}
-              >
-                <ChevronDown size={24} className="rotate-90 text-cyan-300" />
-              </div>
-            )}
-            {swipeOffset < 0 && tabOrder.indexOf(tab) < tabOrder.length - 1 && (
-          <div 
-            className="pointer-events-none fixed right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-cyan-500/20 p-3 backdrop-blur-sm md:hidden"
-            style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 0.8) }}
-              >
-                <ChevronDown size={24} className="-rotate-90 text-cyan-300" />
-              </div>
-            )}
-          </>
-        )}
+      <div className="md:contents">
 
         {tab === "schedules" && (
         <section className="grid gap-4 lg:grid-cols-2">
@@ -1782,50 +1622,6 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          <div
-            ref={bookingsExportRef}
-            className="pointer-events-none fixed left-0 top-0 z-[-1] w-[980px]"
-            aria-hidden="true"
-            style={{ visibility: "hidden" }}
-          >
-            <div
-              className="border border-slate-200 bg-white p-6 text-slate-900"
-              dir="rtl"
-              style={{ fontFamily: "Vazirmatn, ui-sans-serif, system-ui" }}
-            >
-              <div className="border-b border-slate-200 pb-3">
-                <div>
-                  <div className="text-lg font-bold">گزارش رزروها</div>
-                  <div className="text-xs text-slate-500">{exportContext.title} · {exportContext.count} رزرو</div>
-                  <div className="mt-1 text-[11px] text-slate-500">زمان دانلود: {exportContext.stamp}</div>
-                </div>
-              </div>
-
-              <div className="mt-4 border border-slate-200 bg-white p-3">
-                <table className="w-full border-separate border-spacing-0 text-xs">
-                  <thead>
-                    <tr className="bg-slate-100">
-                      <th className="rounded-tr-2xl border-b border-slate-200 p-2 text-right">برنامه</th>
-                      <th className="border-b border-slate-200 p-2 text-right">رزروکننده</th>
-                      <th className="border-b border-slate-200 p-2 text-right">شماره</th>
-                      <th className="rounded-tl-2xl border-b border-slate-200 p-2 text-right">زمان</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredBookings.map((b, idx) => (
-                      <tr key={b.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                        <td className="border-b border-slate-100 p-2">{b.schedule?.title || "-"}</td>
-                        <td className="border-b border-slate-100 p-2">{b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر"}</td>
-                        <td className="border-b border-slate-100 p-2">{formatPhoneForExport(b.bookedByUser?.phone || "-")}</td>
-                        <td className="border-b border-slate-100 p-2">{b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
-          </div>
           <div className="space-y-3">
             {filteredBookings.length === 0 && <div className="text-sm text-slate-400">نتیجه‌ای برای فیلتر انتخابی پیدا نشد.</div>}
             {filteredBookings.map((b) => (
@@ -2251,50 +2047,64 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-400">کنترل دریافت پیامک‌های مربوط به رزروها و جلسات.</p>
 
           <div className="space-y-3">
-            <div className="rounded-2xl surface-block p-4">
-              <h3 className="text-sm font-semibold text-slate-200">پیامک‌های رزرو</h3>
-              <p className="mt-1 text-xs text-slate-400">با خاموش کردن هر گزینه، پیامک مربوطه برای شما ارسال نمی‌شود.</p>
-              <div className="mt-3 space-y-2">
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
-                  <span>
-                    <span className="block text-slate-200">رزرو جدید</span>
-                    <span className="block text-xs text-slate-400">اطلاع‌رسانی ثبت رزرو جدید</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={smsPreferences.bookingCreated}
-                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCreated: e.target.checked })}
-                    disabled={smsPreferencesSaving}
-                  />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
-                  <span>
-                    <span className="block text-slate-200">کنسل شدن رزرو</span>
-                    <span className="block text-xs text-slate-400">اطلاع‌رسانی لغو رزرو</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={smsPreferences.bookingCanceled}
-                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCanceled: e.target.checked })}
-                    disabled={smsPreferencesSaving}
-                  />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
-                  <span>
-                    <span className="block text-slate-200">یادآوری جلسه</span>
-                    <span className="block text-xs text-slate-400">۱۰ دقیقه قبل از شروع جلسه</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={smsPreferences.bookingReminder}
-                    onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingReminder: e.target.checked })}
-                    disabled={smsPreferencesSaving}
-                  />
-                </label>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                {smsPreferencesSaving && <span className="text-cyan-200">در حال ذخیره تنظیمات...</span>}
-                {smsPreferencesError && <span className="text-rose-300">{smsPreferencesError}</span>}
+            <div className="rounded-2xl surface-block">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-right text-sm font-medium"
+                onClick={() => toggleSettingsSection("sms")}
+                aria-expanded={settingsSections.sms}
+              >
+                تنظیمات پیامک
+                <ChevronDown size={16} className={`transition ${settingsSections.sms ? "rotate-180" : ""}`} />
+              </button>
+              <div
+                className={`grid transition-all duration-300 ease-out ${settingsSections.sms ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+              >
+                <div className="space-y-3 overflow-hidden px-4 pb-4">
+                  <p className="text-xs text-slate-400">با خاموش کردن هر گزینه، پیامک مربوطه برای شما ارسال نمی‌شود.</p>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                      <span>
+                        <span className="block text-slate-200">رزرو جدید</span>
+                        <span className="block text-xs text-slate-400">اطلاع‌رسانی ثبت رزرو جدید</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={smsPreferences.bookingCreated}
+                        onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCreated: e.target.checked })}
+                        disabled={smsPreferencesSaving}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                      <span>
+                        <span className="block text-slate-200">کنسل شدن رزرو</span>
+                        <span className="block text-xs text-slate-400">اطلاع‌رسانی لغو رزرو</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={smsPreferences.bookingCanceled}
+                        onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingCanceled: e.target.checked })}
+                        disabled={smsPreferencesSaving}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-sm">
+                      <span>
+                        <span className="block text-slate-200">یادآوری جلسه</span>
+                        <span className="block text-xs text-slate-400">۱۰ دقیقه قبل از شروع جلسه</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={smsPreferences.bookingReminder}
+                        onChange={(e) => updateSmsPreferences({ ...smsPreferences, bookingReminder: e.target.checked })}
+                        disabled={smsPreferencesSaving}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    {smsPreferencesSaving && <span className="text-cyan-200">در حال ذخیره تنظیمات...</span>}
+                    {smsPreferencesError && <span className="text-rose-300">{smsPreferencesError}</span>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2387,11 +2197,11 @@ export default function DashboardPage() {
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 md:hidden">
         <div className="relative card mx-auto grid max-w-md grid-cols-5 gap-2 overflow-hidden p-2">
-          <div 
-            className="absolute bottom-0 left-0 h-1 rounded-t-full bg-cyan-500 transition-all duration-300 ease-out"
+          <div
+            className="absolute bottom-0 right-0 h-1 rounded-t-full bg-cyan-500 transition-all duration-300 ease-out"
             style={{
               width: `${100 / tabOrder.length}%`,
-              transform: `translateX(${tabOrder.indexOf(tab) * 100}%)`,
+              transform: `translateX(${-tabOrder.indexOf(tab) * 100}%)`,
             }}
           />
           
