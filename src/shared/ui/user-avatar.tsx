@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useUIStore } from "@/store/ui-store";
+import { useUIStore } from "@/shared/store/ui-store";
 import Image from "next/image";
 
 type Props = {
@@ -77,3 +77,4 @@ export function UserAvatar({
     </div>
   );
 }
+

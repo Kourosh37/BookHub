@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { useUIStore } from "@/store/ui-store";
+import { useUIStore } from "@/shared/store/ui-store";
 
 type ThemeLogoProps = {
   size?: number;
@@ -24,3 +24,4 @@ export function ThemeLogo({ size = 96, className, priority = false }: ThemeLogoP
     />
   );
 }
+

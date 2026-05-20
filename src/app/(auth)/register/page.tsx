@@ -10,7 +10,7 @@ import { z } from "zod";
 import { requestOtpSchema, verifyOtpSchema } from "@/lib/validations";
 import { apiFetch, authMeResponseSchema, simpleOkSchema } from "@/lib/api-client";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
-import { PublicHeader } from "@/components/public-header";
+import { PublicHeader } from "@/shared/ui/public-header";
 
 function resolveNextPath(raw: string) {
   if (!raw || !raw.startsWith("/")) return "/dashboard";
@@ -195,4 +195,5 @@ export default function RegisterPage() {
     </main>
   );
 }
+
 

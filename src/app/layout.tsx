@@ -3,10 +3,10 @@ import "@fontsource/vazirmatn/500.css";
 import "@fontsource/vazirmatn/700.css";
 import { ReactNode } from "react";
 import "./globals.css";
-import { ToastProvider } from "@/components/toast-provider";
-import { ServiceWorkerCleanup } from "@/components/sw-cleanup";
-import { AppQueryProvider } from "@/components/query-provider";
-import { ThemeSync } from "@/components/theme-sync";
+import { ToastProvider } from "@/shared/providers/toast-provider";
+import { ServiceWorkerCleanup } from "@/shared/providers/sw-cleanup";
+import { AppQueryProvider } from "@/shared/providers/query-provider";
+import { ThemeSync } from "@/shared/providers/theme-sync";
 
 export const metadata = {
   title: "بوک هاب",
@@ -36,3 +36,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
+

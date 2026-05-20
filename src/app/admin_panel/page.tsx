@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Moon, Sun, Shield, LogOut } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useUIStore } from "@/store/ui-store";
-import { ThemeLogo } from "@/components/theme-logo";
+import { useUIStore } from "@/shared/store/ui-store";
+import { ThemeLogo } from "@/shared/ui/theme-logo";
 import { AdminSmsSection } from "@/features/admin/components/AdminSmsSection";
 import { AdminStatsSection } from "@/features/admin/components/AdminStatsSection";
 import { AdminUsersSection } from "@/features/admin/components/AdminUsersSection";
@@ -289,3 +289,4 @@ export default function AdminPanelPage() {
     </main>
   );
 }
+

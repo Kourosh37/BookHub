@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { LogIn, MoonStar, Sun, User } from "lucide-react";
-import { useUIStore } from "@/store/ui-store";
+import { useUIStore } from "@/shared/store/ui-store";
 
 type PublicHeaderProps = {
   compact?: boolean;
@@ -20,17 +20,17 @@ export function PublicHeader({ compact = false }: PublicHeaderProps) {
             <User size={18} />
           </div>
           <div className="min-w-0 overflow-hidden">
-            <h2 className="truncate text-sm font-bold sm:text-base">داشبورد رزرو</h2>
-            <p className="hidden truncate text-xs text-slate-400 sm:block">مدیریت زمان‌بندی و نوبت‌ها</p>
+            <h2 className="truncate text-sm font-bold sm:text-base">Ø¯Ø§Ø´Ø¨ÙˆØ±Ø¯ Ø±Ø²Ø±Ùˆ</h2>
+            <p className="hidden truncate text-xs text-slate-400 sm:block">Ù…Ø¯ÛŒØ±ÛŒØª Ø²Ù…Ø§Ù†â€ŒØ¨Ù†Ø¯ÛŒ Ùˆ Ù†ÙˆØ¨Øªâ€ŒÙ‡Ø§</p>
           </div>
         </div>
 
         <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-          <Link href="/login" className="btn-ghost h-10 px-3 text-sm" aria-label="ورود" title="ورود">
+          <Link href="/login" className="btn-ghost h-10 px-3 text-sm" aria-label="ÙˆØ±ÙˆØ¯" title="ÙˆØ±ÙˆØ¯">
             <LogIn size={18} />
-            <span className="hidden sm:inline">ورود</span>
+            <span className="hidden sm:inline">ÙˆØ±ÙˆØ¯</span>
           </Link>
-          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="ØªØºÛŒÛŒØ± ØªÙ…">
             {theme === "dark" ? <Sun /> : <MoonStar />}
           </button>
         </div>
@@ -38,3 +38,4 @@ export function PublicHeader({ compact = false }: PublicHeaderProps) {
     </header>
   );
 }
+

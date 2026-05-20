@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { CalendarDays, Clock3, Link2, ShieldCheck } from "lucide-react";
-import { PublicHeader } from "@/components/public-header";
-import { ThemeLogo } from "@/components/theme-logo";
+import { PublicHeader } from "@/shared/ui/public-header";
+import { ThemeLogo } from "@/shared/ui/theme-logo";
 
 export default function Home() {
   return (
@@ -62,3 +62,4 @@ export default function Home() {
     </main>
   );
 }
+

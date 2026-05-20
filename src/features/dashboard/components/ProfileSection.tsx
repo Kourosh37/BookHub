@@ -1,6 +1,6 @@
 ﻿import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
-import { AvatarUploader } from "@/components/avatar-uploader";
+import { AvatarUploader } from "@/features/dashboard/components/shared/avatar-uploader";
 import { OTP_DELAY_NOTICE } from "@/lib/ui-messages";
 
 type Props = {
@@ -207,3 +207,4 @@ export function ProfileSection(props: Props) {
     </section>
   );
 }
+

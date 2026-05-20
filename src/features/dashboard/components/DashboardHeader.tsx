@@ -1,5 +1,5 @@
 ﻿import { LogOut, Moon, Sun } from "lucide-react";
-import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatar } from "@/shared/ui/user-avatar";
 
 type Props = {
   user: any;
@@ -37,3 +37,4 @@ export function DashboardHeader({ user, theme, onToggleTheme, onLogout, onOpenAv
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
-import { useUIStore } from "@/store/ui-store";
+import { useUIStore } from "@/shared/store/ui-store";
 
 export function ThemeSync() {
   const theme = useUIStore((s) => s.theme);
@@ -12,4 +12,5 @@ export function ThemeSync() {
 
   return null;
 }
+
 

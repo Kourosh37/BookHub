@@ -11,8 +11,8 @@ import {
   Settings,
   UserCircle2,
 } from "lucide-react";
-import { useUIStore } from "@/store/ui-store";
-import { dashboardDefaultListFilters, useDashboardPageStore, type ListFilterState } from "@/store/dashboard-page-store";
+import { useUIStore } from "@/shared/store/ui-store";
+import { dashboardDefaultListFilters, useDashboardPageStore, type ListFilterState } from "@/features/dashboard/store/dashboard-page-store";
 import { DashboardHeader } from "@/features/dashboard/components/DashboardHeader";
 import { BookingsSection } from "@/features/dashboard/components/BookingsSection";
 import { DashboardDesktopTabs, DashboardMobileTabs } from "@/features/dashboard/components/DashboardTabs";
@@ -1081,4 +1081,5 @@ export default function DashboardPage() {
     </main>
   );
 }
+
 

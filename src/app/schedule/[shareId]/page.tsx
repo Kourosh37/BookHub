@@ -10,10 +10,10 @@ import persian_fa from "react-date-object/locales/persian_fa";
 import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
-import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatar } from "@/shared/ui/user-avatar";
 import Image from "next/image";
-import { PublicHeader } from "@/components/public-header";
-import { useUIStore } from "@/store/ui-store";
+import { PublicHeader } from "@/shared/ui/public-header";
+import { useUIStore } from "@/shared/store/ui-store";
 
 function toEnglishDigits(value: string) {
   return value
@@ -247,3 +247,4 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
     </main>
   );
 }
+
