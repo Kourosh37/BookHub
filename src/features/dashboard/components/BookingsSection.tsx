@@ -6,7 +6,7 @@ import { dashboardDefaultListFilters, type ListFilterState } from "@/features/da
 
 type Props = {
   exportMenuRef: RefObject<HTMLDivElement | null>;
-  setIsExportMenuOpen: (updater: (prev: boolean) => boolean) => void;
+  setIsExportMenuOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   isExportMenuOpen: boolean;
   bookingFilters: ListFilterState;
   exportBookingsAsPdf: () => Promise<void>;
@@ -17,7 +17,7 @@ type Props = {
   setBookingFilterDraft: (updater: (prev: ListFilterState) => ListFilterState) => void;
   setBookingFilters: (updater: (prev: ListFilterState) => ListFilterState) => void;
   bookingFilterOpen: boolean;
-  setBookingFilterOpen: (updater: (prev: boolean) => boolean) => void;
+  setBookingFilterOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   bookingScheduleOptions: Array<{ id: string; title: string }>;
   filteredBookings: any[];
   highlightText: (value: any, query: string) => ReactNode;

@@ -37,6 +37,8 @@ model OtpCode {
   createdAt  DateTime @default(now())
 
   @@index([phone, createdAt(sort: Desc)])
+  @@index([phone, purpose, createdAt(sort: Desc)])
+  @@index([expiresAt])
 }
 
 model Schedule {
@@ -52,6 +54,8 @@ model Schedule {
   createdAt    DateTime   @default(now())
   slots        TimeSlot[]
   bookings     Booking[]
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model TimeSlot {
@@ -64,6 +68,8 @@ model TimeSlot {
   booking    Booking?
 
   @@unique([scheduleId, startTime])
+  @@index([scheduleId, startTime, isBooked])
+  @@index([endTime])
 }
 
 model Booking {
@@ -77,6 +83,9 @@ model Booking {
   visitorName    String?
   answers        Json
   bookedAt       DateTime @default(now())
+
+  @@index([scheduleId, bookedAt(sort: Desc)])
+  @@index([bookedByUserId, bookedAt(sort: Desc)])
 }
 
 enum SmsLogType {
@@ -101,6 +110,9 @@ model SmsLog {
   templateId      Int?
   providerMessage String?
   createdAt       DateTime     @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([type, status, createdAt(sort: Desc)])
 }
 
 model SmsGlobalSetting {
@@ -110,4 +122,41 @@ model SmsGlobalSetting {
   bookingReminderEnabled Boolean @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+model OtpAttempt {
+  id           String    @id @default(cuid())
+  phone        String
+  purpose      OtpPurpose
+  failedCount  Int       @default(0)
+  lockedUntil  DateTime?
+  windowStart  DateTime
+  lastAttemptAt DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([phone, purpose])
+  @@index([lockedUntil])
+}
+
+enum AdminAuditAction {
+  LOGIN
+  LOGOUT
+  VIEW_OVERVIEW
+  VIEW_USERS
+  VIEW_SMS_SETTINGS
+  UPDATE_SMS_SETTINGS
+}
+
+model AdminAuditLog {
+  id          String           @id @default(cuid())
+  adminUser   String
+  action      AdminAuditAction
+  ip          String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([adminUser, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
 }

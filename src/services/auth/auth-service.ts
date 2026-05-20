@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requestOtpSchema, verifyOtpSchema, passwordLoginSchema } from "@/lib/validations";
@@ -6,9 +6,10 @@ import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hash
 import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
 import { withRequestId } from "@/lib/logger";
 import { sendOtpSms } from "@/lib/sms";
-import { checkSlidingWindowLimit } from "@/lib/rate-limit";
+import { guardEntityRateLimit, guardIpRateLimit } from "@/lib/anti-abuse";
 import { createSession, clearSession, getSession } from "@/lib/auth";
 import { normalizePhoneInput } from "@/lib/phone";
+import { assertOtpNotLocked, clearOtpAttemptState, registerOtpFailure } from "@/lib/otp-security";
 
 function normalizeLoginPhone(value: string) {
   return normalizePhoneInput(value);
@@ -22,49 +23,66 @@ export async function requestOtp(req: Request) {
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "نامعتبر"}` }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
   }
 
   const { phone, mode } = parsed.data;
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const ipRate = await checkSlidingWindowLimit({
-    key: `rate:otp:ip:${ip}`,
+  const ipRate = await guardIpRateLimit({
+    keyPrefix: "rate:otp",
+    ip,
     limit: Number(process.env.OTP_RATE_LIMIT_IP_MAX || "10"),
     windowSeconds: Number(process.env.OTP_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
   });
+  const phoneRate = await guardEntityRateLimit({
+    keyPrefix: "rate:otp",
+    entity: phone,
+    limit: Number(process.env.OTP_RATE_LIMIT_PHONE_MAX || "5"),
+    windowSeconds: Number(process.env.OTP_RATE_LIMIT_PHONE_WINDOW_SECONDS || "300"),
+  });
 
-  if (!ipRate.allowed) {
+  if (!ipRate.allowed || !phoneRate.allowed) {
+    const retryAfter = Math.max(ipRate.retryAfterSeconds, phoneRate.retryAfterSeconds);
     return NextResponse.json(
-      { error: "تعداد درخواست بیش از حد مجاز است", details: `لطفا ${ipRate.retryAfterSeconds} ثانیه دیگر تلاش کنید` },
+      { error: "Too many requests", details: `Try again in ${retryAfter} seconds` },
+      { status: 429 },
+    );
+  }
+
+  const otpPurpose = mode === "password_reset" ? "PASSWORD_RESET" : "AUTH";
+  const lock = await assertOtpNotLocked(phone, otpPurpose);
+  if (lock.locked) {
+    return NextResponse.json(
+      { error: "OTP temporarily locked", details: `Try again in ${lock.retryAfterSeconds} seconds` },
       { status: 429 },
     );
   }
 
   if (mode === "register") {
     const userByPhone = await prisma.user.findFirst({ where: { phone } });
-    if (userByPhone) return NextResponse.json({ error: "این شماره قبلاً ثبت شده است" }, { status: 409 });
+    if (userByPhone) return NextResponse.json({ error: "Phone already registered" }, { status: 409 });
 
     if (parsed.data.username) {
       const userByUsername = await prisma.user.findFirst({ where: { username: parsed.data.username } });
-      if (userByUsername) return NextResponse.json({ error: "این نام کاربری قبلاً ثبت شده است" }, { status: 409 });
+      if (userByUsername) return NextResponse.json({ error: "Username already registered" }, { status: 409 });
     }
   }
 
   if (mode === "login_phone") {
     const userByPhone = await prisma.user.findFirst({ where: { phone } });
     if (!userByPhone) {
-      return NextResponse.json({ error: "کاربری با این شماره یافت نشد", details: "ابتدا ثبت‌نام کنید" }, { status: 404 });
+      return NextResponse.json({ error: "User not found", details: "Register first" }, { status: 404 });
     }
   }
 
-  const purpose = mode === "password_reset" ? "PASSWORD_RESET" : "AUTH";
+  const purpose = otpPurpose;
   const cooldownSeconds = getOtpResendCooldownSeconds();
   const cooldownKey = `otp:cooldown:${purpose}:${phone}`;
 
   const redisRemaining = await cacheGetCooldownRemaining(cooldownKey);
   if (redisRemaining) {
     return NextResponse.json(
-      { error: "درخواست پشت‌سرهم مجاز نیست", details: `لطفا ${redisRemaining} ثانیه دیگر دوباره تلاش کنید` },
+      { error: "Resend is not allowed yet", details: `Try again in ${redisRemaining} seconds` },
       { status: 429 },
     );
   }
@@ -82,7 +100,7 @@ export async function requestOtp(req: Request) {
       const remain = cooldownSeconds - elapsedSeconds;
       await cacheSetCooldown(cooldownKey, remain);
       return NextResponse.json(
-        { error: "درخواست پشت‌سرهم مجاز نیست", details: `لطفا ${remain} ثانیه دیگر دوباره تلاش کنید` },
+        { error: "Resend is not allowed yet", details: `Try again in ${remain} seconds` },
         { status: 429 },
       );
     }
@@ -110,7 +128,7 @@ export async function requestOtp(req: Request) {
     log.error({ phone, mode, purpose, error: error?.message }, "otp sms failed");
     await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
     return NextResponse.json(
-      { error: "ارسال پیامک ناموفق بود", details: "در حال حاضر امکان ارسال کد تایید وجود ندارد" },
+      { error: "SMS delivery failed", details: "Unable to send OTP right now" },
       { status: 502 },
     );
   }
@@ -132,7 +150,7 @@ export async function verifyAuthOtp(req: Request) {
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "نامعتبر"}` }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
   }
 
   const phone = parsed.data.phone;
@@ -150,8 +168,10 @@ export async function verifyAuthOtp(req: Request) {
   });
 
   if (!otp) {
-    return NextResponse.json({ error: "کد تایید نامعتبر است", details: "کد واردشده اشتباه است یا منقضی شده" }, { status: 401 });
+    await registerOtpFailure(phone, "AUTH");
+    return NextResponse.json({ error: "Invalid OTP code", details: "OTP is invalid or expired" }, { status: 401 });
   }
+  await clearOtpAttemptState(phone, "AUTH");
 
   await prisma.otpCode.update({
     where: { id: otp.id },
@@ -161,7 +181,7 @@ export async function verifyAuthOtp(req: Request) {
   let user = await prisma.user.findFirst({ where: { phone } });
   if (!user) {
     if (!otp.username || !otp.passwordHash) {
-      return NextResponse.json({ error: "اکانت یافت نشد", details: "برای این شماره ابتدا ثبت‌نام کنید" }, { status: 404 });
+      return NextResponse.json({ error: "Account not found", details: "Register first for this phone" }, { status: 404 });
     }
     user = await prisma.user.create({
       data: {
@@ -179,15 +199,16 @@ export async function verifyAuthOtp(req: Request) {
 export async function passwordLogin(req: Request) {
   const log = withRequestId(req.headers.get("x-request-id"));
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const ipRate = await checkSlidingWindowLimit({
-    key: `rate:login-password:ip:${ip}`,
+  const ipRate = await guardIpRateLimit({
+    keyPrefix: "rate:login-password",
+    ip,
     limit: Number(process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_MAX || "20"),
     windowSeconds: Number(process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
   });
 
   if (!ipRate.allowed) {
     return NextResponse.json(
-      { error: "تعداد درخواست بیش از حد مجاز است", details: `لطفا ${ipRate.retryAfterSeconds} ثانیه دیگر تلاش کنید` },
+      { error: "Too many requests", details: `Try again in ${ipRate.retryAfterSeconds} seconds` },
       { status: 429 },
     );
   }
@@ -198,7 +219,7 @@ export async function passwordLogin(req: Request) {
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "داده نامعتبر است", details: `${path}: ${issue?.message || "نامعتبر"}` }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
   }
 
   const rawIdentifier = parsed.data.identifier;
@@ -210,13 +231,13 @@ export async function passwordLogin(req: Request) {
   });
   if (!user?.password || !user.phone) {
     log.warn({ identifier: rawIdentifier }, "password login user not found");
-    return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 });
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const ok = await bcrypt.compare(parsed.data.password, user.password);
   if (!ok) {
     log.warn({ userId: user.id }, "password login invalid password");
-    return NextResponse.json({ error: "رمز عبور اشتباه است" }, { status: 401 });
+    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
   await createSession({ userId: user.id, phone: user.phone });
@@ -246,3 +267,4 @@ export async function authLogout() {
   clearSession();
   return NextResponse.json({ ok: true });
 }
+

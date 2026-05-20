@@ -12,9 +12,6 @@ export async function getOpenApiSpec() {
       },
     });
   } catch {
-    return NextResponse.json(
-      { error: "فایل OpenAPI یافت نشد. قبل از اجرا دستور npm run openapi:generate را اجرا کنید." },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "OpenAPI spec not found. Run npm run openapi:generate" }, { status: 404 });
   }
 }

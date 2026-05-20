@@ -8,7 +8,7 @@ type Props = {
   setSessionFilterDraft: (updater: (prev: ListFilterState) => ListFilterState) => void;
   setSessionFilters: (updater: (prev: ListFilterState) => ListFilterState) => void;
   sessionFilterOpen: boolean;
-  setSessionFilterOpen: (updater: (prev: boolean) => boolean) => void;
+  setSessionFilterOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   sessionScheduleOptions: Array<{ id: string; title: string }>;
   nextSession: any;
   sessionFilters: ListFilterState;

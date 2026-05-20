@@ -8,12 +8,12 @@ const cleanupGlobal = globalThis as typeof globalThis & {
   __bookhubCleanupRunning?: boolean;
 };
 
-export async function cleanupExpiredBookingsAndSlots() {
+export async function cleanupExpiredBookingsAndSlots(options?: { force?: boolean }) {
   const now = Date.now();
   const lastRun = cleanupGlobal.__bookhubCleanupLastRunAt || 0;
 
   if (cleanupGlobal.__bookhubCleanupRunning) return;
-  if (now - lastRun < CLEANUP_INTERVAL_MS) return;
+  if (!options?.force && now - lastRun < CLEANUP_INTERVAL_MS) return;
 
   cleanupGlobal.__bookhubCleanupRunning = true;
   cleanupGlobal.__bookhubCleanupLastRunAt = now;
@@ -44,4 +44,3 @@ export async function cleanupExpiredBookingsAndSlots() {
     cleanupGlobal.__bookhubCleanupRunning = false;
   }
 }
-

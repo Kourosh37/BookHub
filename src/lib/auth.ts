@@ -4,6 +4,12 @@ import { cookies } from "next/headers";
 const COOKIE_NAME = "bookhub_session";
 const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "dev_secret");
 
+function getSessionExpiresDays() {
+  const raw = Number(process.env.SESSION_EXPIRES_DAYS || "7");
+  if (Number.isNaN(raw) || raw < 1) return 7;
+  return raw;
+}
+
 function shouldUseSecureCookie() {
   const url = process.env.NEXTAUTH_URL || "";
   if (url.startsWith("https://")) return true;
@@ -17,10 +23,11 @@ export type SessionPayload = {
 };
 
 export async function createSession(payload: SessionPayload) {
+  const sessionDays = getSessionExpiresDays();
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(`${sessionDays}d`)
     .sign(secret);
 
   cookies().set(COOKIE_NAME, token, {
@@ -28,7 +35,7 @@ export async function createSession(payload: SessionPayload) {
     sameSite: "lax",
     secure: shouldUseSecureCookie(),
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * sessionDays,
   });
 }
 

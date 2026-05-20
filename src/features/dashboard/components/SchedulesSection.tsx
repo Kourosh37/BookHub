@@ -7,8 +7,8 @@ import toast from "react-hot-toast";
 
 type Props = {
   showCreateFormMobile: boolean;
-  setShowCreateFormMobile: (updater: (prev: boolean) => boolean) => void;
-  createSchedule: (e: FormEvent<HTMLFormElement>) => Promise<void>;
+  setShowCreateFormMobile: (value: boolean | ((prev: boolean) => boolean)) => void;
+  createSchedule: (e: FormEvent<HTMLFormElement>) => Promise<any>;
   createError: string;
   scheduleTitle: string;
   setScheduleTitle: (v: string) => void;
@@ -40,12 +40,12 @@ type Props = {
   editingScheduleId: string | null;
   editingTitle: string;
   setEditingTitle: (v: string) => void;
-  saveScheduleTitle: (id: string) => Promise<void>;
+  saveScheduleTitle: (id: string) => Promise<any>;
   savingTitle: boolean;
   stopEditScheduleTitle: () => void;
-  startEditScheduleTitle: (s: any) => void;
+  startEditScheduleTitle: (s: any) => void | Promise<any>;
   getShareUrl: (shareId: string) => string;
-  openQrModal: (s: any) => Promise<void>;
+  openQrModal: (s: any) => void | Promise<any>;
   setDeleteScheduleTarget: (s: any) => void;
 };
 
@@ -295,3 +295,4 @@ export function SchedulesSection(props: Props) {
     </section>
   );
 }
+
