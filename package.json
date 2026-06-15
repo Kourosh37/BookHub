@@ -12,7 +12,7 @@
     "prisma:generate": "prisma generate",
     "build": "npm run prisma:generate && next build",
     "start": "next start",
-    "openapi:generate": "node -r ts-node/register/transpile-only scripts/generate-openapi.ts",
+    "openapi:generate": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" -r tsconfig-paths/register scripts/generate-openapi.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "postinstall": "npm run prisma:generate"

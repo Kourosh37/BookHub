@@ -163,9 +163,25 @@ export async function scheduleSummary(shareId: string) {
   });
   if (!schedule) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
 
-  const availableSlots = await prisma.timeSlot.findMany({ where: { scheduleId: schedule.id, isBooked: false, startTime: { gte: new Date() } }, select: { startTime: true } });
-  const availableDates = Array.from(new Set(availableSlots.map((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd"))));
-  const payload = { ...schedule, availableDates };
+  const futureSlots = await prisma.timeSlot.findMany({
+    where: { scheduleId: schedule.id, startTime: { gte: new Date() } },
+    select: { startTime: true, isBooked: true },
+    orderBy: { startTime: "asc" },
+  });
+  const datesByYmd = new Map<string, { date: string; isFull: boolean; availableCount: number; totalCount: number }>();
+  for (const slot of futureSlots) {
+    const date = formatInTimeZone(slot.startTime, "Asia/Tehran", "yyyy-MM-dd");
+    const current = datesByYmd.get(date) || { date, isFull: true, availableCount: 0, totalCount: 0 };
+    current.totalCount += 1;
+    if (!slot.isBooked) {
+      current.availableCount += 1;
+      current.isFull = false;
+    }
+    datesByYmd.set(date, current);
+  }
+  const dateOptions = Array.from(datesByYmd.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const availableDates = dateOptions.filter((d) => !d.isFull).map((d) => d.date);
+  const payload = { ...schedule, availableDates, dateOptions };
   await cacheSetJson(cacheKey, payload, 30);
   return NextResponse.json(payload, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Cache": "MISS" } });
 }
@@ -188,7 +204,7 @@ export async function scheduleSlots(req: Request, shareId: string) {
   const cached = await cacheGetJson<any[]>(cacheKey);
   if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Cache": "HIT" } });
 
-  const slots = await prisma.timeSlot.findMany({ where: { scheduleId: schedule.id, isBooked: false, startTime: { gte: new Date() } }, orderBy: { startTime: "asc" } });
+  const slots = await prisma.timeSlot.findMany({ where: { scheduleId: schedule.id, startTime: { gte: new Date() } }, orderBy: { startTime: "asc" } });
   const filtered = slots.filter((s) => formatInTimeZone(s.startTime, "Asia/Tehran", "yyyy-MM-dd") === date);
   await cacheSetJson(cacheKey, filtered, 30);
   return NextResponse.json(filtered, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Cache": "MISS" } });

@@ -6,11 +6,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import DatePicker from "react-multi-date-picker";
-import DateObject from "react-date-object";
-import persian from "react-date-object/calendars/persian";
-import persian_fa from "react-date-object/locales/persian_fa";
-import gregorian from "react-date-object/calendars/gregorian";
 import { CalendarDays, Clock3, Send } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,20 +14,21 @@ import { PublicHeader } from "@/shared/ui/public-header";
 import { useUIStore } from "@/shared/store/ui-store";
 import { usePublicScheduleUIStore } from "@/features/schedule/store/public-schedule-ui-store";
 
-function toEnglishDigits(value: string) {
-  return value
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-}
-
-function toGregorianYmd(dateObj: any) {
-  if (!dateObj) return "";
-  return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
-}
-
 const bookingFormSchema = z.object({
   answers: z.array(z.string()),
 });
+
+function formatDateButtonLabel(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
@@ -102,7 +98,10 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const slots = slotsQuery.data ?? [];
 
   const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
-  const availableDates = useMemo(() => new Set(Array.isArray(schedule?.availableDates) ? schedule.availableDates : []), [schedule]);
+  const dateOptions = useMemo(
+    () => (Array.isArray(schedule?.dateOptions) ? [...schedule.dateOptions].sort((a: any, b: any) => String(a.date).localeCompare(String(b.date))) : []),
+    [schedule],
+  );
 
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -175,52 +174,61 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
         <div>
           <label className="mb-2 flex items-center gap-2 text-sm text-slate-300"><CalendarDays size={16} /> انتخاب روز</label>
-          <DatePicker
-            calendar={persian}
-            locale={persian_fa}
-            calendarPosition="bottom-right"
-            onChange={(d: any) => {
-              if (!d) return setSelectedDate("");
-              const ymd = toGregorianYmd(d);
-              setSelectedDate(ymd);
-              setSelectedSlot("");
-            }}
-            mapDays={({ date }: any) => {
-              const ymd = toGregorianYmd(date);
-              if (!availableDates.has(ymd)) {
-                return { disabled: true, style: { color: "rgb(148, 137, 121)", opacity: 0.45 } };
-              }
-              return {};
-            }}
-            render={(value, openCalendar) => (
-              <button type="button" onClick={openCalendar} className="btn-ghost w-full justify-between">
-                <span className="flex items-center gap-2"><CalendarDays size={16} /> {selectedDate ? "تاریخ انتخاب شد" : "انتخاب تاریخ"}</span>
-                <span className="text-xs text-slate-400">{value || ""}</span>
-              </button>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {dateOptions.length === 0 && (
+              <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">تاریخی برای نمایش باقی نمانده است.</div>
             )}
-          />
-          <p className="mt-2 text-xs text-slate-500">فقط روزهایی فعال هستند که واقعاً بازه آزاد دارند.</p>
+            {dateOptions.map((option: any) => {
+              const date = String(option.date);
+              const active = selectedDate === date;
+              const isFull = Boolean(option.isFull);
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate(date);
+                    setSelectedSlot("");
+                  }}
+                  className={`btn min-h-12 flex-col justify-center gap-1 text-sm ${active ? "bg-cyan-500 text-slate-950" : isFull ? "btn-ghost opacity-75" : "btn-ghost"}`}
+                >
+                  <span>{formatDateButtonLabel(date)}</span>
+                  {isFull && <span className={`rounded-full px-2 py-0.5 text-[11px] ${active ? "bg-slate-950/15 text-slate-950" : "bg-rose-500/15 text-rose-300"}`}>پر شده</span>}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">روزهای پرشده هم نمایش داده می‌شوند، اما امکان رزرو ندارند.</p>
         </div>
 
         {selectedDate && (
           <div>
-            <p className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Clock3 size={16} /> بازه‌های آزاد</p>
+            <p className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Clock3 size={16} /> بازه‌ها</p>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {slots.length === 0 && <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">برای این روز، بازه آزادی باقی نمانده است.</div>}
-              {slots.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelectedSlot(s.id)}
-                  className={`btn ${selectedSlot === s.id ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`}
-                >
-                  {new Date(s.startTime).toLocaleTimeString("fa-IR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: "Asia/Tehran",
-                  })}
-                </button>
-              ))}
+              {slots.length === 0 && <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">برای این روز، بازه‌ای برای نمایش باقی نمانده است.</div>}
+              {slots.map((s) => {
+                const isBooked = Boolean(s.isBooked);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    disabled={isBooked}
+                    onClick={() => {
+                      if (!isBooked) setSelectedSlot(s.id);
+                    }}
+                    className={`btn flex-col gap-1 ${selectedSlot === s.id ? "bg-cyan-500 text-slate-950" : isBooked ? "btn-ghost cursor-not-allowed opacity-60" : "btn-ghost"}`}
+                  >
+                    <span>
+                      {new Date(s.startTime).toLocaleTimeString("fa-IR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "Asia/Tehran",
+                      })}
+                    </span>
+                    {isBooked && <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] text-rose-300">رزرو شده</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -9,7 +9,7 @@ import { CalendarDays, Clock3, ListChecks, Settings, UserCircle2 } from "lucide-
 
 export function DashboardDesktopTabs({ tab, onTabChange }: Props) {
   return (
-    <div className="hidden flex-wrap gap-2 md:mb-3 md:flex">
+    <div className="hidden flex-wrap gap-2 md:mb-4 md:flex">
       <button className={`btn ${tab === "schedules" ? "bg-cyan-500 text-slate-950" : "btn-ghost"}`} onClick={() => onTabChange("schedules")}>
         <CalendarDays size={16} /> برنامه‌های من
       </button>

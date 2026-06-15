@@ -8,29 +8,29 @@ type PublicHeaderProps = {
   compact?: boolean;
 };
 
-export function PublicHeader({ compact = false }: PublicHeaderProps) {
+export function PublicHeader({ compact: _compact = false }: PublicHeaderProps) {
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
 
   return (
-    <header className={`card mb-5 overflow-hidden ${compact ? "px-4 py-3" : "px-5 py-4"}`}>
-      <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 overflow-hidden">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-500/15 text-slate-400 sm:h-10 sm:w-10">
+    <header className="card mb-8 min-h-[76px] overflow-hidden p-4 md:mb-10">
+      <div className="flex flex-nowrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-500/15 text-slate-400 sm:h-11 sm:w-11">
             <User size={18} />
           </div>
           <div className="min-w-0 overflow-hidden">
-            <h2 className="truncate text-sm font-bold sm:text-base">Ø¯Ø§Ø´Ø¨ÙˆØ±Ø¯ Ø±Ø²Ø±Ùˆ</h2>
-            <p className="hidden truncate text-xs text-slate-400 sm:block">Ù…Ø¯ÛŒØ±ÛŒØª Ø²Ù…Ø§Ù†â€ŒØ¨Ù†Ø¯ÛŒ Ùˆ Ù†ÙˆØ¨Øªâ€ŒÙ‡Ø§</p>
+            <h2 className="truncate text-base font-bold sm:text-lg">داشبورد رزرو</h2>
+            <p className="hidden truncate text-xs text-slate-400 sm:block">مدیریت زمان‌بندی و نوبت‌ها</p>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-          <Link href="/login" className="btn-ghost h-10 px-3 text-sm" aria-label="ÙˆØ±ÙˆØ¯" title="ÙˆØ±ÙˆØ¯">
+        <div className="ml-2 flex shrink-0 flex-nowrap items-center gap-3 sm:ml-3 sm:gap-4">
+          <Link href="/login" className="btn-ghost h-10 px-3 text-sm" aria-label="ورود" title="ورود">
             <LogIn size={18} />
-            <span className="hidden sm:inline">ÙˆØ±ÙˆØ¯</span>
+            <span className="hidden sm:inline">ورود</span>
           </Link>
-          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="ØªØºÛŒÛŒØ± ØªÙ…">
+          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
             {theme === "dark" ? <Sun /> : <MoonStar />}
           </button>
         </div>

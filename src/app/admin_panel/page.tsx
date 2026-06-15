@@ -187,7 +187,7 @@ export default function AdminPanelPage() {
     return (
       <main className="page-shell py-10">
         <div className="mx-auto grid max-w-md gap-6">
-          <div className="card flex items-center justify-between p-4">
+          <div className="card mb-8 flex items-center justify-between p-4 md:mb-10">
             <div className="flex items-center gap-3">
               <ThemeLogo size={44} />
               <div>
@@ -195,7 +195,7 @@ export default function AdminPanelPage() {
                 <div className="text-xs text-slate-400">ورود مدیر سامانه</div>
               </div>
             </div>
-            <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+            <button type="button" className="btn-ghost theme-toggle header-action-btn ml-2 w-10 p-0 sm:ml-3" onClick={toggleTheme} aria-label="تغییر تم">
               {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
             </button>
           </div>
@@ -227,7 +227,7 @@ export default function AdminPanelPage() {
 
   return (
     <main className="page-shell space-y-6 py-6">
-      <div className="card flex flex-wrap items-center gap-3 p-4">
+      <div className="card mb-8 flex flex-wrap items-center gap-3 p-4 md:mb-10">
         <div className="flex items-center gap-3">
           <ThemeLogo size={48} />
           <div>
@@ -235,7 +235,7 @@ export default function AdminPanelPage() {
             <p className="text-sm text-slate-400">کنترل کامل وضعیت سامانه</p>
           </div>
         </div>
-        <div className="ms-auto flex items-center gap-2">
+        <div className="ms-auto ml-2 flex items-center gap-3 sm:ml-3 sm:gap-4">
           <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
             {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
           </button>

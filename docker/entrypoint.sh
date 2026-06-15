@@ -45,7 +45,15 @@ retry_prisma_cmd() {
 }
 
 echo "[entrypoint] waiting for database and applying schema..."
-if [ "$PRISMA_MIGRATE_ON_START" = "true" ] && has_migrations; then
+if [ "$DB_RESET_ON_SCHEMA_CHANGE" = "true" ]; then
+  if [ -n "$CURRENT_SCHEMA_HASH" ] && [ "$CURRENT_SCHEMA_HASH" != "$PREV_SCHEMA_HASH" ]; then
+    echo "[entrypoint] prisma schema changed, pushing database schema..."
+    retry_prisma_cmd "$PRISMA_BIN db push --accept-data-loss"
+    echo "$CURRENT_SCHEMA_HASH" > "$SCHEMA_HASH_FILE"
+  else
+    echo "[entrypoint] prisma schema unchanged."
+  fi
+elif [ "$PRISMA_MIGRATE_ON_START" = "true" ] && has_migrations; then
   while true; do
     set +e
     MIGRATE_OUTPUT="$("$PRISMA_BIN" migrate deploy 2>&1)"
@@ -67,13 +75,6 @@ if [ "$PRISMA_MIGRATE_ON_START" = "true" ] && has_migrations; then
   done
 else
   echo "[entrypoint] prisma migrate deploy skipped."
-fi
-
-if [ "$DB_RESET_ON_SCHEMA_CHANGE" = "true" ] && [ -n "$CURRENT_SCHEMA_HASH" ] && [ "$CURRENT_SCHEMA_HASH" != "$PREV_SCHEMA_HASH" ]; then
-  echo "[entrypoint] prisma schema changed, resetting database..."
-  retry_prisma_cmd "$PRISMA_BIN migrate reset --force --skip-seed"
-  retry_prisma_cmd "$PRISMA_BIN db push --accept-data-loss"
-  echo "$CURRENT_SCHEMA_HASH" > "$SCHEMA_HASH_FILE"
 fi
 
 if [ "$PRISMA_DB_PUSH" = "true" ]; then

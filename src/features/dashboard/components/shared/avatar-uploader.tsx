@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import { UserAvatar } from "@/shared/ui/user-avatar";
 
@@ -12,7 +13,7 @@ type Props = {
   onPreview?: () => void;
 };
 
-const CROP_SIZE = 320;
+const CROP_SIZE = 280;
 
 export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPreview }: Props) {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -25,6 +26,13 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ active: boolean; startX: number; startY: number; originX: number; originY: number }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    originX: 0,
+    originY: 0,
+  });
 
   const baseScale = useMemo(() => {
     if (!natural.w || !natural.h) return 1;
@@ -42,9 +50,27 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
   function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("ÙØ±Ù…Øª ÙØ§ÛŒÙ„ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª");
+    if (!file.type.startsWith("image/")) return toast.error("فرمت فایل معتبر نیست");
     openCrop(file);
     e.target.value = "";
+  }
+
+  function updateZoom(next: number) {
+    setZoom(Math.max(1, Math.min(3, next)));
+  }
+
+  function startDrag(clientX: number, clientY: number) {
+    dragRef.current = { active: true, startX: clientX, startY: clientY, originX: offsetX, originY: offsetY };
+  }
+
+  function moveDrag(clientX: number, clientY: number) {
+    if (!dragRef.current.active) return;
+    setOffsetX(dragRef.current.originX + clientX - dragRef.current.startX);
+    setOffsetY(dragRef.current.originY + clientY - dragRef.current.startY);
+  }
+
+  function stopDrag() {
+    dragRef.current.active = false;
   }
 
   async function buildCroppedBlob() {
@@ -103,7 +129,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
       setProgress(100);
       if (result?.avatarUrl) {
         onUploaded(`${result.avatarUrl}?v=${Date.now()}`);
-        toast.success("Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯");
+        toast.success("عکس پروفایل ذخیره شد");
       }
       setTimeout(() => {
         setSourceUrl(null);
@@ -112,7 +138,7 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
       }, 300);
     } catch (e: any) {
       setUploading(false);
-      toast.error(e?.message || "Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ Ø¹Ú©Ø³");
+      toast.error(e?.message || "خطا در آپلود عکس");
     }
   }
 
@@ -124,41 +150,39 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
       const data = await res.json();
       if (!res.ok) throw new Error(data?.details || data?.error || "REMOVE_FAILED");
       onRemoved();
-      toast.success("Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø­Ø°Ù Ø´Ø¯");
+      toast.success("عکس پروفایل حذف شد");
     } catch (e: any) {
-      toast.error(e?.message || "Ø®Ø·Ø§ Ø¯Ø± Ø­Ø°Ù Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„");
+      toast.error(e?.message || "خطا در حذف عکس پروفایل");
     } finally {
       setRemoving(false);
     }
   }
 
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm text-slate-300">Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„</label>
-      <div className="flex items-center gap-3">
-        <UserAvatar
-          src={currentAvatarUrl}
-          alt="avatar preview"
-          sizeClassName="h-12 w-12"
-          iconSize={16}
-          onClick={onPreview}
-        />
-        <label className="btn-ghost cursor-pointer">
-          Ø§Ù†ØªØ®Ø§Ø¨ Ø¹Ú©Ø³
-          <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-        </label>
-        <button type="button" className="btn-danger" onClick={() => setConfirmRemoveOpen(true)} disabled={removing || !currentAvatarUrl}>
-          {removing ? "Ø¯Ø± Ø­Ø§Ù„ Ø­Ø°Ù..." : "Ø­Ø°Ù Ø¹Ú©Ø³"}
-        </button>
-      </div>
-
-      {sourceUrl && (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/80 p-4">
-          <div className="card w-full max-w-xl p-4">
-            <h3 className="text-lg font-bold">Ø¨Ø±Ø´ Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„</h3>
-            <p className="mt-1 text-xs text-slate-400">Ø®Ø±ÙˆØ¬ÛŒ Ù†Ù‡Ø§ÛŒÛŒ Ø¨Ø±Ø§ÛŒ Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§ÛŒØ±Ù‡â€ŒØ§ÛŒ Ø¢Ù…Ø§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
-            <div className="mt-3 grid place-items-center">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-700" style={{ width: CROP_SIZE, height: CROP_SIZE }}>
+  const cropModal = sourceUrl && typeof document !== "undefined"
+    ? createPortal(
+        <div className="fixed inset-0 z-[70] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-3">
+          <div className="card flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col p-3">
+            <h3 className="text-base font-bold">برش عکس پروفایل</h3>
+            <p className="mt-1 text-xs text-slate-400">تصویر را بکشید و با چرخ موس یا دکمه‌ها بزرگ‌نمایی را تنظیم کنید.</p>
+            <div className="mt-2 grid place-items-center">
+              <div
+                className="relative cursor-grab touch-none select-none overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 active:cursor-grabbing"
+                style={{ width: "min(280px, calc(100vw - 56px))", height: "min(280px, calc(100vw - 56px))" }}
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  startDrag(e.clientX, e.clientY);
+                }}
+                onPointerMove={(e) => moveDrag(e.clientX, e.clientY)}
+                onPointerUp={(e) => {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                  stopDrag();
+                }}
+                onPointerCancel={stopDrag}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  updateZoom(zoom + (e.deltaY > 0 ? -0.08 : 0.08));
+                }}
+              >
                 <Image
                   ref={imgRef}
                   src={sourceUrl}
@@ -166,7 +190,8 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
                   width={CROP_SIZE}
                   height={CROP_SIZE}
                   unoptimized
-                  className="absolute max-w-none"
+                  draggable={false}
+                  className="pointer-events-none absolute max-w-none"
                   onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
                   style={{
                     width: natural.w ? natural.w * baseScale * zoom : "100%",
@@ -175,20 +200,30 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
                     top: CROP_SIZE / 2 - (natural.h * baseScale * zoom) / 2 + offsetY,
                   }}
                 />
+                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-4 ring-slate-950/40" />
+                <div className="pointer-events-none absolute inset-8 rounded-full border border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.36)]" />
               </div>
             </div>
-            <div className="mt-3 space-y-2">
-              <label className="block text-xs text-slate-400">Ø¨Ø²Ø±Ú¯Ù†Ù…Ø§ÛŒÛŒ</label>
-              <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-full" />
-              <label className="block text-xs text-slate-400">Ø¬Ø§Ø¨Ø¬Ø§ÛŒÛŒ Ø§ÙÙ‚ÛŒ</label>
-              <input type="range" min="-180" max="180" step="1" value={offsetX} onChange={(e) => setOffsetX(Number(e.target.value))} className="w-full" />
-              <label className="block text-xs text-slate-400">Ø¬Ø§Ø¨Ø¬Ø§ÛŒÛŒ Ø¹Ù…ÙˆØ¯ÛŒ</label>
-              <input type="range" min="-180" max="180" step="1" value={offsetY} onChange={(e) => setOffsetY(Number(e.target.value))} className="w-full" />
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => updateZoom(zoom - 0.12)} disabled={zoom <= 1}>-</button>
+              <div className="min-w-20 text-center text-xs text-slate-400">{Math.round(zoom * 100)}%</div>
+              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => updateZoom(zoom + 0.12)} disabled={zoom >= 3}>+</button>
+              <button
+                type="button"
+                className="btn-ghost h-9 px-3 text-xs"
+                onClick={() => {
+                  setZoom(1);
+                  setOffsetX(0);
+                  setOffsetY(0);
+                }}
+              >
+                ریست
+              </button>
             </div>
             {uploading && (
-              <div className="mt-4">
+              <div className="mt-2">
                 <div className="mb-1 flex justify-between text-xs text-slate-400">
-                  <span>Ø¯Ø± Ø­Ø§Ù„ Ø¢Ù¾Ù„ÙˆØ¯...</span>
+                  <span>در حال آپلود...</span>
                   <span>{progress}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800">
@@ -196,23 +231,26 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
                 </div>
               </div>
             )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className="btn-ghost" disabled={uploading} onClick={() => setSourceUrl(null)}>Ø§Ù†ØµØ±Ø§Ù</button>
-              <button type="button" className="btn-primary" disabled={uploading} onClick={uploadCropped}>
-                {uploading ? "Ø¯Ø± Ø­Ø§Ù„ Ø¢Ù¾Ù„ÙˆØ¯..." : "Ø°Ø®ÛŒØ±Ù‡ Ø¹Ú©Ø³"}
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" className="btn-ghost h-10" disabled={uploading} onClick={() => setSourceUrl(null)}>انصراف</button>
+              <button type="button" className="btn-primary h-10" disabled={uploading} onClick={uploadCropped}>
+                {uploading ? "در حال آپلود..." : "ذخیره عکس"}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
 
-      {confirmRemoveOpen && (
-        <div className="fixed inset-0 z-[71] grid place-items-center bg-slate-950/80 p-4">
+  const confirmRemoveModal = confirmRemoveOpen && typeof document !== "undefined"
+    ? createPortal(
+        <div className="fixed inset-0 z-[71] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-4">
           <div className="card w-full max-w-md p-4">
-            <h3 className="text-lg font-bold">ØªØ£ÛŒÛŒØ¯ Ø­Ø°Ù Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„</h3>
-            <p className="mt-2 text-sm text-slate-300">Ù…Ø·Ù…Ø¦Ù† Ù‡Ø³ØªÛŒØ¯ Ú©Ù‡ Ù…ÛŒâ€ŒØ®ÙˆØ§Ù‡ÛŒØ¯ Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø±Ø§ Ø­Ø°Ù Ú©Ù†ÛŒØ¯ØŸ</p>
+            <h3 className="text-lg font-bold">تأیید حذف عکس پروفایل</h3>
+            <p className="mt-2 text-sm text-slate-300">مطمئن هستید که می‌خواهید عکس پروفایل را حذف کنید؟</p>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className="btn-ghost" onClick={() => setConfirmRemoveOpen(false)} disabled={removing}>Ø§Ù†ØµØ±Ø§Ù</button>
+              <button type="button" className="btn-ghost" onClick={() => setConfirmRemoveOpen(false)} disabled={removing}>انصراف</button>
               <button
                 type="button"
                 className="btn-danger"
@@ -222,12 +260,37 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
                 }}
                 disabled={removing}
               >
-                {removing ? "Ø¯Ø± Ø­Ø§Ù„ Ø­Ø°Ù..." : "Ø¨Ù„Ù‡ØŒ Ø­Ø°Ù Ú©Ù†"}
+                {removing ? "در حال حذف..." : "بله، حذف کن"}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm text-slate-300">عکس پروفایل</label>
+      <div className="flex items-center gap-3">
+        <UserAvatar
+          src={currentAvatarUrl}
+          alt="avatar preview"
+          sizeClassName="h-12 w-12"
+          iconSize={16}
+          onClick={onPreview}
+        />
+        <label className="btn-ghost cursor-pointer">
+          انتخاب عکس
+          <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+        </label>
+        <button type="button" className="btn-danger" onClick={() => setConfirmRemoveOpen(true)} disabled={removing || !currentAvatarUrl}>
+          {removing ? "در حال حذف..." : "حذف عکس"}
+        </button>
+      </div>
+
+      {cropModal}
+      {confirmRemoveModal}
     </div>
   );
 }

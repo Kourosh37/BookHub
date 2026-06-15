@@ -11,7 +11,7 @@ type Props = {
 
 export function DashboardHeader({ user, theme, onToggleTheme, onLogout, onOpenAvatar }: Props) {
   return (
-    <div className="card p-4 md:p-5">
+    <div className="card mb-8 p-4 md:mb-10 md:p-4">
       <div className="flex flex-wrap items-center gap-3">
         <UserAvatar
           src={user?.avatarUrl}
@@ -24,7 +24,7 @@ export function DashboardHeader({ user, theme, onToggleTheme, onLogout, onOpenAv
           <h1 className="text-xl font-bold md:text-2xl">داشبورد رزرو</h1>
           <p className="mt-1 text-sm text-slate-400">{user ? `${user.username || user.phone} عزیز خوش آمدید` : "مدیریت زمان‌بندی، رزروها و پروفایل"}</p>
         </div>
-        <div className="ms-auto flex items-center gap-2">
+        <div className="ms-auto ml-2 flex items-center gap-3 sm:ml-3 sm:gap-4">
           <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={onToggleTheme} aria-label="تغییر تم">
             {theme === "dark" ? <Sun strokeWidth={2.25} /> : <Moon strokeWidth={2.25} />}
           </button>

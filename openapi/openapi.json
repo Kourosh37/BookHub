@@ -170,10 +170,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "username": {
+                  "identifier": {
                     "type": "string",
-                    "minLength": 3,
-                    "maxLength": 30
+                    "minLength": 3
                   },
                   "password": {
                     "type": "string",
@@ -182,7 +181,7 @@
                   }
                 },
                 "required": [
-                  "username",
+                  "identifier",
                   "password"
                 ]
               }

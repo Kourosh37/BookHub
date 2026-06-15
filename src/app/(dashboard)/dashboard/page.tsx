@@ -35,6 +35,7 @@ import {
   renderAnswers,
   toEnglishDigits,
   toJalaliLabel,
+  toPersianDigits,
   toMinutes,
   toYmd,
   ymdToPersianDateObject,
@@ -458,22 +459,22 @@ export default function DashboardPage() {
     const f = new FormData(e.currentTarget);
 
     if (dayConfigs.length === 0) {
-      const message = "????? ?? ????? ?????? ????";
+      const message = "حداقل یک تاریخ انتخاب کنید";
       setCreateError(message);
       toast.error(message); return;
     }
     if (dayConfigs.some((d) => d.date < todayTehranYmd)) {
-      const message = "????? ?????? ????? ??? ?? ????? ????";
+      const message = "تاریخ انتخابی نباید قبل از امروز باشد";
       setCreateError(message);
       toast.error(message); return;
     }
     if (dayConfigs.some((d) => d.ranges.length === 0)) {
-      const message = "???? ?? ????? ????? ?? ???? ????? ???? ???";
+      const message = "برای هر تاریخ حداقل یک بازه زمانی لازم است";
       setCreateError(message);
       toast.error(message); return;
     }
     if (isInvalidTimeConfig) {
-      const message = "????? ?? ??????? ???? ???????? ????? ?? ????? ????";
+      const message = "حداقل یکی از بازه‌های زمانی انتخاب‌شده معتبر نیست";
       setCreateError(message);
       toast.error(message); return;
     }
@@ -496,7 +497,7 @@ export default function DashboardPage() {
     const data = await res.json();
     if (!res.ok) {
       setCreatingSchedule(false);
-      const message = data.details || data.error || "???";
+      const message = data.details || data.error || "خطا";
       setCreateError(message);
       toast.error(message); return;
     }
@@ -508,7 +509,7 @@ export default function DashboardPage() {
       return [data, ...prevList];
     });
 
-    toast.success("?????? ????? ??");
+    toast.success("برنامه ساخته شد");
     setCreatingSchedule(false);
     setCreateError("");
     setSelectedDates([]);
@@ -548,20 +549,20 @@ export default function DashboardPage() {
           const blob = await fetch(qrDataUrl).then((res) => res.blob());
           const file = new File([blob], "bookhub-qr.png", { type: blob.type || "image/png" });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: "???? ??????", url: qrModal.url, files: [file] });
+            await navigator.share({ title: "لینک رزرو", url: qrModal.url, files: [file] });
             return;
           }
         }
-        await navigator.share({ title: "???? ??????", url: qrModal.url });
+        await navigator.share({ title: "لینک رزرو", url: qrModal.url });
         return;
       } catch {
       }
     }
     try {
       await navigator.clipboard.writeText(qrModal.url);
-      toast.success("???? ??? ??");
+      toast.success("لینک کپی شد");
     } catch {
-      toast.error("????? ???????????? ???? ?????");
+      toast.error("کپی در کلیپ‌بورد ممکن نیست");
     }
   }
 
@@ -578,7 +579,7 @@ export default function DashboardPage() {
     if (bookingFilters.scheduleIds.length === 1) {
       const selected = schedules.find((s: any) => s.id === bookingFilters.scheduleIds[0]);
       return {
-        title: selected?.title || "?????? ???????",
+        title: selected?.title || "برنامه انتخابی",
         stamp: formatJalaliDateTime(now),
         count: filteredBookings.length,
       };
@@ -586,14 +587,14 @@ export default function DashboardPage() {
 
     if (bookingFilters.scheduleIds.length > 1) {
       return {
-        title: `??? ?????? (${bookingFilters.scheduleIds.length})`,
+        title: `چند برنامه (${bookingFilters.scheduleIds.length})`,
         stamp: formatJalaliDateTime(now),
         count: filteredBookings.length,
       };
     }
 
     return {
-      title: "??? ?????????",
+      title: "همه برنامه‌ها",
       stamp: formatJalaliDateTime(now),
       count: filteredBookings.length,
     };
@@ -620,7 +621,7 @@ export default function DashboardPage() {
   function buildExportRows() {
     return filteredBookings.map((b) => ({
       schedule: b.schedule?.title || "-",
-      name: b.bookedByUser?.username || b.bookedByUser?.phone || "?????",
+      name: b.bookedByUser?.username || b.bookedByUser?.phone || "کاربر",
       phone: formatPhoneForExport(b.bookedByUser?.phone || "-"),
       time: b.timeSlot?.startTime ? formatJalaliDateTime(new Date(b.timeSlot.startTime)) : "-",
     }));
@@ -649,10 +650,10 @@ export default function DashboardPage() {
     const lineHeight = 18;
     const cellPad = 8;
     const cols = [
-      { key: "schedule", label: "??????", width: 270 },
-      { key: "name", label: "?????????", width: 220 },
-      { key: "phone", label: "?????", width: 170 },
-      { key: "time", label: "????", width: 280 },
+      { key: "schedule", label: "برنامه", width: 270 },
+      { key: "name", label: "رزروکننده", width: 220 },
+      { key: "phone", label: "شماره", width: 170 },
+      { key: "time", label: "زمان", width: 280 },
     ] as const;
     const tableWidth = cols.reduce((sum, c) => sum + c.width, 0);
     const baseWidth = padding * 2 + tableWidth;
@@ -679,11 +680,11 @@ export default function DashboardPage() {
 
     ctx.fillStyle = "#0f172a";
     ctx.font = '700 22px "Vazirmatn", Tahoma, sans-serif';
-    ctx.fillText("????? ??????", baseWidth - padding, 40);
+    ctx.fillText("گزارش رزروها", baseWidth - padding, 40);
     ctx.fillStyle = "#475569";
     ctx.font = '400 12px "Vazirmatn", Tahoma, sans-serif';
-    ctx.fillText(`${context.title} � ${context.count} ????`, baseWidth - padding, 64);
-    ctx.fillText(`???? ??????: ${context.stamp}`, baseWidth - padding, 84);
+    ctx.fillText(`${context.title} · ${context.count} رزرو`, baseWidth - padding, 64);
+    ctx.fillText(`زمان خروجی: ${context.stamp}`, baseWidth - padding, 84);
 
     let y = tableTop;
     let x = padding;
@@ -734,7 +735,7 @@ export default function DashboardPage() {
       link.download = `bookings-${fileStamp}.png`;
       link.click();
     } catch {
-      toast.error("????? ????? ?????? ???");
+      toast.error("ساخت تصویر ناموفق بود");
     } finally {
       setExportingImage(false);
       setIsExportMenuOpen(false);
@@ -744,51 +745,142 @@ export default function DashboardPage() {
   async function exportBookingsAsPdf() {
     setExportingPdf(true);
     try {
-      const { canvas, now } = await renderExportCanvas();
-      const pngDataUrl = canvas.toDataURL("image/png");
+      const now = new Date();
+      const context = buildExportContext(now);
+      const rows = buildExportRows();
+      setExportContext(context);
 
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       doc.setProperties({
-        title: "????? ??????",
+        title: "گزارش رزروها",
         subject: "Bookings Export",
         author: "BookHub",
         creator: "BookHub Dashboard",
       });
 
+      const fontRes = await fetch("/fonts/Vazirmatn-Regular.ttf");
+      if (!fontRes.ok) throw new Error("PDF_FONT_LOAD_FAILED");
+      const fontBuffer = await fontRes.arrayBuffer();
+      const fontBytes = new Uint8Array(fontBuffer);
+      let fontBinary = "";
+      fontBytes.forEach((byte) => {
+        fontBinary += String.fromCharCode(byte);
+      });
+      doc.addFileToVFS("Vazirmatn-Regular.ttf", btoa(fontBinary));
+      doc.addFont("Vazirmatn-Regular.ttf", "Vazirmatn", "normal");
+      doc.setFont("Vazirmatn", "normal");
+      doc.setR2L(false);
+
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const marginX = 36;
-      const marginY = 28;
+      const marginTop = 32;
+      const marginBottom = 42;
       const contentWidth = pageWidth - marginX * 2;
-      const contentHeight = pageHeight - marginY * 2;
-      const imageMeta = doc.getImageProperties(pngDataUrl);
-      const renderedHeight = (imageMeta.height * contentWidth) / imageMeta.width;
-      let positionY = marginY;
-      let remainingHeight = renderedHeight;
+      const tableBottom = pageHeight - marginBottom;
+      const cellPad = 7;
+      const lineHeight = 15;
+      const headerHeight = 30;
+      const columns = [
+        { key: "schedule", label: "برنامه", width: 185 },
+        { key: "name", label: "رزروکننده", width: 120 },
+        { key: "phone", label: "شماره", width: 92 },
+        { key: "time", label: "زمان", width: contentWidth - 185 - 120 - 92 },
+      ] as const;
 
-      doc.addImage(pngDataUrl, "PNG", marginX, positionY, contentWidth, renderedHeight, undefined, "FAST");
-      remainingHeight -= contentHeight;
+      const preparePdfText = (value: string) => {
+        return String(value || "-");
+      };
 
-      while (remainingHeight > 0) {
+      const asLines = (value: string, width: number) => {
+        doc.setFontSize(10);
+        const split = doc.splitTextToSize(String(value || "-"), width - cellPad * 2);
+        return (Array.isArray(split) ? split : [split]).map((line) => String(line || "-"));
+      };
+
+      const drawHeader = (startY: number) => {
+        let right = marginX + contentWidth;
+        doc.setLineWidth(0.7);
+        columns.forEach((col) => {
+          const x = right - col.width;
+          doc.setFillColor(241, 245, 249);
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(x, startY, col.width, headerHeight, "FD");
+          doc.setTextColor(30, 41, 59);
+          doc.setFontSize(10.5);
+          doc.text(preparePdfText(col.label), x + col.width - cellPad, startY + 19, { align: "right" });
+          right = x;
+        });
+      };
+
+      const addReportHeader = () => {
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(18);
+        doc.text(preparePdfText("گزارش رزروها"), pageWidth - marginX, marginTop, { align: "right" });
+        doc.setTextColor(71, 85, 105);
+        doc.setFontSize(10);
+        doc.text(preparePdfText(`${context.title} · ${toPersianDigits(String(context.count))} رزرو`), pageWidth - marginX, marginTop + 22, { align: "right" });
+        doc.text(preparePdfText(`زمان خروجی: ${context.stamp}`), pageWidth - marginX, marginTop + 40, { align: "right" });
+      };
+
+      const addTablePage = (startY: number) => {
         doc.addPage();
-        positionY = marginY - (renderedHeight - remainingHeight);
-        doc.addImage(pngDataUrl, "PNG", marginX, positionY, contentWidth, renderedHeight, undefined, "FAST");
-        remainingHeight -= contentHeight;
+        drawHeader(startY);
+        return startY + headerHeight;
+      };
+
+      addReportHeader();
+      let y = marginTop + 64;
+      drawHeader(y);
+      y += headerHeight;
+
+      rows.forEach((row, rowIndex) => {
+        const rowLines = columns.map((col) => asLines(String(row[col.key]), col.width));
+        const rowHeight = Math.max(30, Math.max(...rowLines.map((lines) => lines.length)) * lineHeight + cellPad * 2);
+        if (y + rowHeight > tableBottom) {
+          y = addTablePage(marginTop);
+        }
+
+        let right = marginX + contentWidth;
+        columns.forEach((col, colIndex) => {
+          const x = right - col.width;
+          doc.setFillColor(rowIndex % 2 === 0 ? 255 : 248, rowIndex % 2 === 0 ? 255 : 250, rowIndex % 2 === 0 ? 255 : 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.rect(x, y, col.width, rowHeight, "FD");
+          doc.setTextColor(15, 23, 42);
+          doc.setFontSize(10);
+          rowLines[colIndex].forEach((line, lineIndex) => {
+            doc.text(preparePdfText(line), x + col.width - cellPad, y + cellPad + 11 + lineIndex * lineHeight, { align: "right" });
+          });
+          right = x;
+        });
+        y += rowHeight;
+      });
+
+      if (rows.length === 0) {
+        const rowHeight = 34;
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(marginX, y, contentWidth, rowHeight, "FD");
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(10);
+        doc.text(preparePdfText("رزروی برای خروجی وجود ندارد."), pageWidth - marginX - cellPad, y + 21, { align: "right" });
       }
 
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i += 1) {
         doc.setPage(i);
-        doc.setFontSize(9);
+        doc.setFont("Vazirmatn", "normal");
+        doc.setFontSize(9.5);
         doc.setTextColor(100, 116, 139);
-        doc.text(`???? ${i} ?? ${pageCount}`, marginX, pageHeight - 18, { align: "left" });
+        doc.text(preparePdfText(`صفحه ${toPersianDigits(String(i))} از ${toPersianDigits(String(pageCount))}`), pageWidth / 2, pageHeight - 18, { align: "center" });
       }
 
       const fileStamp = getExportFileStamp(now);
       doc.save(`bookings-${fileStamp}.pdf`);
     } catch {
-      toast.error("????? PDF ?????? ???");
+      toast.error("ساخت PDF ناموفق بود");
     } finally {
       setExportingPdf(false);
       setIsExportMenuOpen(false);
@@ -801,8 +893,11 @@ export default function DashboardPage() {
     const res = await fetch(`/api/bookings/${cancelTarget.id}/cancel`, { method: "POST" });
     const data = await res.json();
     setCancelLoading(false);
-    if (!res.ok) toast.error(data.details || data.error || "??? ?? ???? ????"); return;
-    toast.success("???? ?? ?????? ???? ??");
+    if (!res.ok) {
+      toast.error(data.details || data.error || "خطا در کنسل رزرو");
+      return;
+    }
+    toast.success("رزرو با موفقیت کنسل شد");
     setCancelTarget(null);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["bookings", "my"] }),
@@ -822,8 +917,14 @@ export default function DashboardPage() {
 
   async function saveScheduleTitle(scheduleId: string) {
     const title = editingTitle.trim();
-    if (title.length < 3) toast.error("????? ?????? ???? ????? ? ??????? ????"); return;
-    if (title.length > 120) toast.error("????? ?????? ????????? ????? ?? ??? ??????? ????"); return;
+    if (title.length < 3) {
+      toast.error("عنوان برنامه باید حداقل ۳ کاراکتر باشد");
+      return;
+    }
+    if (title.length > 120) {
+      toast.error("عنوان برنامه نمی‌تواند بیشتر از ۱۲۰ کاراکتر باشد");
+      return;
+    }
 
     setSavingTitle(true);
     const res = await fetch(`/api/schedules/id/${scheduleId}`, {
@@ -834,10 +935,13 @@ export default function DashboardPage() {
     const data = await res.json();
     setSavingTitle(false);
 
-    if (!res.ok) toast.error(data.details || data.error || "??? ?? ?????? ????? ??????"); return;
+    if (!res.ok) {
+      toast.error(data.details || data.error || "خطا در ذخیره عنوان برنامه");
+      return;
+    }
 
     await queryClient.invalidateQueries({ queryKey: ["schedules", "my"] });
-    toast.success("??? ?????? ?????? ??");
+    toast.success("نام برنامه ذخیره شد");
     stopEditScheduleTitle();
   }
 
@@ -847,9 +951,12 @@ export default function DashboardPage() {
     const res = await fetch(`/api/schedules/id/${deleteScheduleTarget.id}`, { method: "DELETE" });
     const data = await res.json();
     setDeletingSchedule(false);
-    if (!res.ok) toast.error(data.details || data.error || "??? ?? ??? ??????"); return;
+    if (!res.ok) {
+      toast.error(data.details || data.error || "خطا در حذف برنامه");
+      return;
+    }
 
-    toast.success("?????? ??? ??");
+    toast.success("برنامه حذف شد");
     setDeleteScheduleTarget(null);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["schedules", "my"] }),
@@ -873,7 +980,7 @@ export default function DashboardPage() {
 
     if (!res.ok) {
       setSmsPreferences(previous);
-      setSmsPreferencesError(data.details || data.error || "??? ?? ????? ??????? ?????");
+      setSmsPreferencesError(data.details || data.error || "خطا در ذخیره تنظیمات پیامک");
       return;
     }
 
@@ -887,21 +994,24 @@ export default function DashboardPage() {
       const res = await fetch("/api/profile/delete/request-otp", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data.details || data.error || "???";
+        const msg = data.details || data.error || "خطا";
         const match = String(msg).match(/(\d+)/);
         if (match) setDeleteOtpCooldown(Number(match[1]));
         toast.error(msg);
         return;
       }
       setDeleteOtpCooldown(120);
-      toast.success("?? ????? ????? ??");
+      toast.success("کد تایید ارسال شد");
     } finally {
       setRequestingDeleteOtp(false);
     }
   }
 
   async function confirmDeleteAccount() {
-    if (!deleteCode.trim()) toast.error("?? ????? ?? ???? ????"); return;
+    if (!deleteCode.trim()) {
+      toast.error("کد تایید را وارد کنید");
+      return;
+    }
     setDeletingAccount(true);
     const res = await fetch("/api/profile/delete/confirm", {
       method: "POST",
@@ -910,7 +1020,10 @@ export default function DashboardPage() {
     });
     setDeletingAccount(false);
     const data = await res.json();
-    if (!res.ok) toast.error(data.details || data.error || "??? ???? ?????? ???"); return;
+    if (!res.ok) {
+      toast.error(data.details || data.error || "حذف حساب ناموفق بود");
+      return;
+    }
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   }
@@ -922,7 +1035,7 @@ export default function DashboardPage() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onLogout={logout}
-        onOpenAvatar={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "?????")}
+        onOpenAvatar={() => openAvatarPreview(user?.avatarUrl, user?.username || user?.phone || "کاربر")}
       />
       <DashboardDesktopTabs tab={tab} onTabChange={setTab} />
 
