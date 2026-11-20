@@ -1,2 +1,3 @@
 * text=auto
 *.sh text eol=lf
+openapi/openapi.json text eol=lf

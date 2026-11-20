@@ -117,13 +117,16 @@ const responses: Record<string, z.ZodType> = {
   "patch /api/admin/sms-settings": updateAdminSmsSettingsSchema,
 };
 function walk(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory()
-      ? walk(join(dir, e.name))
-      : e.name === "route.ts"
-        ? [join(dir, e.name)]
-        : [],
-  );
+  // Use code-point ordering; filesystem order and locale vary across platforms.
+  return readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .flatMap((e) =>
+      e.isDirectory()
+        ? walk(join(dir, e.name))
+        : e.name === "route.ts"
+          ? [join(dir, e.name)]
+          : [],
+    );
 }
 const root = join(process.cwd(), "src", "app");
 for (const file of walk(join(root, "api"))) {
