@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { CalendarDays, Clock3, Link2, ShieldCheck } from "lucide-react";
 import { PublicHeader } from "@/shared/ui/public-header";
 import { ThemeLogo } from "@/shared/ui/theme-logo";
@@ -10,11 +10,16 @@ export default function Home() {
       <div className="grid gap-5 lg:grid-cols-3">
         <section className="card p-7 sm:p-8 lg:col-span-2">
           <div className="flex flex-row items-center gap-4 sm:items-start sm:gap-5">
-            <ThemeLogo size={120} className="h-20 w-20 shrink-0 rounded-2xl object-contain sm:h-24 sm:w-24" priority />
+            <ThemeLogo
+              size={120}
+              className="h-20 w-20 shrink-0 rounded-2xl object-contain sm:h-24 sm:w-24"
+              priority
+            />
             <div className="space-y-3">
               <h1 className="text-3xl font-extrabold sm:text-4xl">بوک هاب</h1>
               <p className="text-base text-slate-400 sm:text-lg">
-                مدیریت رزرو جلسه برای تیم‌ها، مشاوران و مدرس‌ها با لینک اشتراکی، زمان‌بندی دقیق و ثبت خودکار نوبت‌ها.
+                مدیریت رزرو جلسه برای تیم‌ها، مشاوران و مدرس‌ها با لینک اشتراکی،
+                زمان‌بندی دقیق و ثبت خودکار نوبت‌ها.
               </p>
             </div>
           </div>
@@ -22,17 +27,26 @@ export default function Home() {
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl bg-slate-500/10 p-4">
               <p className="text-sm font-semibold">ساخت برنامه زمانی</p>
-              <p className="mt-1 text-sm text-slate-400">برای هر روز بازه تعریف کن، مدت جلسه تعیین کن و لینک رزرو تحویل بده.</p>
+              <p className="mt-1 text-sm text-slate-400">
+                برای هر روز بازه تعریف کن، مدت جلسه تعیین کن و لینک رزرو تحویل
+                بده.
+              </p>
             </div>
             <div className="rounded-xl bg-slate-500/10 p-4">
               <p className="text-sm font-semibold">کنترل رزروها</p>
-              <p className="mt-1 text-sm text-slate-400">رزروهای ثبت‌شده، پاسخ فرم‌ها و وضعیت جلسات را یکجا مدیریت کن.</p>
+              <p className="mt-1 text-sm text-slate-400">
+                رزروهای ثبت‌شده، پاسخ فرم‌ها و وضعیت جلسات را یکجا مدیریت کن.
+              </p>
             </div>
           </div>
 
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/register" className="btn-primary">شروع رایگان</Link>
-            <Link href="/login" className="btn-ghost">ورود به حساب</Link>
+            <Link prefetch={false} href="/register" className="btn-primary">
+              شروع رایگان
+            </Link>
+            <Link prefetch={false} href="/login" className="btn-ghost">
+              ورود به حساب
+            </Link>
           </div>
         </section>
 
@@ -62,4 +76,3 @@ export default function Home() {
     </main>
   );
 }
-

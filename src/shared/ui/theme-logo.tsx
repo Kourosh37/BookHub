@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import { useUIStore } from "@/shared/store/ui-store";
@@ -9,7 +9,11 @@ type ThemeLogoProps = {
   priority?: boolean;
 };
 
-export function ThemeLogo({ size = 96, className, priority = false }: ThemeLogoProps) {
+export function ThemeLogo({
+  size = 96,
+  className,
+  priority = false,
+}: ThemeLogoProps) {
   const theme = useUIStore((s) => s.theme);
   const src = theme === "light" ? "/logo-light.svg" : "/logo-dark.svg";
 
@@ -24,4 +28,3 @@ export function ThemeLogo({ size = 96, className, priority = false }: ThemeLogoP
     />
   );
 }
-

@@ -1,5 +1,6 @@
-﻿import { verifyAuthOtp } from "@/services/auth/auth-service";
+import { handleRoute } from "@/lib/errors";
+import { verifyAuthOtp } from "@/services/auth/auth-service";
 
 export async function POST(req: Request) {
-  return verifyAuthOtp(req);
+  return handleRoute(() => verifyAuthOtp(req));
 }

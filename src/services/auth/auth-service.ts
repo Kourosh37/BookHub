@@ -1,270 +1,169 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { requestOtpSchema, verifyOtpSchema, passwordLoginSchema } from "@/lib/validations";
-import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
-import { cacheGetCooldownRemaining, cacheSetCooldown } from "@/lib/cache";
-import { withRequestId } from "@/lib/logger";
-import { sendOtpSms } from "@/lib/sms";
-import { guardEntityRateLimit, guardIpRateLimit } from "@/lib/anti-abuse";
+import {
+  requestOtpSchema,
+  verifyOtpSchema,
+  passwordLoginSchema,
+} from "@/lib/validations";
+import {
+  clientIp,
+  guardEntityRateLimit,
+  guardIpRateLimit,
+} from "@/lib/anti-abuse";
 import { createSession, clearSession, getSession } from "@/lib/auth";
 import { normalizePhoneInput } from "@/lib/phone";
-import { assertOtpNotLocked, clearOtpAttemptState, registerOtpFailure } from "@/lib/otp-security";
-
-function normalizeLoginPhone(value: string) {
-  return normalizePhoneInput(value);
-}
+import { issueOtp, verifyOtpAndRun } from "@/lib/otp-security";
+import { HttpError, parseBody } from "@/lib/errors";
+import { positiveInt } from "@/lib/config";
 
 export async function requestOtp(req: Request) {
-  const log = withRequestId(req.headers.get("x-request-id"));
-  const body = await req.json();
-  const parsed = requestOtpSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
-  }
-
-  const { phone, mode } = parsed.data;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const data = await parseBody(req, requestOtpSchema);
+  const ip = clientIp(req);
   const ipRate = await guardIpRateLimit({
     keyPrefix: "rate:otp",
     ip,
-    limit: Number(process.env.OTP_RATE_LIMIT_IP_MAX || "10"),
-    windowSeconds: Number(process.env.OTP_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
+    limit: positiveInt(process.env.OTP_RATE_LIMIT_IP_MAX, 10),
+    windowSeconds: positiveInt(
+      process.env.OTP_RATE_LIMIT_IP_WINDOW_SECONDS,
+      60,
+    ),
   });
   const phoneRate = await guardEntityRateLimit({
     keyPrefix: "rate:otp",
-    entity: phone,
-    limit: Number(process.env.OTP_RATE_LIMIT_PHONE_MAX || "5"),
-    windowSeconds: Number(process.env.OTP_RATE_LIMIT_PHONE_WINDOW_SECONDS || "300"),
+    entity: data.phone,
+    limit: positiveInt(process.env.OTP_RATE_LIMIT_PHONE_MAX, 5),
+    windowSeconds: positiveInt(
+      process.env.OTP_RATE_LIMIT_PHONE_WINDOW_SECONDS,
+      300,
+    ),
   });
-
-  if (!ipRate.allowed || !phoneRate.allowed) {
-    const retryAfter = Math.max(ipRate.retryAfterSeconds, phoneRate.retryAfterSeconds);
-    return NextResponse.json(
-      { error: "Too many requests", details: `Try again in ${retryAfter} seconds` },
-      { status: 429 },
+  if (!ipRate.allowed || !phoneRate.allowed)
+    throw new HttpError(
+      429,
+      "Too many requests",
+      Math.max(ipRate.retryAfterSeconds, phoneRate.retryAfterSeconds),
     );
-  }
-
-  const otpPurpose = mode === "password_reset" ? "PASSWORD_RESET" : "AUTH";
-  const lock = await assertOtpNotLocked(phone, otpPurpose);
-  if (lock.locked) {
-    return NextResponse.json(
-      { error: "OTP temporarily locked", details: `Try again in ${lock.retryAfterSeconds} seconds` },
-      { status: 429 },
-    );
-  }
-
-  if (mode === "register") {
-    const userByPhone = await prisma.user.findFirst({ where: { phone } });
-    if (userByPhone) return NextResponse.json({ error: "Phone already registered" }, { status: 409 });
-
-    if (parsed.data.username) {
-      const userByUsername = await prisma.user.findFirst({ where: { username: parsed.data.username } });
-      if (userByUsername) return NextResponse.json({ error: "Username already registered" }, { status: 409 });
-    }
-  }
-
-  if (mode === "login_phone") {
-    const userByPhone = await prisma.user.findFirst({ where: { phone } });
-    if (!userByPhone) {
-      return NextResponse.json({ error: "User not found", details: "Register first" }, { status: 404 });
-    }
-  }
-
-  const purpose = otpPurpose;
-  const cooldownSeconds = getOtpResendCooldownSeconds();
-  const cooldownKey = `otp:cooldown:${purpose}:${phone}`;
-
-  const redisRemaining = await cacheGetCooldownRemaining(cooldownKey);
-  if (redisRemaining) {
-    return NextResponse.json(
-      { error: "Resend is not allowed yet", details: `Try again in ${redisRemaining} seconds` },
-      { status: 429 },
-    );
-  }
-
-  const latest = await prisma.otpCode.findFirst({
-    where: { phone, purpose },
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
+  if (data.mode === "password_reset")
+    throw new HttpError(400, "Use the authenticated password reset endpoint");
+  const existing = await prisma.user.findUnique({
+    where: { phone: data.phone },
   });
-
-  if (latest) {
-    const elapsedMs = Date.now() - latest.createdAt.getTime();
-    const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    if (elapsedSeconds < cooldownSeconds) {
-      const remain = cooldownSeconds - elapsedSeconds;
-      await cacheSetCooldown(cooldownKey, remain);
-      return NextResponse.json(
-        { error: "Resend is not allowed yet", details: `Try again in ${remain} seconds` },
-        { status: 429 },
-      );
-    }
-  }
-
-  const code = generateOtpCode();
-  const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
-  const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 12) : null;
-
-  const createdOtp = await prisma.otpCode.create({
-    data: {
-      phone,
-      codeHash: hashOtp(phone, code),
-      expiresAt,
-      purpose,
-      username: parsed.data.username || null,
-      passwordHash,
-    },
-  });
-
-  try {
-    const smsResult = await sendOtpSms({ phone, code });
-    log.info({ phone, mode, purpose, providerMessageId: smsResult.messageId }, "otp sms sent");
-  } catch (error: any) {
-    log.error({ phone, mode, purpose, error: error?.message }, "otp sms failed");
-    await prisma.otpCode.delete({ where: { id: createdOtp.id } }).catch(() => {});
-    return NextResponse.json(
-      { error: "SMS delivery failed", details: "Unable to send OTP right now" },
-      { status: 502 },
-    );
-  }
-
-  await cacheSetCooldown(cooldownKey, cooldownSeconds);
-  log.info({ phone, mode, purpose }, "otp requested");
-
-  return NextResponse.json({
-    ok: true,
-    expiresInSeconds: getOtpExpiryMinutes() * 60,
-    sms: { sent: true },
-  });
+  if (data.mode === "register") {
+    if (existing) throw new HttpError(409, "Phone already registered");
+    if (await prisma.user.findUnique({ where: { username: data.username! } }))
+      throw new HttpError(409, "Username already registered");
+  } else if (!existing) throw new HttpError(404, "User not found");
+  const registration =
+    data.mode === "register"
+      ? {
+          username: data.username!,
+          passwordHash: await bcrypt.hash(data.password!, 12),
+        }
+      : undefined;
+  return NextResponse.json(await issueOtp(data.phone, "AUTH", registration));
 }
-
 export async function verifyAuthOtp(req: Request) {
-  const body = await req.json();
-  const parsed = verifyOtpSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
-  }
-
-  const phone = parsed.data.phone;
-  const codeHash = hashOtp(phone, parsed.data.code);
-
-  const otp = await prisma.otpCode.findFirst({
-    where: {
-      phone,
-      codeHash,
-      purpose: "AUTH",
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
+  const data = await parseBody(req, verifyOtpSchema);
+  const ip = clientIp(req);
+  const rate = await guardIpRateLimit({
+    keyPrefix: "rate:otp-verify",
+    ip,
+    limit: positiveInt(process.env.OTP_VERIFY_RATE_LIMIT_IP_MAX, 30),
+    windowSeconds: 60,
+  });
+  if (!rate.allowed)
+    throw new HttpError(
+      429,
+      "Too many verification attempts",
+      rate.retryAfterSeconds,
+    );
+  const user = await verifyOtpAndRun(
+    data.phone,
+    data.code,
+    "AUTH",
+    async (tx, otp) => {
+      const existing = await tx.user.findUnique({
+        where: { phone: data.phone },
+      });
+      if (existing) return existing;
+      if (!otp.username || !otp.passwordHash)
+        throw new HttpError(404, "Account not found");
+      return tx.user.create({
+        data: {
+          phone: data.phone,
+          username: otp.username,
+          password: otp.passwordHash,
+        },
+      });
     },
-    orderBy: { createdAt: "desc" },
+  );
+  await createSession({
+    userId: user.id,
+    phone: user.phone!,
+    sessionVersion: user.sessionVersion,
   });
-
-  if (!otp) {
-    await registerOtpFailure(phone, "AUTH");
-    return NextResponse.json({ error: "Invalid OTP code", details: "OTP is invalid or expired" }, { status: 401 });
-  }
-  await clearOtpAttemptState(phone, "AUTH");
-
-  await prisma.otpCode.update({
-    where: { id: otp.id },
-    data: { consumedAt: new Date() },
-  });
-
-  let user = await prisma.user.findFirst({ where: { phone } });
-  if (!user) {
-    if (!otp.username || !otp.passwordHash) {
-      return NextResponse.json({ error: "Account not found", details: "Register first for this phone" }, { status: 404 });
-    }
-    user = await prisma.user.create({
-      data: {
-        phone,
-        username: otp.username || null,
-        password: otp.passwordHash || null,
-      },
-    });
-  }
-
-  await createSession({ userId: user.id, phone: user.phone || phone });
-  return NextResponse.json({ id: user.id, phone: user.phone || phone });
+  return NextResponse.json({ ok: true, id: user.id, phone: user.phone });
 }
-
 export async function passwordLogin(req: Request) {
-  const log = withRequestId(req.headers.get("x-request-id"));
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIp(req);
   const ipRate = await guardIpRateLimit({
     keyPrefix: "rate:login-password",
     ip,
-    limit: Number(process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_MAX || "20"),
-    windowSeconds: Number(process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_WINDOW_SECONDS || "60"),
+    limit: positiveInt(process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_MAX, 20),
+    windowSeconds: positiveInt(
+      process.env.LOGIN_PASSWORD_RATE_LIMIT_IP_WINDOW_SECONDS,
+      60,
+    ),
   });
-
-  if (!ipRate.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests", details: `Try again in ${ipRate.retryAfterSeconds} seconds` },
-      { status: 429 },
-    );
-  }
-
-  const body = await req.json();
-  const parsed = passwordLoginSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const path = issue?.path?.join(".") || "payload";
-    return NextResponse.json({ error: "Invalid request payload", details: `${path}: ${issue?.message || "invalid"}` }, { status: 400 });
-  }
-
-  const rawIdentifier = parsed.data.identifier;
-  const normalizedPhone = normalizeLoginPhone(rawIdentifier);
+  if (!ipRate.allowed)
+    throw new HttpError(429, "Too many requests", ipRate.retryAfterSeconds);
+  const data = await parseBody(req, passwordLoginSchema);
+  const entityRate = await guardEntityRateLimit({
+    keyPrefix: "rate:login-password",
+    entity:
+      normalizePhoneInput(data.identifier) || data.identifier.toLowerCase(),
+    limit: 10,
+    windowSeconds: 300,
+  });
+  if (!entityRate.allowed)
+    throw new HttpError(429, "Too many requests", entityRate.retryAfterSeconds);
+  const phone = normalizePhoneInput(data.identifier);
   const user = await prisma.user.findFirst({
-    where: normalizedPhone
-      ? { OR: [{ phone: normalizedPhone }, { username: rawIdentifier }] }
-      : { username: rawIdentifier },
+    where: phone
+      ? { OR: [{ phone }, { username: data.identifier }] }
+      : { username: data.identifier },
   });
-  if (!user?.password || !user.phone) {
-    log.warn({ identifier: rawIdentifier }, "password login user not found");
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  const ok = await bcrypt.compare(parsed.data.password, user.password);
-  if (!ok) {
-    log.warn({ userId: user.id }, "password login invalid password");
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
-  }
-
-  await createSession({ userId: user.id, phone: user.phone });
-  log.info({ userId: user.id }, "password login success");
+  // Use the same work factor and response for missing accounts and bad passwords.
+  const valid = await bcrypt.compare(
+    data.password,
+    user?.password ||
+      "$2b$12$wC2EY6WQZjaQDFnkdLl9k.oJNEoWFU8VLmJQDBqHM1n5H/4RwtJqK",
+  );
+  if (!valid || !user?.phone) throw new HttpError(401, "Invalid credentials");
+  await createSession({
+    userId: user.id,
+    phone: user.phone,
+    sessionVersion: user.sessionVersion,
+  });
   return NextResponse.json({ ok: true });
 }
-
 export async function authMe() {
   const session = await getSession();
-  if (!session) {
-    return NextResponse.json(
-      { user: null },
-      { status: 401, headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
-    );
-  }
+  if (!session) return NextResponse.json({ user: null }, { status: 401 });
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, phone: true, username: true, avatarUrl: true, smsPreferences: true },
+    select: {
+      id: true,
+      phone: true,
+      username: true,
+      avatarUrl: true,
+      smsPreferences: true,
+    },
   });
-  return NextResponse.json(
-    { user: user || session },
-    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
-  );
+  return NextResponse.json({ user });
 }
-
 export async function authLogout() {
-  clearSession();
+  await clearSession();
   return NextResponse.json({ ok: true });
 }
-

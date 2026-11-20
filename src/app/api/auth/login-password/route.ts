@@ -1,5 +1,6 @@
-﻿import { passwordLogin } from "@/services/auth/auth-service";
+import { handleRoute } from "@/lib/errors";
+import { passwordLogin } from "@/services/auth/auth-service";
 
 export async function POST(req: Request) {
-  return passwordLogin(req);
+  return handleRoute(() => passwordLogin(req));
 }

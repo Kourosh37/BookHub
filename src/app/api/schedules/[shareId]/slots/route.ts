@@ -1,7 +1,12 @@
-﻿import { scheduleSlots } from "@/services/schedules/schedules-service";
+import { handleRoute } from "@/lib/errors";
+import { scheduleSlots } from "@/services/schedules/schedules-service";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request, { params }: { params: { shareId: string } }) {
-  return scheduleSlots(req, params.shareId);
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ shareId: string }> },
+) {
+  const { shareId } = await params;
+  return handleRoute(() => scheduleSlots(req, shareId));
 }

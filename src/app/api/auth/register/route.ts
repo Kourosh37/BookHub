@@ -1,5 +1,6 @@
-﻿import { requestOtp } from "@/services/auth/auth-service";
+import { handleRoute } from "@/lib/errors";
+import { requestOtp } from "@/services/auth/auth-service";
 
 export async function POST(req: Request) {
-  return requestOtp(req);
+  return handleRoute(() => requestOtp(req));
 }

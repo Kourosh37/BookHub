@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
@@ -15,7 +15,12 @@ type Props = {
 
 const CROP_SIZE = 280;
 
-export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPreview }: Props) {
+export function AvatarUploader({
+  currentAvatarUrl,
+  onUploaded,
+  onRemoved,
+  onPreview,
+}: Props) {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offsetX, setOffsetX] = useState(0);
@@ -26,13 +31,26 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const dragRef = useRef<{ active: boolean; startX: number; startY: number; originX: number; originY: number }>({
+  const dragRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  }>({
     active: false,
     startX: 0,
     startY: 0,
     originX: 0,
     originY: 0,
   });
+
+  useEffect(
+    () => () => {
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    },
+    [sourceUrl],
+  );
 
   const baseScale = useMemo(() => {
     if (!natural.w || !natural.h) return 1;
@@ -50,7 +68,8 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
   function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("فرمت فایل معتبر نیست");
+    if (!file.type.startsWith("image/"))
+      return toast.error("فرمت فایل معتبر نیست");
     openCrop(file);
     e.target.value = "";
   }
@@ -60,7 +79,13 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
   }
 
   function startDrag(clientX: number, clientY: number) {
-    dragRef.current = { active: true, startX: clientX, startY: clientY, originX: offsetX, originY: offsetY };
+    dragRef.current = {
+      active: true,
+      startX: clientX,
+      startY: clientY,
+      originX: offsetX,
+      originY: offsetY,
+    };
   }
 
   function moveDrag(clientX: number, clientY: number) {
@@ -88,13 +113,23 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
     const drawY = CROP_SIZE / 2 - renderH / 2 + offsetY;
     const factor = 512 / CROP_SIZE;
 
-    ctx.drawImage(img, drawX * factor, drawY * factor, renderW * factor, renderH * factor);
+    ctx.drawImage(
+      img,
+      drawX * factor,
+      drawY * factor,
+      renderW * factor,
+      renderH * factor,
+    );
 
     return new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) return reject(new Error("BLOB_FAILED"));
-        resolve(blob);
-      }, "image/jpeg", 0.9);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("BLOB_FAILED"));
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.9,
+      );
     });
   }
 
@@ -111,13 +146,18 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
         xhr.open("POST", "/api/profile/avatar");
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return;
-          setProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+          setProgress(
+            Math.min(99, Math.round((event.loaded / event.total) * 100)),
+          );
         };
         xhr.onload = () => {
           try {
             const data = JSON.parse(xhr.responseText || "{}");
             if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-            else reject(new Error(data?.details || data?.error || "UPLOAD_FAILED"));
+            else
+              reject(
+                new Error(data?.details || data?.error || "UPLOAD_FAILED"),
+              );
           } catch {
             reject(new Error("UPLOAD_FAILED"));
           }
@@ -148,7 +188,8 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
       setRemoving(true);
       const res = await fetch("/api/profile/avatar", { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.details || data?.error || "REMOVE_FAILED");
+      if (!res.ok)
+        throw new Error(data?.details || data?.error || "REMOVE_FAILED");
       onRemoved();
       toast.success("عکس پروفایل حذف شد");
     } catch (e: any) {
@@ -158,116 +199,174 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
     }
   }
 
-  const cropModal = sourceUrl && typeof document !== "undefined"
-    ? createPortal(
-        <div className="fixed inset-0 z-[70] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-3">
-          <div className="card flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col p-3">
-            <h3 className="text-base font-bold">برش عکس پروفایل</h3>
-            <p className="mt-1 text-xs text-slate-400">تصویر را بکشید و با چرخ موس یا دکمه‌ها بزرگ‌نمایی را تنظیم کنید.</p>
-            <div className="mt-2 grid place-items-center">
-              <div
-                className="relative cursor-grab touch-none select-none overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 active:cursor-grabbing"
-                style={{ width: "min(280px, calc(100vw - 56px))", height: "min(280px, calc(100vw - 56px))" }}
-                onPointerDown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  startDrag(e.clientX, e.clientY);
-                }}
-                onPointerMove={(e) => moveDrag(e.clientX, e.clientY)}
-                onPointerUp={(e) => {
-                  e.currentTarget.releasePointerCapture(e.pointerId);
-                  stopDrag();
-                }}
-                onPointerCancel={stopDrag}
-                onWheel={(e) => {
-                  e.preventDefault();
-                  updateZoom(zoom + (e.deltaY > 0 ? -0.08 : 0.08));
-                }}
-              >
-                <Image
-                  ref={imgRef}
-                  src={sourceUrl}
-                  alt="crop source"
-                  width={CROP_SIZE}
-                  height={CROP_SIZE}
-                  unoptimized
-                  draggable={false}
-                  className="pointer-events-none absolute max-w-none"
-                  onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+  const cropModal =
+    sourceUrl && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[70] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-3">
+            <div className="card flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col p-3">
+              <h3 className="text-base font-bold">برش عکس پروفایل</h3>
+              <p className="mt-1 text-xs text-slate-400">
+                تصویر را بکشید و با چرخ موس یا دکمه‌ها بزرگ‌نمایی را تنظیم کنید.
+              </p>
+              <div className="mt-2 grid place-items-center">
+                <div
+                  className="relative cursor-grab touch-none select-none overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 active:cursor-grabbing"
                   style={{
-                    width: natural.w ? natural.w * baseScale * zoom : "100%",
-                    height: natural.h ? natural.h * baseScale * zoom : "100%",
-                    left: CROP_SIZE / 2 - (natural.w * baseScale * zoom) / 2 + offsetX,
-                    top: CROP_SIZE / 2 - (natural.h * baseScale * zoom) / 2 + offsetY,
+                    width: "min(280px, calc(100vw - 56px))",
+                    height: "min(280px, calc(100vw - 56px))",
                   }}
-                />
-                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-4 ring-slate-950/40" />
-                <div className="pointer-events-none absolute inset-8 rounded-full border border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.36)]" />
+                  onPointerDown={(e) => {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    startDrag(e.clientX, e.clientY);
+                  }}
+                  onPointerMove={(e) => moveDrag(e.clientX, e.clientY)}
+                  onPointerUp={(e) => {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                    stopDrag();
+                  }}
+                  onPointerCancel={stopDrag}
+                  onWheel={(e) => {
+                    e.preventDefault();
+                    updateZoom(zoom + (e.deltaY > 0 ? -0.08 : 0.08));
+                  }}
+                >
+                  <Image
+                    ref={imgRef}
+                    src={sourceUrl}
+                    alt="crop source"
+                    width={CROP_SIZE}
+                    height={CROP_SIZE}
+                    unoptimized
+                    draggable={false}
+                    className="pointer-events-none absolute max-w-none"
+                    onLoad={(e) =>
+                      setNatural({
+                        w: e.currentTarget.naturalWidth,
+                        h: e.currentTarget.naturalHeight,
+                      })
+                    }
+                    style={{
+                      width: natural.w ? natural.w * baseScale * zoom : "100%",
+                      height: natural.h ? natural.h * baseScale * zoom : "100%",
+                      left:
+                        CROP_SIZE / 2 -
+                        (natural.w * baseScale * zoom) / 2 +
+                        offsetX,
+                      top:
+                        CROP_SIZE / 2 -
+                        (natural.h * baseScale * zoom) / 2 +
+                        offsetY,
+                    }}
+                  />
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl ring-4 ring-slate-950/40" />
+                  <div className="pointer-events-none absolute inset-8 rounded-full border border-white/70 shadow-[0_0_0_999px_rgba(2,6,23,0.36)]" />
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost h-9 w-9 p-0"
+                  onClick={() => updateZoom(zoom - 0.12)}
+                  disabled={zoom <= 1}
+                >
+                  -
+                </button>
+                <div className="min-w-20 text-center text-xs text-slate-400">
+                  {Math.round(zoom * 100)}%
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost h-9 w-9 p-0"
+                  onClick={() => updateZoom(zoom + 0.12)}
+                  disabled={zoom >= 3}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost h-9 px-3 text-xs"
+                  onClick={() => {
+                    setZoom(1);
+                    setOffsetX(0);
+                    setOffsetY(0);
+                  }}
+                >
+                  ریست
+                </button>
+              </div>
+              {uploading && (
+                <div className="mt-2">
+                  <div className="mb-1 flex justify-between text-xs text-slate-400">
+                    <span>در حال آپلود...</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full bg-cyan-500 transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost h-10"
+                  disabled={uploading}
+                  onClick={() => setSourceUrl(null)}
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary h-10"
+                  disabled={uploading}
+                  onClick={uploadCropped}
+                >
+                  {uploading ? "در حال آپلود..." : "ذخیره عکس"}
+                </button>
               </div>
             </div>
-            <div className="mt-2 flex items-center justify-center gap-2">
-              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => updateZoom(zoom - 0.12)} disabled={zoom <= 1}>-</button>
-              <div className="min-w-20 text-center text-xs text-slate-400">{Math.round(zoom * 100)}%</div>
-              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => updateZoom(zoom + 0.12)} disabled={zoom >= 3}>+</button>
-              <button
-                type="button"
-                className="btn-ghost h-9 px-3 text-xs"
-                onClick={() => {
-                  setZoom(1);
-                  setOffsetX(0);
-                  setOffsetY(0);
-                }}
-              >
-                ریست
-              </button>
-            </div>
-            {uploading && (
-              <div className="mt-2">
-                <div className="mb-1 flex justify-between text-xs text-slate-400">
-                  <span>در حال آپلود...</span>
-                  <span>{progress}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                  <div className="h-full bg-cyan-500 transition-all" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-            )}
-            <div className="mt-3 flex justify-end gap-2">
-              <button type="button" className="btn-ghost h-10" disabled={uploading} onClick={() => setSourceUrl(null)}>انصراف</button>
-              <button type="button" className="btn-primary h-10" disabled={uploading} onClick={uploadCropped}>
-                {uploading ? "در حال آپلود..." : "ذخیره عکس"}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+          </div>,
+          document.body,
+        )
+      : null;
 
-  const confirmRemoveModal = confirmRemoveOpen && typeof document !== "undefined"
-    ? createPortal(
-        <div className="fixed inset-0 z-[71] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-4">
-          <div className="card w-full max-w-md p-4">
-            <h3 className="text-lg font-bold">تأیید حذف عکس پروفایل</h3>
-            <p className="mt-2 text-sm text-slate-300">مطمئن هستید که می‌خواهید عکس پروفایل را حذف کنید؟</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className="btn-ghost" onClick={() => setConfirmRemoveOpen(false)} disabled={removing}>انصراف</button>
-              <button
-                type="button"
-                className="btn-danger"
-                onClick={async () => {
-                  await removeAvatar();
-                  setConfirmRemoveOpen(false);
-                }}
-                disabled={removing}
-              >
-                {removing ? "در حال حذف..." : "بله، حذف کن"}
-              </button>
+  const confirmRemoveModal =
+    confirmRemoveOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[71] grid min-h-[100dvh] place-items-center bg-slate-950/80 p-4">
+            <div className="card w-full max-w-md p-4">
+              <h3 className="text-lg font-bold">تأیید حذف عکس پروفایل</h3>
+              <p className="mt-2 text-sm text-slate-300">
+                مطمئن هستید که می‌خواهید عکس پروفایل را حذف کنید؟
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setConfirmRemoveOpen(false)}
+                  disabled={removing}
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  className="btn-danger"
+                  onClick={async () => {
+                    await removeAvatar();
+                    setConfirmRemoveOpen(false);
+                  }}
+                  disabled={removing}
+                >
+                  {removing ? "در حال حذف..." : "بله، حذف کن"}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div className="space-y-2">
@@ -282,9 +381,19 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
         />
         <label className="btn-ghost cursor-pointer">
           انتخاب عکس
-          <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={onFileChange}
+          />
         </label>
-        <button type="button" className="btn-danger" onClick={() => setConfirmRemoveOpen(true)} disabled={removing || !currentAvatarUrl}>
+        <button
+          type="button"
+          className="btn-danger"
+          onClick={() => setConfirmRemoveOpen(true)}
+          disabled={removing || !currentAvatarUrl}
+        >
           {removing ? "در حال حذف..." : "حذف عکس"}
         </button>
       </div>
@@ -294,4 +403,3 @@ export function AvatarUploader({ currentAvatarUrl, onUploaded, onRemoved, onPrev
     </div>
   );
 }
-

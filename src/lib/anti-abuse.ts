@@ -25,3 +25,12 @@ export async function guardEntityRateLimit(input: {
     windowSeconds: input.windowSeconds,
   });
 }
+
+// Only trust forwarded IP headers when an ingress under our control overwrites them.
+export function clientIp(req: Request) {
+  if (process.env.TRUST_PROXY_HEADERS !== "true") return "untrusted-client";
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim().slice(0, 64) ||
+    "unknown"
+  );
+}

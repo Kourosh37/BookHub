@@ -5,6 +5,15 @@ export const apiErrorSchema = z.object({
   details: z.string().optional(),
 });
 
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export async function apiFetch<TSchema extends z.ZodTypeAny>(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
@@ -16,9 +25,11 @@ export async function apiFetch<TSchema extends z.ZodTypeAny>(
   if (!res.ok) {
     const parsedError = apiErrorSchema.safeParse(json);
     const message = parsedError.success
-      ? parsedError.data.details || parsedError.data.error || "درخواست ناموفق بود"
+      ? parsedError.data.details ||
+        parsedError.data.error ||
+        "درخواست ناموفق بود"
       : "درخواست ناموفق بود";
-    throw new Error(message);
+    throw new ApiError(res.status, message);
   }
 
   return schema.parse(json);
@@ -33,4 +44,6 @@ export const authMeResponseSchema = z.object({
   }),
 });
 
-export const simpleOkSchema = z.object({ ok: z.boolean().optional() }).passthrough();
+export const simpleOkSchema = z
+  .object({ ok: z.boolean().optional() })
+  .passthrough();

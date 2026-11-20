@@ -1,90 +1,91 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+import { prisma } from "@/lib/prisma";
+import { secretKey, secureCookies } from "@/lib/config";
 
-const ADMIN_COOKIE = "bookhub_admin";
+export const ADMIN_COOKIE = "bookhub_admin";
+const hash = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
+const equal = (a: string, b: string) =>
+  timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
 
-type AdminConfig = {
-  username: string;
-  password: string;
-  secret: string;
-};
-
-function getAdminConfig(): AdminConfig | null {
+function configHash() {
   const username = process.env.ADMIN_PANEL_USERNAME;
   const password = process.env.ADMIN_PANEL_PASSWORD;
-  if (!username || !password) return null;
-  const secret = process.env.ADMIN_PANEL_SECRET || password;
-  return { username, password, secret };
+  if (!username || !password || /^(change[-_])/i.test(password))
+    throw new Error("ADMIN_CREDENTIALS_MISSING");
+  return createHmac("sha256", secretKey("ADMIN_PANEL_SECRET"))
+    .update(`${username}:${password}`)
+    .digest("hex");
 }
-
-function shouldUseSecureCookie() {
-  const url = process.env.NEXTAUTH_URL || "";
-  if (url.startsWith("https://")) return true;
-  if (url.startsWith("http://")) return false;
-  return process.env.NODE_ENV === "production";
-}
-
-function buildAdminToken(config: AdminConfig) {
-  return createHmac("sha256", config.secret).update(`${config.username}:${config.password}`).digest("hex");
-}
-
-function tokensMatch(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-
 export function getAdminUsername() {
-  return getAdminConfig()?.username || null;
+  return process.env.ADMIN_PANEL_USERNAME || null;
 }
-
-export function isAdminToken(token?: string | null) {
-  const config = getAdminConfig();
-  if (!config || !token) return false;
-  const expected = buildAdminToken(config);
-  return tokensMatch(token, expected);
+export function assertAdminConfig() {
+  configHash();
 }
-
-export function isAdminRequest(req: NextRequest) {
-  return isAdminToken(req.cookies.get(ADMIN_COOKIE)?.value ?? null);
+export async function isAdminToken(token?: string | null) {
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) return false;
+  const session = await prisma.adminSession.findUnique({
+    where: { tokenHash: hash(token) },
+  });
+  return Boolean(
+    session &&
+    session.expiresAt > new Date() &&
+    equal(session.configHash, configHash()),
+  );
 }
-
-export function isAdminSession() {
-  const token = cookies().get(ADMIN_COOKIE)?.value;
-  return isAdminToken(token ?? null);
+export async function isAdminRequest(req: NextRequest) {
+  return isAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
 }
-
-export function setAdminCookie(res: NextResponse) {
-  const config = getAdminConfig();
-  if (!config) throw new Error("ADMIN_CREDENTIALS_MISSING");
-  const token = buildAdminToken(config);
+export async function isAdminSession() {
+  return isAdminToken((await cookies()).get(ADMIN_COOKIE)?.value);
+}
+export async function setAdminCookie(res: NextResponse) {
+  const token = randomBytes(32).toString("hex");
+  await prisma.adminSession.create({
+    data: {
+      tokenHash: hash(token),
+      adminUser: getAdminUsername()!,
+      configHash: configHash(),
+      expiresAt: new Date(Date.now() + 8 * 3600000),
+    },
+  });
   res.cookies.set(ADMIN_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    sameSite: "strict",
+    secure: secureCookies(),
     path: "/",
-    maxAge: 60 * 60 * 8,
+    maxAge: 8 * 3600,
   });
 }
-
-export function clearAdminCookie(res: NextResponse) {
+export async function clearAdminCookie(res: NextResponse, req: Request) {
+  const token = req.headers
+    .get("cookie")
+    ?.split(";")
+    .map((v) => v.trim())
+    .find((v) => v.startsWith(`${ADMIN_COOKIE}=`))
+    ?.slice(ADMIN_COOKIE.length + 1);
+  if (token)
+    await prisma.adminSession.deleteMany({ where: { tokenHash: hash(token) } });
   res.cookies.set(ADMIN_COOKIE, "", {
     httpOnly: true,
-    sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    sameSite: "strict",
+    secure: secureCookies(),
     path: "/",
     maxAge: 0,
   });
 }
-
-export function assertAdminConfig() {
-  if (!getAdminConfig()) {
-    throw new Error("ADMIN_CREDENTIALS_MISSING");
-  }
-}
-
 export function verifyAdminCredentials(username: string, password: string) {
-  const config = getAdminConfig();
-  if (!config) return false;
-  return config.username === username && config.password === password;
+  assertAdminConfig();
+  return (
+    equal(username, process.env.ADMIN_PANEL_USERNAME!) &&
+    equal(password, process.env.ADMIN_PANEL_PASSWORD!)
+  );
 }

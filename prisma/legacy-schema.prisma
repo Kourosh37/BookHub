@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  phone         String?    @unique
+  username      String?    @unique
+  password      String?
+  avatarUrl     String?
+  smsPreferences Json?
+  schedules     Schedule[]
+  bookingsMade  Booking[]  @relation("BookingsMadeByUser")
+  createdAt     DateTime   @default(now())
+}
+
+enum OtpPurpose {
+  AUTH
+  PASSWORD_RESET
+  ACCOUNT_DELETE
+}
+
+model OtpCode {
+  id         String   @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    OtpPurpose @default(AUTH)
+  username   String?
+  passwordHash String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([phone, createdAt(sort: Desc)])
+  @@index([phone, purpose, createdAt(sort: Desc)])
+  @@index([expiresAt])
+}
+
+model Schedule {
+  id           String     @id @default(cuid())
+  shareId      String     @unique
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  slotDuration Int        @default(30)
+  gapMinutes   Int        @default(10)
+  questions    Json
+  daysConfig   Json
+  createdAt    DateTime   @default(now())
+  slots        TimeSlot[]
+  bookings     Booking[]
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model TimeSlot {
+  id         String    @id @default(cuid())
+  scheduleId String
+  schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  startTime  DateTime
+  endTime    DateTime
+  isBooked   Boolean   @default(false)
+  booking    Booking?
+
+  @@unique([scheduleId, startTime])
+  @@index([scheduleId, startTime, isBooked])
+  @@index([endTime])
+}
+
+model Booking {
+  id             String   @id @default(cuid())
+  timeSlotId     String   @unique
+  timeSlot       TimeSlot @relation(fields: [timeSlotId], references: [id])
+  scheduleId     String
+  schedule       Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  bookedByUserId String?
+  bookedByUser   User?    @relation("BookingsMadeByUser", fields: [bookedByUserId], references: [id], onDelete: SetNull)
+  visitorName    String?
+  answers        Json
+  bookedAt       DateTime @default(now())
+
+  @@index([scheduleId, bookedAt(sort: Desc)])
+  @@index([bookedByUserId, bookedAt(sort: Desc)])
+}
+
+enum SmsLogType {
+  OTP
+  BOOKING_CREATED
+  BOOKING_CANCELED
+  BOOKING_REMINDER
+  GENERIC
+}
+
+enum SmsLogStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model SmsLog {
+  id              String       @id @default(cuid())
+  type            SmsLogType
+  status          SmsLogStatus
+  phone           String?
+  templateId      Int?
+  providerMessage String?
+  createdAt       DateTime     @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([type, status, createdAt(sort: Desc)])
+}
+
+model SmsGlobalSetting {
+  id                    Int      @id @default(1)
+  bookingCreatedEnabled Boolean  @default(true)
+  bookingCanceledEnabled Boolean @default(true)
+  bookingReminderEnabled Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model OtpAttempt {
+  id           String    @id @default(cuid())
+  phone        String
+  purpose      OtpPurpose
+  failedCount  Int       @default(0)
+  lockedUntil  DateTime?
+  windowStart  DateTime
+  lastAttemptAt DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([phone, purpose])
+  @@index([lockedUntil])
+}
+
+enum AdminAuditAction {
+  LOGIN
+  LOGOUT
+  VIEW_OVERVIEW
+  VIEW_USERS
+  VIEW_SMS_SETTINGS
+  UPDATE_SMS_SETTINGS
+}
+
+model AdminAuditLog {
+  id          String           @id @default(cuid())
+  adminUser   String
+  action      AdminAuditAction
+  ip          String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([adminUser, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}

@@ -1,167 +1,191 @@
-﻿import { prisma } from "@/lib/prisma";
+import { Prisma, SmsLogType } from "@prisma/client";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 import { sendTemplateSms } from "@/lib/sms";
-import { isSmsEnabled, type SmsPreferences } from "@/lib/sms-preferences";
+import { isSmsEnabled } from "@/lib/sms-preferences";
 import { getSmsGlobalSettings } from "@/lib/admin-sms-settings";
 
-type BookingNotificationContext = {
+export type BookingNotificationContext = {
   bookingId: string;
   scheduleId: string;
-  scheduleTitle?: string | null;
+  scheduleTitle: string;
   hostUserId: string;
-  guestUserId?: string | null;
-  guestName?: string | null;
-  slotStartIso?: string | null;
+  guestUserId: string | null;
+  slotStartIso: string;
+  guestName: string;
+  hostName: string;
 };
+const contextSchema = z.object({
+  bookingId: z.string(),
+  scheduleId: z.string(),
+  scheduleTitle: z.string(),
+  hostUserId: z.string(),
+  guestUserId: z.string().nullable(),
+  slotStartIso: z.iso.datetime(),
+  guestName: z.string(),
+  hostName: z.string(),
+  role: z.enum(["host", "guest"]),
+});
 
-type ContactInfo = { phone: string | null; name: string; smsPreferences: unknown };
-
-async function resolveContacts(hostUserId: string, guestUserId?: string | null) {
-  const [host, guest] = await Promise.all([
-    prisma.user.findUnique({ where: { id: hostUserId }, select: { phone: true, username: true, smsPreferences: true } }),
-    guestUserId
-      ? prisma.user.findUnique({ where: { id: guestUserId }, select: { phone: true, username: true, smsPreferences: true } })
-      : Promise.resolve(null),
-  ]);
-
-  const hostInfo: ContactInfo = {
-    phone: host?.phone || null,
-    name: host?.username || host?.phone || "ارائه‌دهنده",
-    smsPreferences: host?.smsPreferences ?? null,
-  };
-
-  const guestInfo: ContactInfo = {
-    phone: guest?.phone || null,
-    name: guest?.username || guest?.phone || "کاربر",
-    smsPreferences: guest?.smsPreferences ?? null,
-  };
-
-  return { hostInfo, guestInfo };
-}
-
-function parseTemplateId(raw?: string) {
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
-}
-
-function buildSlotParams(slotStartIso?: string | null) {
-  if (!slotStartIso) return null;
-  const slotDate = new Date(slotStartIso);
-  if (Number.isNaN(slotDate.getTime())) return null;
-  const dateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-    timeZone: "Asia/Tehran",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const timeFormatter = new Intl.DateTimeFormat("fa-IR", {
-    timeZone: "Asia/Tehran",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return {
-    date: dateFormatter.format(slotDate),
-    time: timeFormatter.format(slotDate),
-  };
-}
-
-function buildParams(data: { title: string; name: string; date: string; time: string }) {
-  return [
-    { name: "TITLE", value: data.title },
-    { name: "NAME", value: data.name },
-    { name: "DATE", value: data.date },
-    { name: "TIME", value: data.time },
-  ];
-}
-
-export async function notifyBookingCreated(ctx: BookingNotificationContext) {
-  const globalSettings = await getSmsGlobalSettings();
-  if (!globalSettings.bookingCreatedEnabled) return;
-  const { hostInfo, guestInfo } = await resolveContacts(ctx.hostUserId, ctx.guestUserId);
-  const slotInfo = buildSlotParams(ctx.slotStartIso);
-  if (!slotInfo) return;
-
-  const hostTemplateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_CREATED_HOST);
-  const guestTemplateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_CREATED_GUEST);
-  const title = ctx.scheduleTitle || "برنامه";
-  const guestName = ctx.guestName || guestInfo.name || "کاربر";
-
-  if (hostInfo.phone && hostTemplateId && isSmsEnabled(hostInfo.smsPreferences, "bookingCreated")) {
-    await sendTemplateSms({
-      phone: hostInfo.phone,
-      templateId: hostTemplateId,
-      parameters: buildParams({ title, name: guestName, date: slotInfo.date, time: slotInfo.time }),
-      smsType: "BOOKING_CREATED",
+export async function queueBookingNotifications(
+  tx: Prisma.TransactionClient,
+  ctx: BookingNotificationContext,
+  event: "created" | "canceled",
+  actorId?: string,
+) {
+  const now = new Date();
+  if (event === "canceled")
+    await tx.notificationJob.updateMany({
+      where: { bookingId: ctx.bookingId, sentAt: null, canceledAt: null },
+      data: { canceledAt: now },
     });
-  }
-
-  if (guestInfo.phone && guestTemplateId && isSmsEnabled(guestInfo.smsPreferences, "bookingCreated")) {
-    await sendTemplateSms({
-      phone: guestInfo.phone,
-      templateId: guestTemplateId,
-      parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
-      smsType: "BOOKING_CREATED",
-    });
+  for (const role of ["host", "guest"] as const) {
+    const recipientUserId = role === "host" ? ctx.hostUserId : ctx.guestUserId;
+    if (
+      !recipientUserId ||
+      (event === "canceled" && recipientUserId === actorId)
+    )
+      continue;
+    const types: SmsLogType[] =
+      event === "created"
+        ? ["BOOKING_CREATED", "BOOKING_REMINDER"]
+        : ["BOOKING_CANCELED"];
+    for (const type of types) {
+      const runAt =
+        type === "BOOKING_REMINDER"
+          ? new Date(
+              Math.max(
+                now.getTime(),
+                new Date(ctx.slotStartIso).getTime() - 10 * 60000,
+              ),
+            )
+          : now;
+      await tx.notificationJob.create({
+        data: {
+          key: `${ctx.bookingId}-${type}-${role}`,
+          type,
+          bookingId: ctx.bookingId,
+          recipientUserId,
+          payload: { ...ctx, role },
+          runAt,
+        },
+      });
+    }
   }
 }
 
-export async function notifyBookingCanceledByHost(ctx: BookingNotificationContext) {
-  const globalSettings = await getSmsGlobalSettings();
-  if (!globalSettings.bookingCanceledEnabled) return;
-  const { hostInfo, guestInfo } = await resolveContacts(ctx.hostUserId, ctx.guestUserId);
-  const slotInfo = buildSlotParams(ctx.slotStartIso);
-  const templateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_CANCELED);
-  if (!guestInfo.phone || !templateId || !slotInfo) return;
-  if (!isSmsEnabled(guestInfo.smsPreferences, "bookingCanceled")) return;
-  const title = ctx.scheduleTitle || "برنامه";
-
-  await sendTemplateSms({
-    phone: guestInfo.phone,
-    templateId,
-    parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
-    smsType: "BOOKING_CANCELED",
-  });
-}
-
-export async function scheduleTenMinuteReminderForBooking(ctx: BookingNotificationContext) {
-  const globalSettings = await getSmsGlobalSettings();
-  if (!globalSettings.bookingReminderEnabled) return;
-  const { hostInfo, guestInfo } = await resolveContacts(ctx.hostUserId, ctx.guestUserId);
-  const slotInfo = buildSlotParams(ctx.slotStartIso);
-  const templateId = parseTemplateId(process.env.SMS_TEMPLATE_BOOKING_REMINDER);
-  if (!templateId || !slotInfo || !ctx.slotStartIso) return;
-
-  const start = new Date(ctx.slotStartIso);
-  if (Number.isNaN(start.getTime())) return;
-  const minutesToStart = Math.floor((start.getTime() - Date.now()) / 60000);
-  if (minutesToStart < 0 || minutesToStart > 10) return;
-
-  const title = ctx.scheduleTitle || "برنامه";
-  if (guestInfo.phone && isSmsEnabled(guestInfo.smsPreferences, "bookingReminder")) {
-    await sendTemplateSms({
-      phone: guestInfo.phone,
-      templateId,
-      parameters: buildParams({ title, name: hostInfo.name, date: slotInfo.date, time: slotInfo.time }),
-      smsType: "BOOKING_REMINDER",
+export async function processNotification(jobId: string) {
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`notification:${jobId}`}, 0))`;
+        const job = await tx.notificationJob.findUnique({
+          where: { id: jobId },
+        });
+        if (!job || job.sentAt || job.canceledAt) return;
+        if (job.runAt > new Date()) throw new Error("Notification is not due");
+        const ctx = contextSchema.parse(job.payload);
+        const [user, settings, booking] = await Promise.all([
+          tx.user.findUnique({
+            where: { id: job.recipientUserId },
+            select: { phone: true, smsPreferences: true },
+          }),
+          getSmsGlobalSettings(),
+          job.type === "BOOKING_CANCELED"
+            ? Promise.resolve(null)
+            : tx.booking.findUnique({
+                where: { id: job.bookingId },
+                select: { status: true },
+              }),
+        ]);
+        const preference =
+          job.type === "BOOKING_REMINDER"
+            ? "bookingReminder"
+            : job.type === "BOOKING_CANCELED"
+              ? "bookingCanceled"
+              : "bookingCreated";
+        const enabled =
+          job.type === "BOOKING_REMINDER"
+            ? settings.bookingReminderEnabled
+            : job.type === "BOOKING_CANCELED"
+              ? settings.bookingCanceledEnabled
+              : settings.bookingCreatedEnabled;
+        if (
+          !user?.phone ||
+          !enabled ||
+          !isSmsEnabled(user.smsPreferences, preference) ||
+          (job.type !== "BOOKING_CANCELED" &&
+            booking?.status !== "CONFIRMED") ||
+          (job.type === "BOOKING_REMINDER" &&
+            new Date(ctx.slotStartIso) <= new Date())
+        ) {
+          await tx.notificationJob.update({
+            where: { id: job.id },
+            data: {
+              canceledAt: new Date(),
+              lastError:
+                "Skipped: canceled, expired, disabled, or recipient removed",
+            },
+          });
+          return;
+        }
+        const templateKey =
+          job.type === "BOOKING_CREATED"
+            ? `SMS_TEMPLATE_BOOKING_CREATED_${ctx.role.toUpperCase()}`
+            : `SMS_TEMPLATE_${job.type}`;
+        const templateId = Number(process.env[templateKey]);
+        if (!Number.isSafeInteger(templateId) || templateId < 1)
+          throw new Error(`Missing SMS template: ${templateKey}`);
+        const slot = new Date(ctx.slotStartIso);
+        await sendTemplateSms({
+          phone: user.phone,
+          templateId,
+          smsType: job.type,
+          parameters: [
+            { name: "TITLE", value: ctx.scheduleTitle },
+            {
+              name: "NAME",
+              value: ctx.role === "host" ? ctx.guestName : ctx.hostName,
+            },
+            {
+              name: "DATE",
+              value: new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+                timeZone: "Asia/Tehran",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              }).format(slot),
+            },
+            {
+              name: "TIME",
+              value: new Intl.DateTimeFormat("fa-IR", {
+                timeZone: "Asia/Tehran",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }).format(slot),
+            },
+          ],
+        });
+        await tx.notificationJob.update({
+          where: { id: job.id },
+          data: {
+            sentAt: new Date(),
+            attempts: { increment: 1 },
+            lastError: null,
+          },
+        });
+      },
+      { timeout: 30000, maxWait: 10000 },
+    );
+  } catch (error) {
+    await prisma.notificationJob.updateMany({
+      where: { id: jobId, sentAt: null, canceledAt: null },
+      data: {
+        attempts: { increment: 1 },
+        lastError: error instanceof Error ? error.message : String(error),
+      },
     });
+    throw error;
   }
-  if (hostInfo.phone && isSmsEnabled(hostInfo.smsPreferences, "bookingReminder")) {
-    await sendTemplateSms({
-      phone: hostInfo.phone,
-      templateId,
-      parameters: buildParams({ title, name: guestInfo.name, date: slotInfo.date, time: slotInfo.time }),
-      smsType: "BOOKING_REMINDER",
-    });
-  }
-}
-
-export async function cancelScheduledRemindersForBooking(bookingId: string) {
-  void bookingId;
-  return;
-}
-
-export async function smokeTestNotificationModule() {
-  return;
 }

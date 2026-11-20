@@ -1,4 +1,5 @@
-﻿import DateObject from "react-date-object";
+import { fromZonedTime } from "date-fns-tz";
+import DateObject from "react-date-object";
 import persian from "react-date-object/calendars/persian";
 import gregorian from "react-date-object/calendars/gregorian";
 import persian_fa from "react-date-object/locales/persian_fa";
@@ -24,7 +25,9 @@ export function formatPhoneForExport(value: any) {
 
 export function toYmd(dateObj: any) {
   if (!dateObj) return "";
-  return toEnglishDigits(new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"));
+  return toEnglishDigits(
+    new DateObject(dateObj).convert(gregorian).format("YYYY-MM-DD"),
+  );
 }
 
 export function ymdToPersianDateObject(ymd: string) {
@@ -58,7 +61,9 @@ export function toMinutes(v: string) {
 }
 
 export function normalizeSearchText(value: any) {
-  return toEnglishDigits(String(value ?? "")).toLowerCase().trim();
+  return toEnglishDigits(String(value ?? ""))
+    .toLowerCase()
+    .trim();
 }
 
 function escapeRegExp(value: string) {
@@ -79,7 +84,9 @@ export function highlightText(value: any, query: string) {
         <span key={`${part}-${idx}`}>
           {part}
           {matches[idx] ? (
-            <mark className="rounded bg-cyan-500/30 px-1 text-cyan-100">{matches[idx]}</mark>
+            <mark className="rounded bg-cyan-500/30 px-1 text-cyan-100">
+              {matches[idx]}
+            </mark>
           ) : null}
         </span>
       ))}
@@ -106,7 +113,10 @@ export function renderAnswers(
           value: Array.isArray(answers) ? answers[idx] : "-",
         }))
       : Array.isArray(answers)
-        ? answers.map((value: any, idx: number) => ({ label: `پاسخ ${idx + 1}`, value }))
+        ? answers.map((value: any, idx: number) => ({
+            label: `پاسخ ${idx + 1}`,
+            value,
+          }))
         : [];
 
   if (items.length === 0) {
@@ -116,8 +126,13 @@ export function renderAnswers(
   return (
     <div className="grid gap-2">
       {items.map((item, idx) => (
-        <div key={idx} className="flex flex-wrap items-start justify-between gap-2 text-sm">
-          <span className="text-slate-300">{highlighter(item.label, query)}</span>
+        <div
+          key={idx}
+          className="flex flex-wrap items-start justify-between gap-2 text-sm"
+        >
+          <span className="text-slate-300">
+            {highlighter(item.label, query)}
+          </span>
           <span className="rounded-lg bg-slate-500/10 px-2 py-1 text-xs text-slate-300">
             {item.value ? highlighter(String(item.value), query) : "-"}
           </span>
@@ -127,7 +142,11 @@ export function renderAnswers(
   );
 }
 
-export function estimateSlotCount(range: Range, slotDuration: number, gapMinutes: number) {
+export function estimateSlotCount(
+  range: Range,
+  slotDuration: number,
+  gapMinutes: number,
+) {
   if (slotDuration <= 0) return 0;
   const length = getRangeLengthMinutes(range);
   if (length < slotDuration) return 0;
@@ -148,9 +167,17 @@ export function rangesOverlap(ranges: Range[]) {
 }
 
 export function getRangeIssues(ranges: Range[]) {
-  const issues: Array<string | null> = Array.from({ length: ranges.length }, () => null);
+  const issues: Array<string | null> = Array.from(
+    { length: ranges.length },
+    () => null,
+  );
   const sorted = ranges
-    .map((r, idx) => ({ ...r, idx, s: toMinutes(r.startTime), e: toMinutes(r.endTime) }))
+    .map((r, idx) => ({
+      ...r,
+      idx,
+      s: toMinutes(r.startTime),
+      e: toMinutes(r.endTime),
+    }))
     .sort((a, b) => a.s - b.s);
 
   for (const item of sorted) {
@@ -163,8 +190,10 @@ export function getRangeIssues(ranges: Range[]) {
     const prev = sorted[i - 1];
     const cur = sorted[i];
     if (cur.s < prev.e) {
-      issues[cur.idx] = issues[cur.idx] || "این بازه با بازه قبلی همپوشانی دارد.";
-      issues[prev.idx] = issues[prev.idx] || "این بازه با بازه بعدی همپوشانی دارد.";
+      issues[cur.idx] =
+        issues[cur.idx] || "این بازه با بازه قبلی همپوشانی دارد.";
+      issues[prev.idx] =
+        issues[prev.idx] || "این بازه با بازه بعدی همپوشانی دارد.";
     }
   }
 
@@ -176,7 +205,10 @@ export function normalizePreviewUrl(src?: string | null) {
   if (src.startsWith("/")) return src;
   try {
     const url = new URL(src);
-    if (url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/api/profile/avatar")) {
+    if (
+      url.pathname.startsWith("/uploads/") ||
+      url.pathname.startsWith("/api/profile/avatar")
+    ) {
       return `${url.pathname}${url.search}`;
     }
   } catch {}
@@ -187,25 +219,40 @@ function parseDateInput(value: string, endOfDay = false) {
   if (!value) return null;
   const [y, m, d] = value.split("-").map(Number);
   if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return fromZonedTime(
+    `${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`,
+    "Asia/Tehran",
+  );
 }
 
-export function applyListFilters(list: any[], filters: ListFilterState, queryMatch: (item: any, query: string) => boolean) {
+export function applyListFilters(
+  list: any[],
+  filters: ListFilterState,
+  queryMatch: (item: any, query: string) => boolean,
+) {
   const now = Date.now();
   const fromDate = parseDateInput(filters.from);
   const toDate = parseDateInput(filters.to, true);
   const query = normalizeSearchText(filters.query);
 
   return list.filter((item) => {
-    const start = item?.timeSlot?.startTime ? new Date(item.timeSlot.startTime).getTime() : null;
-    if (filters.scheduleIds.length > 0 && !filters.scheduleIds.includes(item?.scheduleId)) return false;
+    const start = item?.timeSlot?.startTime
+      ? new Date(item.timeSlot.startTime).getTime()
+      : null;
+    if (
+      filters.scheduleIds.length > 0 &&
+      !filters.scheduleIds.includes(item?.scheduleId)
+    )
+      return false;
     const end = item?.timeSlot?.endTime || item?.timeSlot?.startTime;
-    if (end && new Date(end).getTime() < now) return false;
+    const canceled = item.status === "CANCELED";
+    const past = end && new Date(end).getTime() < now;
+    if (filters.period === "upcoming" && (canceled || past)) return false;
+    if (filters.period === "past" && (canceled || !past)) return false;
+    if (filters.period === "canceled" && !canceled) return false;
     if (fromDate && start !== null && start < fromDate.getTime()) return false;
     if (toDate && start !== null && start > toDate.getTime()) return false;
     if (query && !queryMatch(item, query)) return false;
     return true;
   });
 }
-
-

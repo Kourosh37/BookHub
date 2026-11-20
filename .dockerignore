@@ -7,3 +7,9 @@ Dockerfile*
 docker-compose*.yml
 README.md
 .env*
+
+*.tar
+*.tar.gz
+coverage
+playwright-report
+test-results

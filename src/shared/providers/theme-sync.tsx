@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect } from "react";
 import { useUIStore } from "@/shared/store/ui-store";
@@ -12,5 +12,3 @@ export function ThemeSync() {
 
   return null;
 }
-
-

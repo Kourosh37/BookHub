@@ -1,10 +1,11 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 type ThemeMode = "dark" | "light";
-type DashboardTab = "schedules" | "bookings" | "sessions" | "profile" | "settings";
+type DashboardTab =
+  "schedules" | "bookings" | "sessions" | "profile" | "settings";
 
 type UIState = {
   theme: ThemeMode;
@@ -21,14 +22,17 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       theme: "dark",
       setTheme: (theme) => set({ theme }),
-      toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+      toggleTheme: () =>
+        set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
       dashboardTab: "schedules",
       setDashboardTab: (tab) => set({ dashboardTab: tab }),
       avatarRefreshToken: 0,
-      bumpAvatarRefreshToken: () => set((s) => ({ avatarRefreshToken: s.avatarRefreshToken + 1 })),
+      bumpAvatarRefreshToken: () =>
+        set((s) => ({ avatarRefreshToken: s.avatarRefreshToken + 1 })),
     }),
     {
       name: "bookhub-ui",
+      storage: createJSONStorage(() => window.localStorage),
       partialize: (state) => ({
         theme: state.theme,
         dashboardTab: state.dashboardTab,
@@ -36,4 +40,3 @@ export const useUIStore = create<UIState>()(
     },
   ),
 );
-

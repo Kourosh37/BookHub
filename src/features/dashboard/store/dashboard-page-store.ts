@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { defaultSmsPreferences, type SmsPreferences } from "@/lib/sms-preferences";
+import {
+  defaultSmsPreferences,
+  type SmsPreferences,
+} from "@/lib/sms-preferences";
 
 type Question = { label: string; type: "text" | "textarea"; required: boolean };
 type Range = { startTime: string; endTime: string };
@@ -9,6 +12,7 @@ type SettingsSectionKey = "sms";
 type QrModalState = { schedule: any; url: string };
 
 export type ListFilterState = {
+  period: "upcoming" | "past" | "all" | "canceled";
   query: string;
   from: string;
   to: string;
@@ -109,22 +113,43 @@ type DashboardPageActions = {
   setQrDataUrl: (v: string) => void;
   setExportingImage: (v: boolean) => void;
   setExportingPdf: (v: boolean) => void;
-  setExportContext: (v: { title: string; stamp: string; count: number }) => void;
+  setExportContext: (v: {
+    title: string;
+    stamp: string;
+    count: number;
+  }) => void;
   setProfileSections: (
-    v: Record<ProfileSectionKey, boolean> | ((p: Record<ProfileSectionKey, boolean>) => Record<ProfileSectionKey, boolean>),
+    v:
+      | Record<ProfileSectionKey, boolean>
+      | ((
+          p: Record<ProfileSectionKey, boolean>,
+        ) => Record<ProfileSectionKey, boolean>),
   ) => void;
   setSettingsSections: (
-    v: Record<SettingsSectionKey, boolean> | ((p: Record<SettingsSectionKey, boolean>) => Record<SettingsSectionKey, boolean>),
+    v:
+      | Record<SettingsSectionKey, boolean>
+      | ((
+          p: Record<SettingsSectionKey, boolean>,
+        ) => Record<SettingsSectionKey, boolean>),
   ) => void;
-  setBookingFilters: (v: ListFilterState | ((p: ListFilterState) => ListFilterState)) => void;
-  setBookingFilterDraft: (v: ListFilterState | ((p: ListFilterState) => ListFilterState)) => void;
-  setBookingFilterOpen: (v: boolean) => void;
-  setSessionFilters: (v: ListFilterState | ((p: ListFilterState) => ListFilterState)) => void;
-  setSessionFilterDraft: (v: ListFilterState | ((p: ListFilterState) => ListFilterState)) => void;
-  setSessionFilterOpen: (v: boolean) => void;
+  setBookingFilters: (
+    v: ListFilterState | ((p: ListFilterState) => ListFilterState),
+  ) => void;
+  setBookingFilterDraft: (
+    v: ListFilterState | ((p: ListFilterState) => ListFilterState),
+  ) => void;
+  setBookingFilterOpen: (v: boolean | ((p: boolean) => boolean)) => void;
+  setSessionFilters: (
+    v: ListFilterState | ((p: ListFilterState) => ListFilterState),
+  ) => void;
+  setSessionFilterDraft: (
+    v: ListFilterState | ((p: ListFilterState) => ListFilterState),
+  ) => void;
+  setSessionFilterOpen: (v: boolean | ((p: boolean) => boolean)) => void;
 };
 
 export const dashboardDefaultListFilters: ListFilterState = {
+  period: "upcoming",
   query: "",
   from: "",
   to: "",
@@ -176,7 +201,12 @@ export const useDashboardPageStore = create<Store>((set) => ({
   exportingImage: false,
   exportingPdf: false,
   exportContext: { title: "", stamp: "", count: 0 },
-  profileSections: { username: false, avatar: false, password: false, delete: false },
+  profileSections: {
+    username: false,
+    avatar: false,
+    password: false,
+    delete: false,
+  },
   settingsSections: { sms: false },
   bookingFilters: { ...dashboardDefaultListFilters },
   bookingFilterDraft: { ...dashboardDefaultListFilters },
@@ -186,8 +216,10 @@ export const useDashboardPageStore = create<Store>((set) => ({
   sessionFilterOpen: false,
 
   setSelectedDates: (v) => set({ selectedDates: v }),
-  setDayConfigs: (v) => set((s) => ({ dayConfigs: typeof v === "function" ? v(s.dayConfigs) : v })),
-  setQuestions: (v) => set((s) => ({ questions: typeof v === "function" ? v(s.questions) : v })),
+  setDayConfigs: (v) =>
+    set((s) => ({ dayConfigs: typeof v === "function" ? v(s.dayConfigs) : v })),
+  setQuestions: (v) =>
+    set((s) => ({ questions: typeof v === "function" ? v(s.questions) : v })),
   setBaseUrl: (v) => set({ baseUrl: v }),
   setCancelTarget: (v) => set({ cancelTarget: v }),
   setCancelLoading: (v) => set({ cancelLoading: v }),
@@ -197,8 +229,15 @@ export const useDashboardPageStore = create<Store>((set) => ({
   setSavingTitle: (v) => set({ savingTitle: v }),
   setDeleteScheduleTarget: (v) => set({ deleteScheduleTarget: v }),
   setDeletingSchedule: (v) => set({ deletingSchedule: v }),
-  setShowCreateFormMobile: (v) => set((s) => ({ showCreateFormMobile: typeof v === "function" ? v(s.showCreateFormMobile) : v })),
-  setIsExportMenuOpen: (v) => set((s) => ({ isExportMenuOpen: typeof v === "function" ? v(s.isExportMenuOpen) : v })),
+  setShowCreateFormMobile: (v) =>
+    set((s) => ({
+      showCreateFormMobile:
+        typeof v === "function" ? v(s.showCreateFormMobile) : v,
+    })),
+  setIsExportMenuOpen: (v) =>
+    set((s) => ({
+      isExportMenuOpen: typeof v === "function" ? v(s.isExportMenuOpen) : v,
+    })),
   setCreateError: (v) => set({ createError: v }),
   setSlotDurationMinutes: (v) => set({ slotDurationMinutes: v }),
   setGapMinutesValue: (v) => set({ gapMinutesValue: v }),
@@ -209,30 +248,67 @@ export const useDashboardPageStore = create<Store>((set) => ({
   setSmsPreferencesSaving: (v) => set({ smsPreferencesSaving: v }),
   setSmsPreferencesError: (v) => set({ smsPreferencesError: v }),
   setRequestingPasswordOtp: (v) => set({ requestingPasswordOtp: v }),
-  setPasswordOtpCooldown: (v) => set((s) => ({ passwordOtpCooldown: typeof v === "function" ? v(s.passwordOtpCooldown) : v })),
+  setPasswordOtpCooldown: (v) =>
+    set((s) => ({
+      passwordOtpCooldown:
+        typeof v === "function" ? v(s.passwordOtpCooldown) : v,
+    })),
   setPasswordCode: (v) => set({ passwordCode: v }),
   setNewPassword: (v) => set({ newPassword: v }),
   setConfirmNewPassword: (v) => set({ confirmNewPassword: v }),
   setDeleteCode: (v) => set({ deleteCode: v }),
-  setDeleteOtpCooldown: (v) => set((s) => ({ deleteOtpCooldown: typeof v === "function" ? v(s.deleteOtpCooldown) : v })),
+  setDeleteOtpCooldown: (v) =>
+    set((s) => ({
+      deleteOtpCooldown: typeof v === "function" ? v(s.deleteOtpCooldown) : v,
+    })),
   setRequestingDeleteOtp: (v) => set({ requestingDeleteOtp: v }),
   setDeletingAccount: (v) => set({ deletingAccount: v }),
   setAvatarPreview: (v) => set({ avatarPreview: v }),
   setDeleteAccountOpen: (v) => set({ deleteAccountOpen: v }),
-  setShowNewPassword: (v) => set((s) => ({ showNewPassword: typeof v === "function" ? v(s.showNewPassword) : v })),
-  setShowConfirmPassword: (v) => set((s) => ({ showConfirmPassword: typeof v === "function" ? v(s.showConfirmPassword) : v })),
+  setShowNewPassword: (v) =>
+    set((s) => ({
+      showNewPassword: typeof v === "function" ? v(s.showNewPassword) : v,
+    })),
+  setShowConfirmPassword: (v) =>
+    set((s) => ({
+      showConfirmPassword:
+        typeof v === "function" ? v(s.showConfirmPassword) : v,
+    })),
   setQrModal: (v) => set({ qrModal: v }),
   setQrDataUrl: (v) => set({ qrDataUrl: v }),
   setExportingImage: (v) => set({ exportingImage: v }),
   setExportingPdf: (v) => set({ exportingPdf: v }),
   setExportContext: (v) => set({ exportContext: v }),
-  setProfileSections: (v) => set((s) => ({ profileSections: typeof v === "function" ? v(s.profileSections) : v })),
-  setSettingsSections: (v) => set((s) => ({ settingsSections: typeof v === "function" ? v(s.settingsSections) : v })),
-  setBookingFilters: (v) => set((s) => ({ bookingFilters: typeof v === "function" ? v(s.bookingFilters) : v })),
-  setBookingFilterDraft: (v) => set((s) => ({ bookingFilterDraft: typeof v === "function" ? v(s.bookingFilterDraft) : v })),
-  setBookingFilterOpen: (v) => set({ bookingFilterOpen: v }),
-  setSessionFilters: (v) => set((s) => ({ sessionFilters: typeof v === "function" ? v(s.sessionFilters) : v })),
-  setSessionFilterDraft: (v) => set((s) => ({ sessionFilterDraft: typeof v === "function" ? v(s.sessionFilterDraft) : v })),
-  setSessionFilterOpen: (v) => set({ sessionFilterOpen: v }),
+  setProfileSections: (v) =>
+    set((s) => ({
+      profileSections: typeof v === "function" ? v(s.profileSections) : v,
+    })),
+  setSettingsSections: (v) =>
+    set((s) => ({
+      settingsSections: typeof v === "function" ? v(s.settingsSections) : v,
+    })),
+  setBookingFilters: (v) =>
+    set((s) => ({
+      bookingFilters: typeof v === "function" ? v(s.bookingFilters) : v,
+    })),
+  setBookingFilterDraft: (v) =>
+    set((s) => ({
+      bookingFilterDraft: typeof v === "function" ? v(s.bookingFilterDraft) : v,
+    })),
+  setBookingFilterOpen: (v) =>
+    set((s) => ({
+      bookingFilterOpen: typeof v === "function" ? v(s.bookingFilterOpen) : v,
+    })),
+  setSessionFilters: (v) =>
+    set((s) => ({
+      sessionFilters: typeof v === "function" ? v(s.sessionFilters) : v,
+    })),
+  setSessionFilterDraft: (v) =>
+    set((s) => ({
+      sessionFilterDraft: typeof v === "function" ? v(s.sessionFilterDraft) : v,
+    })),
+  setSessionFilterOpen: (v) =>
+    set((s) => ({
+      sessionFilterOpen: typeof v === "function" ? v(s.sessionFilterOpen) : v,
+    })),
 }));
-

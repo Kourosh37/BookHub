@@ -1,62 +1,68 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
+import { HttpError } from "@/lib/errors";
+import { positiveInt, secretKey, secureCookies } from "@/lib/config";
 
-const COOKIE_NAME = "bookhub_session";
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "dev_secret");
-
-function getSessionExpiresDays() {
-  const raw = Number(process.env.SESSION_EXPIRES_DAYS || "7");
-  if (Number.isNaN(raw) || raw < 1) return 7;
-  return raw;
-}
-
-function shouldUseSecureCookie() {
-  const url = process.env.NEXTAUTH_URL || "";
-  if (url.startsWith("https://")) return true;
-  if (url.startsWith("http://")) return false;
-  return process.env.NODE_ENV === "production";
-}
-
+export const SESSION_COOKIE = "bookhub_session";
 export type SessionPayload = {
   userId: string;
   phone: string;
+  sessionVersion?: number;
 };
 
 export async function createSession(payload: SessionPayload) {
-  const sessionDays = getSessionExpiresDays();
-  const token = await new SignJWT(payload)
+  const days = positiveInt(process.env.SESSION_EXPIRES_DAYS, 7, 30);
+  const token = await new SignJWT({
+    ...payload,
+    sessionVersion: payload.sessionVersion ?? 0,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${sessionDays}d`)
-    .sign(secret);
-
-  cookies().set(COOKIE_NAME, token, {
+    .setExpirationTime(`${days}d`)
+    .sign(secretKey("NEXTAUTH_SECRET"));
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    secure: secureCookies(),
     path: "/",
-    maxAge: 60 * 60 * 24 * sessionDays,
+    maxAge: days * 86400,
   });
 }
-
-export function clearSession() {
-  cookies().delete(COOKIE_NAME);
+export async function clearSession() {
+  (await cookies()).delete(SESSION_COOKIE);
 }
 
-export async function getSession() {
-  const token = cookies().get(COOKIE_NAME)?.value;
+export async function getSession(): Promise<SessionPayload | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-
+  let payload;
   try {
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as SessionPayload;
+    ({ payload } = await jwtVerify(token, secretKey("NEXTAUTH_SECRET"), {
+      algorithms: ["HS256"],
+    }));
   } catch {
     return null;
   }
+  if (
+    typeof payload.userId !== "string" ||
+    typeof payload.sessionVersion !== "number"
+  )
+    return null;
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, phone: true, sessionVersion: true },
+  });
+  if (!user?.phone || user.sessionVersion !== payload.sessionVersion)
+    return null;
+  return {
+    userId: user.id,
+    phone: user.phone,
+    sessionVersion: user.sessionVersion,
+  };
 }
-
 export async function requireSession() {
   const session = await getSession();
-  if (!session) throw new Error("UNAUTHORIZED");
+  if (!session) throw new HttpError(401, "Unauthorized");
   return session;
 }

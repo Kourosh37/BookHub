@@ -1,46 +1,32 @@
 import { prisma } from "@/lib/prisma";
+import { positiveInt } from "@/lib/config";
 
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-const EXPIRED_RETENTION_MINUTES = 30;
-
-const cleanupGlobal = globalThis as typeof globalThis & {
-  __bookhubCleanupLastRunAt?: number;
-  __bookhubCleanupRunning?: boolean;
-};
-
-export async function cleanupExpiredBookingsAndSlots(options?: { force?: boolean }) {
+// Completed and canceled bookings are retained. Only unused slots and security debris expire.
+export async function cleanupExpiredBookingsAndSlots(_options?: {
+  force?: boolean;
+}) {
   const now = Date.now();
-  const lastRun = cleanupGlobal.__bookhubCleanupLastRunAt || 0;
-
-  if (cleanupGlobal.__bookhubCleanupRunning) return;
-  if (!options?.force && now - lastRun < CLEANUP_INTERVAL_MS) return;
-
-  cleanupGlobal.__bookhubCleanupRunning = true;
-  cleanupGlobal.__bookhubCleanupLastRunAt = now;
-
-  try {
-    const cutoff = new Date(now - EXPIRED_RETENTION_MINUTES * 60 * 1000);
-
-    await prisma.$transaction(async (tx) => {
-      const expiredSlots = await tx.timeSlot.findMany({
-        where: {
-          endTime: { lt: cutoff },
-        },
-        select: { id: true },
-      });
-
-      if (expiredSlots.length === 0) return;
-      const slotIds = expiredSlots.map((s) => s.id);
-
-      await tx.booking.deleteMany({
-        where: { timeSlotId: { in: slotIds } },
-      });
-
-      await tx.timeSlot.deleteMany({
-        where: { id: { in: slotIds } },
-      });
+  const days = positiveInt(process.env.UNBOOKED_SLOT_RETENTION_DAYS, 30, 3650);
+  const otpDays = positiveInt(process.env.OTP_RETENTION_DAYS, 7, 365);
+  return prisma.$transaction(async (tx) => {
+    const slots = await tx.timeSlot.deleteMany({
+      where: {
+        endTime: { lt: new Date(now - days * 86400000) },
+        bookings: { none: {} },
+      },
     });
-  } finally {
-    cleanupGlobal.__bookhubCleanupRunning = false;
-  }
+    const codes = await tx.otpCode.deleteMany({
+      where: { expiresAt: { lt: new Date(now - otpDays * 86400000) } },
+    });
+    await tx.otpAttempt.deleteMany({
+      where: {
+        lastAttemptAt: { lt: new Date(now - otpDays * 86400000) },
+        OR: [{ lockedUntil: null }, { lockedUntil: { lt: new Date(now) } }],
+      },
+    });
+    await tx.adminSession.deleteMany({
+      where: { expiresAt: { lt: new Date(now) } },
+    });
+    return { slotsRemoved: slots.count, otpCodesRemoved: codes.count };
+  });
 }

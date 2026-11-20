@@ -1,9 +1,13 @@
-﻿import { profileSmsPreferencesGet, profileSmsPreferencesPatch } from "@/services/profile/profile-service";
+import { handleRoute } from "@/lib/errors";
+import {
+  profileSmsPreferencesGet,
+  profileSmsPreferencesPatch,
+} from "@/services/profile/profile-service";
 
 export async function GET() {
-  return profileSmsPreferencesGet();
+  return handleRoute(() => profileSmsPreferencesGet());
 }
 
 export async function PATCH(req: Request) {
-  return profileSmsPreferencesPatch(req);
+  return handleRoute(() => profileSmsPreferencesPatch(req));
 }

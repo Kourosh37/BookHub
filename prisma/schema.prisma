@@ -12,6 +12,7 @@ model User {
   phone         String?    @unique
   username      String?    @unique
   password      String?
+  sessionVersion Int       @default(0)
   avatarUrl     String?
   smsPreferences Json?
   schedules     Schedule[]
@@ -65,7 +66,7 @@ model TimeSlot {
   startTime  DateTime
   endTime    DateTime
   isBooked   Boolean   @default(false)
-  booking    Booking?
+  bookings   Booking[]
 
   @@unique([scheduleId, startTime])
   @@index([scheduleId, startTime, isBooked])
@@ -74,7 +75,7 @@ model TimeSlot {
 
 model Booking {
   id             String   @id @default(cuid())
-  timeSlotId     String   @unique
+  timeSlotId     String
   timeSlot       TimeSlot @relation(fields: [timeSlotId], references: [id])
   scheduleId     String
   schedule       Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
@@ -83,9 +84,46 @@ model Booking {
   visitorName    String?
   answers        Json
   bookedAt       DateTime @default(now())
+  status         BookingStatus @default(CONFIRMED)
+  canceledAt     DateTime?
 
   @@index([scheduleId, bookedAt(sort: Desc)])
   @@index([bookedByUserId, bookedAt(sort: Desc)])
+  @@index([timeSlotId, status])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELED
+}
+
+model AdminSession {
+  tokenHash String @id
+  adminUser String
+  configHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+}
+
+// Saved with the booking; the worker publishes these durable jobs to Redis.
+model NotificationJob {
+  id String @id @default(cuid())
+  key String @unique
+  type SmsLogType
+  bookingId String
+  recipientUserId String
+  payload Json
+  runAt DateTime
+  publishedAt DateTime?
+  sentAt DateTime?
+  canceledAt DateTime?
+  attempts Int @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([sentAt, canceledAt, publishedAt, runAt])
+  @@index([bookingId])
 }
 
 enum SmsLogType {

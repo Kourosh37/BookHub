@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d bookhub"]
       interval: 5s
@@ -23,7 +23,7 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -44,29 +44,48 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/bookhub?schema=public
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      OTP_SECRET: ${OTP_SECRET:-change-me-too}
+      OTP_SECRET: ${OTP_SECRET:?Set OTP_SECRET}
       OTP_EXPIRES_MINUTES: ${OTP_EXPIRES_MINUTES:-2}
       OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
-      SMS_PROVIDER: ${SMS_PROVIDER:-}
       SMS_API_KEY: ${SMS_API_KEY:-}
-      SMS_TEMPLATE_ID: ${SMS_TEMPLATE_ID:-839779}
-      SMS_SENDER: ${SMS_SENDER:-}
       MAX_PROFILE_IMAGE_MB: ${MAX_PROFILE_IMAGE_MB:-2}
-      DB_RESET_ON_SCHEMA_CHANGE: ${DB_RESET_ON_SCHEMA_CHANGE:-true}
       REDIS_URL: redis://redis:6379
       TZ: ${TZ:-Asia/Tehran}
     ports:
       - "3000:3000"
     volumes:
-      - appmeta:/app/.runtime
       - appuploads:/app/public/uploads
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+  worker:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/bookhub?schema=public
+      REDIS_URL: redis://redis:6379
+      TZ: Asia/Tehran
+    command: ["npm", "run", "worker"]
 
 volumes:
   pgdata:
-  appmeta:
   appuploads:
   redisdata:
-
-

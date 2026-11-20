@@ -1,5 +1,6 @@
-﻿import { getOpenApiSpec } from "@/services/openapi/openapi-service";
+import { handleRoute } from "@/lib/errors";
+import { getOpenApiSpec } from "@/services/openapi/openapi-service";
 
 export async function GET() {
-  return getOpenApiSpec();
+  return handleRoute(() => getOpenApiSpec());
 }

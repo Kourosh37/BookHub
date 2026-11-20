@@ -21,21 +21,37 @@ export const passwordSchema = z
 export const requestOtpSchema = z
   .object({
     phone: phoneSchema,
-    mode: z.enum(["login_phone", "register", "password_reset"]).default("login_phone"),
-    username: z.string().optional(),
-    password: z.string().optional(),
-    confirmPassword: z.string().optional(),
+    mode: z
+      .enum(["login_phone", "register", "password_reset"])
+      .default("login_phone"),
+    username: usernameSchema.optional(),
+    password: passwordSchema.optional(),
+    confirmPassword: z.string().max(100).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.mode === "register") {
       const u = usernameSchema.safeParse(val.username);
-      if (!u.success) ctx.addIssue({ code: "custom", path: ["username"], message: u.error.issues[0]?.message || "نام کاربری نامعتبر است" });
+      if (!u.success)
+        ctx.addIssue({
+          code: "custom",
+          path: ["username"],
+          message: u.error.issues[0]?.message || "نام کاربری نامعتبر است",
+        });
 
       const p = passwordSchema.safeParse(val.password);
-      if (!p.success) ctx.addIssue({ code: "custom", path: ["password"], message: p.error.issues[0]?.message || "رمز عبور نامعتبر است" });
+      if (!p.success)
+        ctx.addIssue({
+          code: "custom",
+          path: ["password"],
+          message: p.error.issues[0]?.message || "رمز عبور نامعتبر است",
+        });
 
       if (!val.confirmPassword || val.confirmPassword !== val.password) {
-        ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "تکرار رمز عبور صحیح نیست" });
+        ctx.addIssue({
+          code: "custom",
+          path: ["confirmPassword"],
+          message: "تکرار رمز عبور صحیح نیست",
+        });
       }
     }
   });
@@ -49,7 +65,11 @@ export const verifyOtpSchema = z.object({
 });
 
 export const passwordLoginSchema = z.object({
-  identifier: z.string().trim().min(3, "نام کاربری یا شماره موبایل را وارد کنید"),
+  identifier: z
+    .string()
+    .trim()
+    .min(3, "نام کاربری یا شماره موبایل را وارد کنید")
+    .max(100),
   password: passwordSchema,
 });
 
@@ -84,35 +104,50 @@ export const changePasswordSchema = z
   });
 
 export const questionSchema = z.object({
-  label: z.string().min(1),
+  label: z.string().trim().min(1).max(300),
   type: z.enum(["text", "textarea"]),
   required: z.boolean(),
 });
 
-export const timeRangeSchema = z.object({
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
-});
+export const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time");
+export const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      Number.isFinite(date.getTime()) &&
+      date.toISOString().slice(0, 10) === value
+    );
+  }, "Invalid calendar date");
+export const timeRangeSchema = z
+  .object({ startTime: timeSchema, endTime: timeSchema })
+  .refine(
+    (range) => range.startTime < range.endTime,
+    "End time must be after start time",
+  );
 
 export const dayConfigSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  ranges: z.array(timeRangeSchema).min(1),
+  date: dateSchema,
+  ranges: z.array(timeRangeSchema).min(1).max(24),
 });
 
 export const scheduleSchema = z.object({
-  title: z.string().min(3).max(120),
-  slotDuration: z.number().min(5).max(180),
-  gapMinutes: z.number().min(0).max(120),
-  daysConfig: z.array(dayConfigSchema).min(1),
+  title: z.string().trim().min(3).max(120),
+  slotDuration: z.number().int().min(5).max(180),
+  gapMinutes: z.number().int().min(0).max(120),
+  daysConfig: z.array(dayConfigSchema).min(1).max(90),
   questions: z.array(questionSchema).max(5),
 });
 
 export const updateScheduleTitleSchema = z.object({
-  title: z.string().min(3).max(120),
+  title: z.string().trim().min(3).max(120),
 });
 
 export const bookingSchema = z.object({
-  timeSlotId: z.string(),
-  name: z.string().optional(),
-  answers: z.array(z.string()),
+  timeSlotId: z.string().min(1).max(100),
+  name: z.string().trim().max(100).optional(),
+  answers: z.array(z.string().trim().max(4000)).max(5),
 });

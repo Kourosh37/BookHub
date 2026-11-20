@@ -1,13 +1,18 @@
-﻿import { profileDeleteMethodNotAllowed, profileGet, profilePatch } from "@/services/profile/profile-service";
+import { handleRoute } from "@/lib/errors";
+import {
+  profileDeleteMethodNotAllowed,
+  profileGet,
+  profilePatch,
+} from "@/services/profile/profile-service";
 
 export async function GET() {
-  return profileGet();
+  return handleRoute(() => profileGet());
 }
 
 export async function PATCH(req: Request) {
-  return profilePatch(req);
+  return handleRoute(() => profilePatch(req));
 }
 
 export async function DELETE() {
-  return profileDeleteMethodNotAllowed();
+  return handleRoute(() => profileDeleteMethodNotAllowed());
 }

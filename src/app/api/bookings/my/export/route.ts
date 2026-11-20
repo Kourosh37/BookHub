@@ -1,5 +1,6 @@
-﻿import { bookingsExport } from "@/services/bookings/bookings-service";
+import { handleRoute } from "@/lib/errors";
+import { bookingsExport } from "@/services/bookings/bookings-service";
 
 export async function GET(req: Request) {
-  return bookingsExport(req);
+  return handleRoute(() => bookingsExport(req));
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { use, useEffect, useMemo } from "react";
+import { ApiError } from "@/lib/api-client";
 import toast from "react-hot-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -32,39 +33,65 @@ function formatDateButtonLabel(value: string) {
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
-export default function PublicSchedulePage({ params }: { params: { shareId: string } }) {
+export default function PublicSchedulePage({
+  params: routeParams,
+}: {
+  params: Promise<{ shareId: string }>;
+}) {
+  const params = use(routeParams);
   const queryClient = useQueryClient();
   const theme = useUIStore((s) => s.theme);
   const selectedDate = usePublicScheduleUIStore((s) => s.selectedDate);
   const setSelectedDate = usePublicScheduleUIStore((s) => s.setSelectedDate);
   const selectedSlot = usePublicScheduleUIStore((s) => s.selectedSlot);
   const setSelectedSlot = usePublicScheduleUIStore((s) => s.setSelectedSlot);
-  const avatarPreviewOpen = usePublicScheduleUIStore((s) => s.avatarPreviewOpen);
-  const setAvatarPreviewOpen = usePublicScheduleUIStore((s) => s.setAvatarPreviewOpen);
+  const avatarPreviewOpen = usePublicScheduleUIStore(
+    (s) => s.avatarPreviewOpen,
+  );
+  const setAvatarPreviewOpen = usePublicScheduleUIStore(
+    (s) => s.setAvatarPreviewOpen,
+  );
   const bookingError = usePublicScheduleUIStore((s) => s.bookingError);
   const setBookingError = usePublicScheduleUIStore((s) => s.setBookingError);
+
+  useEffect(() => {
+    setSelectedDate("");
+    setSelectedSlot("");
+    setBookingError("");
+    setAvatarPreviewOpen(false);
+  }, [
+    params.shareId,
+    setSelectedDate,
+    setSelectedSlot,
+    setBookingError,
+    setAvatarPreviewOpen,
+  ]);
 
   const authQuery = useQuery({
     queryKey: ["auth", "me", "schedule-gate"],
     queryFn: async () => {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
-      if (!res.ok) throw new Error("UNAUTHORIZED");
+      if (!res.ok)
+        throw new ApiError(res.status, "Authentication request failed");
       return res.json();
     },
     retry: false,
   });
 
   useEffect(() => {
-    if (authQuery.isError) {
+    if (authQuery.error instanceof ApiError && authQuery.error.status === 401) {
       const next = `/schedule/${params.shareId}`;
       window.location.replace(`/login?next=${encodeURIComponent(next)}`);
     }
-  }, [authQuery.isError, params.shareId]);
+  }, [authQuery.error, params.shareId]);
 
   const scheduleQuery = useQuery({
     queryKey: ["schedule", "public", params.shareId],
+    enabled: authQuery.isSuccess,
     queryFn: async () => {
-      const res = await fetch(`/api/schedules/${params.shareId}`, { cache: "no-store" });
+      const res = await fetch(`/api/schedules/${params.shareId}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("FAILED_SCHEDULE");
       return res.json();
     },
@@ -72,9 +99,13 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
   const slotsQuery = useQuery({
     queryKey: ["schedule", "public", params.shareId, "slots", selectedDate],
-    enabled: Boolean(selectedDate),
+    enabled:
+      Boolean(selectedDate) && authQuery.isSuccess && scheduleQuery.isSuccess,
     queryFn: async () => {
-      const res = await fetch(`/api/schedules/${params.shareId}/slots?date=${selectedDate}`, { cache: "no-store" });
+      const res = await fetch(
+        `/api/schedules/${params.shareId}/slots?date=${selectedDate}`,
+        { cache: "no-store" },
+      );
       if (!res.ok) throw new Error("FAILED_SLOTS");
       const data = await res.json();
       return Array.isArray(data) ? data : [];
@@ -89,7 +120,11 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "خطا در رزرو");
+      if (!res.ok)
+        throw new ApiError(
+          res.status,
+          data.details || data.error || "خطا در رزرو",
+        );
       return data;
     },
   });
@@ -97,9 +132,17 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   const schedule = scheduleQuery.data ?? null;
   const slots = slotsQuery.data ?? [];
 
-  const questions = useMemo(() => (Array.isArray(schedule?.questions) ? schedule.questions : []), [schedule]);
+  const questions = useMemo(
+    () => (Array.isArray(schedule?.questions) ? schedule.questions : []),
+    [schedule],
+  );
   const dateOptions = useMemo(
-    () => (Array.isArray(schedule?.dateOptions) ? [...schedule.dateOptions].sort((a: any, b: any) => String(a.date).localeCompare(String(b.date))) : []),
+    () =>
+      Array.isArray(schedule?.dateOptions)
+        ? [...schedule.dateOptions].sort((a: any, b: any) =>
+            String(a.date).localeCompare(String(b.date)),
+          )
+        : [],
     [schedule],
   );
 
@@ -114,11 +157,17 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
 
   const previewAvatarUrl = useMemo(() => {
     const src = schedule?.user?.avatarUrl;
-    if (!src) return theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg";
+    if (!src)
+      return theme === "light"
+        ? "/default-avatar-light.svg"
+        : "/default-avatar-dark.svg";
     if (src.startsWith("/")) return src;
     try {
       const url = new URL(src);
-      if (url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/api/profile/avatar")) {
+      if (
+        url.pathname.startsWith("/uploads/") ||
+        url.pathname.startsWith("/api/profile/avatar")
+      ) {
         return `${url.pathname}${url.search}`;
       }
     } catch {}
@@ -136,20 +185,48 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
           setBookingError("");
           bookingForm.reset({ answers: questions.map(() => "") });
           await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["schedule", "public", params.shareId] }),
             queryClient.invalidateQueries({
-              queryKey: ["schedule", "public", params.shareId, "slots", selectedDate],
+              queryKey: ["schedule", "public", params.shareId],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: [
+                "schedule",
+                "public",
+                params.shareId,
+                "slots",
+                selectedDate,
+              ],
             }),
           ]);
         },
         onError: (err: any) => {
           const message = err?.message || "خطا در رزرو";
           setBookingError(message);
+          if (err instanceof ApiError && err.status === 409) {
+            setSelectedSlot("");
+            void queryClient.invalidateQueries({
+              queryKey: ["schedule", "public", params.shareId],
+            });
+          }
           toast.error(message);
         },
       },
     );
   });
+
+  if (
+    authQuery.isError &&
+    !(authQuery.error instanceof ApiError && authQuery.error.status === 401)
+  )
+    return (
+      <main className="page-shell py-6">
+        <PublicHeader compact />
+        <p role="alert">ارتباط با سرور برقرار نشد.</p>
+        <button className="btn-primary" onClick={() => authQuery.refetch()}>
+          تلاش مجدد
+        </button>
+      </main>
+    );
 
   if (authQuery.isPending || authQuery.isError) {
     return (
@@ -162,21 +239,40 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
   return (
     <main className="page-shell py-4 md:py-6">
       <PublicHeader compact />
+      {scheduleQuery.isError && (
+        <p role="alert">دریافت برنامه ناموفق بود یا برنامه پیدا نشد.</p>
+      )}
       <div className="card space-y-5 p-4 md:p-6">
         <div className="flex justify-start">
-          <Link href="/dashboard" className="btn-ghost">رفتن به داشبورد</Link>
+          <Link href="/dashboard" className="btn-ghost">
+            رفتن به داشبورد
+          </Link>
         </div>
         <div className="flex items-center gap-3">
-          <UserAvatar src={schedule?.user?.avatarUrl} alt="host avatar" sizeClassName="h-12 w-12" iconSize={18} onClick={() => setAvatarPreviewOpen(true)} />
-          <div className="text-sm text-slate-400">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</div>
+          <UserAvatar
+            src={schedule?.user?.avatarUrl}
+            alt="host avatar"
+            sizeClassName="h-12 w-12"
+            iconSize={18}
+            onClick={() => setAvatarPreviewOpen(true)}
+          />
+          <div className="text-sm text-slate-400">
+            {schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}
+          </div>
         </div>
-        <h1 className="text-2xl font-bold md:text-3xl">{schedule?.title || "..."}</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {schedule?.title || "..."}
+        </h1>
 
         <div>
-          <label className="mb-2 flex items-center gap-2 text-sm text-slate-300"><CalendarDays size={16} /> انتخاب روز</label>
+          <label className="mb-2 flex items-center gap-2 text-sm text-slate-300">
+            <CalendarDays size={16} /> انتخاب روز
+          </label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {dateOptions.length === 0 && (
-              <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">تاریخی برای نمایش باقی نمانده است.</div>
+              <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">
+                تاریخی برای نمایش باقی نمانده است.
+              </div>
             )}
             {dateOptions.map((option: any) => {
               const date = String(option.date);
@@ -193,19 +289,33 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
                   className={`btn min-h-12 flex-col justify-center gap-1 text-sm ${active ? "bg-cyan-500 text-slate-950" : isFull ? "btn-ghost opacity-75" : "btn-ghost"}`}
                 >
                   <span>{formatDateButtonLabel(date)}</span>
-                  {isFull && <span className={`rounded-full px-2 py-0.5 text-[11px] ${active ? "bg-slate-950/15 text-slate-950" : "bg-rose-500/15 text-rose-300"}`}>پر شده</span>}
+                  {isFull && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${active ? "bg-slate-950/15 text-slate-950" : "bg-rose-500/15 text-rose-300"}`}
+                    >
+                      پر شده
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-slate-500">روزهای پرشده هم نمایش داده می‌شوند، اما امکان رزرو ندارند.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            روزهای پرشده هم نمایش داده می‌شوند، اما امکان رزرو ندارند.
+          </p>
         </div>
 
         {selectedDate && (
           <div>
-            <p className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Clock3 size={16} /> بازه‌ها</p>
+            <p className="mb-2 flex items-center gap-2 text-sm text-slate-300">
+              <Clock3 size={16} /> بازه‌ها
+            </p>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {slots.length === 0 && <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">برای این روز، بازه‌ای برای نمایش باقی نمانده است.</div>}
+              {slots.length === 0 && (
+                <div className="col-span-full rounded-xl surface-block p-3 text-sm text-slate-400">
+                  برای این روز، بازه‌ای برای نمایش باقی نمانده است.
+                </div>
+              )}
               {slots.map((s) => {
                 const isBooked = Boolean(s.isBooked);
                 return (
@@ -225,7 +335,11 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
                         timeZone: "Asia/Tehran",
                       })}
                     </span>
-                    {isBooked && <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] text-rose-300">رزرو شده</span>}
+                    {isBooked && (
+                      <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] text-rose-300">
+                        رزرو شده
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -234,25 +348,56 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
         )}
 
         {selectedSlot && (
-          <form onSubmit={submitBooking} className="space-y-3 rounded-xl surface-block p-3">
+          <form
+            onSubmit={submitBooking}
+            className="space-y-3 rounded-xl surface-block p-3"
+          >
             {questions.map((q: any, i: number) =>
               q.type === "textarea" ? (
-                <textarea key={i} className="input min-h-24" placeholder={q.label} required={q.required} {...bookingForm.register(`answers.${i}`)} />
+                <textarea
+                  key={i}
+                  className="input min-h-24"
+                  placeholder={q.label}
+                  required={q.required}
+                  {...bookingForm.register(`answers.${i}`)}
+                />
               ) : (
-                <input key={i} className="input" placeholder={q.label} required={q.required} {...bookingForm.register(`answers.${i}`)} />
+                <input
+                  key={i}
+                  className="input"
+                  placeholder={q.label}
+                  required={q.required}
+                  {...bookingForm.register(`answers.${i}`)}
+                />
               ),
             )}
-            <button className="btn-primary w-full" disabled={bookingMutation.isPending}>
-              <Send size={16} /> {bookingMutation.isPending ? "در حال ثبت..." : "ثبت رزرو"}
+            <button
+              className="btn-primary w-full"
+              disabled={bookingMutation.isPending}
+            >
+              <Send size={16} />{" "}
+              {bookingMutation.isPending ? "در حال ثبت..." : "ثبت رزرو"}
             </button>
-            {bookingError && <p className="text-sm text-rose-300">{bookingError}</p>}
+            {bookingError && (
+              <p className="text-sm text-rose-300">{bookingError}</p>
+            )}
           </form>
         )}
       </div>
       {avatarPreviewOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4" onClick={() => setAvatarPreviewOpen(false)}>
-          <div className="card w-full max-w-lg p-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-lg font-bold">{schedule?.user?.username || schedule?.user?.phone || "ارائه‌دهنده"}</h3>
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-4"
+          onClick={() => setAvatarPreviewOpen(false)}
+        >
+          <div
+            className="card w-full max-w-lg p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-lg font-bold">
+              {schedule?.user?.username ||
+                schedule?.user?.phone ||
+                "ارائه‌دهنده"}
+            </h3>
             <Image
               src={previewAvatarUrl}
               alt="host avatar preview"
@@ -262,7 +407,13 @@ export default function PublicSchedulePage({ params }: { params: { shareId: stri
               unoptimized
             />
             <div className="mt-4 flex justify-end">
-              <button type="button" className="btn-ghost" onClick={() => setAvatarPreviewOpen(false)}>بستن</button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setAvatarPreviewOpen(false)}
+              >
+                بستن
+              </button>
             </div>
           </div>
         </div>

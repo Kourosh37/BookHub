@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeSmsIrMobile } from "@/lib/phone";
 
-export type SmsLogType = "OTP" | "BOOKING_CREATED" | "BOOKING_CANCELED" | "BOOKING_REMINDER" | "GENERIC";
+export type SmsLogType =
+  | "OTP"
+  | "BOOKING_CREATED"
+  | "BOOKING_CANCELED"
+  | "BOOKING_REMINDER"
+  | "GENERIC";
 type SmsLogStatus = "SENT" | "FAILED" | "SKIPPED";
 
 type SmsOtpPayload = {
@@ -86,14 +91,18 @@ async function sendSmsIrTemplate(payload: {
   };
 
   try {
-    const res = await fetch("https://api.sms.ir/v1/send/verify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": apiKey,
+    const res = await fetch(
+      process.env.SMS_API_URL || "https://api.sms.ir/v1/send/verify",
+      {
+        signal: AbortSignal.timeout(10000),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+    );
 
     if (!res.ok) {
       const text = await res.text();
@@ -102,7 +111,9 @@ async function sendSmsIrTemplate(payload: {
 
     const responseJson = (await res.json()) as SmsIrVerifyResponse;
     if (responseJson.status !== 1) {
-      throw new Error(`سرویس پیامک درخواست را رد کرد: ${responseJson.message || "خطای نامشخص"}`);
+      throw new Error(
+        `سرویس پیامک درخواست را رد کرد: ${responseJson.message || "خطای نامشخص"}`,
+      );
     }
 
     if (payload.smsType) {
@@ -164,11 +175,4 @@ export async function sendTemplateSms(payload: {
   smsType?: SmsLogType;
 }) {
   return sendSmsIrTemplate(payload);
-}
-
-export async function sendTextSms(payload: { to: string; text: string }) {
-  return {
-    ok: true,
-    providerMessage: `queued-text:${payload.to}:${payload.text.length}`,
-  };
 }

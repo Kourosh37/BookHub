@@ -1,5 +1,6 @@
-﻿import { profilePasswordRequestOtp } from "@/services/profile/profile-service";
+import { handleRoute } from "@/lib/errors";
+import { profilePasswordRequestOtp } from "@/services/profile/profile-service";
 
 export async function POST() {
-  return profilePasswordRequestOtp();
+  return handleRoute(() => profilePasswordRequestOtp());
 }

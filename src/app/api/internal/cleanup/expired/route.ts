@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual, createHash } from "node:crypto";
 import { cleanupExpiredBookingsAndSlots } from "@/lib/cleanup";
-
-function isAuthorized(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const bearer = req.headers.get("authorization") || "";
-  if (bearer === `Bearer ${secret}`) return true;
-  const headerSecret = req.headers.get("x-cron-secret");
-  return headerSecret === secret;
-}
-
+import { handleRoute, HttpError } from "@/lib/errors";
+const hash = (value: string) => createHash("sha256").update(value).digest();
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await cleanupExpiredBookingsAndSlots({ force: true });
-  return NextResponse.json({ ok: true });
+  return handleRoute(async () => {
+    const secret = process.env.CRON_SECRET;
+    const received =
+      req.headers.get("authorization")?.replace(/^Bearer /, "") ||
+      req.headers.get("x-cron-secret") ||
+      "";
+    if (
+      !secret ||
+      secret.length < 32 ||
+      !timingSafeEqual(hash(secret), hash(received))
+    )
+      throw new HttpError(401, "Unauthorized");
+    return NextResponse.json({
+      ok: true,
+      ...(await cleanupExpiredBookingsAndSlots()),
+    });
+  });
 }

@@ -11,7 +11,7 @@
   --input-bg: #101a26;
   --input-border: #2a384b;
   --muted-text: #a5b3c6;
-  --btn-primary-bg: #1f6feb;
+  --btn-primary-bg: #1c61cc;
   --btn-primary-text: #f7fbff;
   --focus-ring: #3b82f6;
   --link-text: #7dd3fc;
@@ -181,7 +181,8 @@ input[type="password"]::-ms-clear {
   @apply btn;
   border: 1px solid color-mix(in srgb, var(--input-border) 74%, transparent);
   background: var(--input-bg);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 35%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--card-border) 35%, transparent);
 }
 
 .btn-ghost:hover {
@@ -223,8 +224,16 @@ input[type="password"]::-ms-clear {
 
 .auth-shell {
   background:
-    radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--btn-primary-bg) 28%, transparent), transparent 60%),
-    radial-gradient(900px 500px at 90% 110%, color-mix(in srgb, var(--btn-primary-bg) 20%, transparent), transparent 60%),
+    radial-gradient(
+      1200px 500px at 10% -10%,
+      color-mix(in srgb, var(--btn-primary-bg) 28%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 90% 110%,
+      color-mix(in srgb, var(--btn-primary-bg) 20%, transparent),
+      transparent 60%
+    ),
     var(--bg);
 }
 
@@ -284,7 +293,8 @@ input[type="password"]::-ms-clear {
 
 .surface-block {
   background: color-mix(in srgb, var(--card-bg) 88%, var(--input-bg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border) 24%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--card-border) 24%, transparent);
 }
 
 html[data-theme="light"] .dropdown-panel {

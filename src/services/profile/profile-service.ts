@@ -1,314 +1,287 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { mkdir, readFile, unlink, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/auth";
-import { changePasswordSchema, updateProfileSchema, updateSmsPreferencesSchema } from "@/lib/validations";
-import { generateOtpCode, getOtpExpiryMinutes, getOtpResendCooldownSeconds, hashOtp } from "@/lib/otp";
-import { normalizeOtpCode } from "@/lib/phone";
-import { sendOtpSms } from "@/lib/sms";
+import { requireSession, clearSession, createSession } from "@/lib/auth";
+import {
+  changePasswordSchema,
+  updateProfileSchema,
+  updateSmsPreferencesSchema,
+  verifyOtpSchema,
+} from "@/lib/validations";
 import { normalizeSmsPreferences } from "@/lib/sms-preferences";
-import { withRequestId } from "@/lib/logger";
 import { guardEntityRateLimit } from "@/lib/anti-abuse";
-import { assertOtpNotLocked, clearOtpAttemptState, registerOtpFailure } from "@/lib/otp-security";
+import { issueOtp, verifyOtpAndRun } from "@/lib/otp-security";
+import { HttpError, parseBody, readBytes } from "@/lib/errors";
+import { positiveInt } from "@/lib/config";
+import { lockUsers } from "@/lib/transaction";
+import { cacheDelByPattern } from "@/lib/cache";
 
-function getMaxAvatarBytes() {
-  const mb = Number(process.env.MAX_PROFILE_IMAGE_MB || "2");
-  if (Number.isNaN(mb) || mb <= 0) return 2 * 1024 * 1024;
-  return mb * 1024 * 1024;
-}
-
-function contentTypeFromFileName(fileName: string) {
-  const ext = fileName.toLowerCase().split(".").pop() || "";
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  if (ext === "png") return "image/png";
-  if (ext === "webp") return "image/webp";
-  if (ext === "gif") return "image/gif";
-  if (ext === "svg") return "image/svg+xml";
-  return "application/octet-stream";
-}
-
-async function canRequestOtp(phone: string, purpose: "PASSWORD_RESET" | "ACCOUNT_DELETE") {
-  const cooldownSeconds = getOtpResendCooldownSeconds();
-  const latest = await prisma.otpCode.findFirst({ where: { phone, purpose }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
-  if (!latest) return { ok: true as const, retryAfter: 0 };
-
-  const elapsed = Math.floor((Date.now() - latest.createdAt.getTime()) / 1000);
-  if (elapsed >= cooldownSeconds) return { ok: true as const, retryAfter: 0 };
-  return { ok: false as const, retryAfter: cooldownSeconds - elapsed };
-}
-
+const select = {
+  id: true,
+  username: true,
+  phone: true,
+  avatarUrl: true,
+  smsPreferences: true,
+} as const;
+const uploadsDir = () =>
+  process.env.AVATAR_UPLOAD_DIR ||
+  path.resolve(process.cwd(), "public", "uploads", "avatars");
 export async function profileGet() {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({
+  const session = await requireSession();
+  return NextResponse.json(
+    await prisma.user.findUniqueOrThrow({
       where: { id: session.userId },
-      select: { id: true, username: true, phone: true, avatarUrl: true, smsPreferences: true },
-    });
-    return NextResponse.json(user);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+      select,
+    }),
+  );
 }
-
 export async function profilePatch(req: Request) {
-  try {
-    const session = await requireSession();
-    const body = await req.json();
-    const parsed = updateProfileSchema.safeParse(body);
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      return NextResponse.json({ error: "Invalid request payload", details: issue?.message || "invalid" }, { status: 400 });
-    }
-
-    const username = parsed.data.username?.trim();
-    if (username) {
-      const exists = await prisma.user.findFirst({ where: { username, id: { not: session.userId } }, select: { id: true } });
-      if (exists) return NextResponse.json({ error: "Username already registered" }, { status: 409 });
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: session.userId },
-      data: { ...(username ? { username } : {}) },
-      select: { id: true, username: true, phone: true, avatarUrl: true, smsPreferences: true },
-    });
-    return NextResponse.json(updated);
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  const data = await parseBody(req, updateProfileSchema);
+  const user = await prisma.user.update({
+    where: { id: session.userId },
+    data,
+    select,
+  });
+  await cacheDelByPattern("schedule:*:summary");
+  return NextResponse.json(user);
 }
-
 export function profileDeleteMethodNotAllowed() {
-  return NextResponse.json({ error: "Use delete confirmation endpoint" }, { status: 405 });
+  return NextResponse.json(
+    { error: "Use delete confirmation endpoint" },
+    { status: 405 },
+  );
 }
-
 export async function profileSmsPreferencesGet() {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { smsPreferences: true } });
-    return NextResponse.json(normalizeSmsPreferences(user?.smsPreferences ?? null));
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.userId },
+    select: { smsPreferences: true },
+  });
+  return NextResponse.json(normalizeSmsPreferences(user.smsPreferences));
 }
-
 export async function profileSmsPreferencesPatch(req: Request) {
-  try {
-    const session = await requireSession();
-    const body = await req.json();
-    const parsed = updateSmsPreferencesSchema.safeParse(body);
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      return NextResponse.json({ error: "Invalid request payload", details: issue?.message || "invalid" }, { status: 400 });
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: session.userId },
-      data: { smsPreferences: parsed.data },
-      select: { smsPreferences: true },
-    });
-    return NextResponse.json(normalizeSmsPreferences(updated.smsPreferences ?? null));
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  const data = await parseBody(req, updateSmsPreferencesSchema);
+  const updated = await prisma.user.update({
+    where: { id: session.userId },
+    data: { smsPreferences: data },
+    select: { smsPreferences: true },
+  });
+  return NextResponse.json(updated.smsPreferences);
 }
-
 export async function profilePasswordRequestOtp() {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true } });
-    if (!user?.phone) return NextResponse.json({ error: "Phone not found" }, { status: 400 });
-
-    const lock = await assertOtpNotLocked(user.phone, "PASSWORD_RESET");
-    if (lock.locked) {
-      return NextResponse.json({ error: "OTP temporarily locked", details: `Try again in ${lock.retryAfterSeconds} seconds` }, { status: 429 });
-    }
-
-    const cooldown = await canRequestOtp(user.phone, "PASSWORD_RESET");
-    if (!cooldown.ok) {
-      return NextResponse.json({ error: "Resend is not allowed yet", details: `Try again in ${cooldown.retryAfter} seconds` }, { status: 429 });
-    }
-
-    const code = generateOtpCode();
-    const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
-    await prisma.otpCode.create({ data: { phone: user.phone, codeHash: hashOtp(user.phone, code), purpose: "PASSWORD_RESET", expiresAt } });
-    await sendOtpSms({ phone: user.phone, code });
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    if (error?.message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    return NextResponse.json({ error: "OTP send failed", details: error?.message || "provider error" }, { status: 500 });
-  }
+  const session = await requireSession();
+  return NextResponse.json(await issueOtp(session.phone, "PASSWORD_RESET"));
 }
-
 export async function profilePasswordConfirm(req: Request) {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true } });
-    if (!user?.phone) return NextResponse.json({ error: "Phone not found" }, { status: 400 });
-
-    const body = await req.json();
-    const parsed = changePasswordSchema.safeParse(body);
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      return NextResponse.json({ error: "Invalid request payload", details: issue?.message || "invalid" }, { status: 400 });
-    }
-
-    const otp = await prisma.otpCode.findFirst({
-      where: { phone: user.phone, codeHash: hashOtp(user.phone, parsed.data.code), purpose: "PASSWORD_RESET", consumedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!otp) {
-      await registerOtpFailure(user.phone, "PASSWORD_RESET");
-      return NextResponse.json({ error: "Invalid OTP code" }, { status: 401 });
-    }
-    await clearOtpAttemptState(user.phone, "PASSWORD_RESET");
-
-    await prisma.$transaction(async (tx) => {
-      await tx.otpCode.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
-      await tx.user.update({ where: { id: session.userId }, data: { password: await bcrypt.hash(parsed.data.newPassword, 12) } });
-    });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  const data = await parseBody(req, changePasswordSchema);
+  const password = await bcrypt.hash(data.newPassword, 12);
+  const user = await verifyOtpAndRun(
+    session.phone,
+    data.code,
+    "PASSWORD_RESET",
+    async (tx) =>
+      tx.user.update({
+        where: { id: session.userId },
+        data: { password, sessionVersion: { increment: 1 } },
+      }),
+  );
+  await createSession({
+    userId: user.id,
+    phone: user.phone!,
+    sessionVersion: user.sessionVersion,
+  });
+  return NextResponse.json({ ok: true });
 }
-
 export async function profileDeleteRequestOtp() {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true } });
-    if (!user?.phone) return NextResponse.json({ error: "Phone not found" }, { status: 400 });
-
-    const lock = await assertOtpNotLocked(user.phone, "ACCOUNT_DELETE");
-    if (lock.locked) {
-      return NextResponse.json({ error: "OTP temporarily locked", details: `Try again in ${lock.retryAfterSeconds} seconds` }, { status: 429 });
-    }
-
-    const cooldown = await canRequestOtp(user.phone, "ACCOUNT_DELETE");
-    if (!cooldown.ok) {
-      return NextResponse.json({ error: "Resend is not allowed yet", details: `Try again in ${cooldown.retryAfter} seconds` }, { status: 429 });
-    }
-
-    const code = generateOtpCode();
-    const expiresAt = new Date(Date.now() + getOtpExpiryMinutes() * 60 * 1000);
-    await prisma.otpCode.create({ data: { phone: user.phone, codeHash: hashOtp(user.phone, code), purpose: "ACCOUNT_DELETE", expiresAt } });
-    await sendOtpSms({ phone: user.phone, code });
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    if (error?.message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    return NextResponse.json({ error: "OTP send failed", details: error?.message || "provider error" }, { status: 500 });
-  }
+  const session = await requireSession();
+  return NextResponse.json(await issueOtp(session.phone, "ACCOUNT_DELETE"));
 }
-
 export async function profileDeleteConfirm(req: Request) {
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { phone: true } });
-    if (!user?.phone) return NextResponse.json({ error: "Phone not found" }, { status: 400 });
-
-    const body = await req.json();
-    const rawCode = normalizeOtpCode(body?.code ?? "");
-    if (!/^\d{6}$/.test(rawCode)) return NextResponse.json({ error: "OTP code must be 6 digits" }, { status: 400 });
-
-    const otp = await prisma.otpCode.findFirst({
-      where: { phone: user.phone, codeHash: hashOtp(user.phone, rawCode), purpose: "ACCOUNT_DELETE", consumedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!otp) {
-      await registerOtpFailure(user.phone, "ACCOUNT_DELETE");
-      return NextResponse.json({ error: "Invalid OTP code" }, { status: 401 });
-    }
-    await clearOtpAttemptState(user.phone, "ACCOUNT_DELETE");
-
-    await prisma.$transaction(async (tx) => {
-      await tx.otpCode.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
+  const session = await requireSession();
+  const data = await parseBody(
+    req,
+    z.object({ code: verifyOtpSchema.shape.code }),
+  );
+  await verifyOtpAndRun(
+    session.phone,
+    data.code,
+    "ACCOUNT_DELETE",
+    async (tx) => {
+      await lockUsers(tx, [session.userId]);
+      const bookings = await tx.booking.findMany({
+        where: {
+          bookedByUserId: session.userId,
+          status: "CONFIRMED",
+          schedule: { userId: { not: session.userId } },
+        },
+        select: { id: true, timeSlotId: true },
+      });
+      await tx.booking.updateMany({
+        where: { id: { in: bookings.map((b) => b.id) } },
+        data: { status: "CANCELED", canceledAt: new Date() },
+      });
+      await tx.timeSlot.updateMany({
+        where: { id: { in: bookings.map((b) => b.timeSlotId) } },
+        data: { isBooked: false },
+      });
+      const hosted = await tx.booking.findMany({
+        where: { schedule: { userId: session.userId } },
+        select: { id: true },
+      });
+      await tx.notificationJob.updateMany({
+        where: {
+          OR: [
+            { recipientUserId: session.userId },
+            { bookingId: { in: [...bookings, ...hosted].map((b) => b.id) } },
+          ],
+          sentAt: null,
+        },
+        data: { canceledAt: new Date() },
+      });
       await tx.user.delete({ where: { id: session.userId } });
-    });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+      await tx.otpCode.deleteMany({ where: { phone: session.phone } });
+      return true;
+    },
+  );
+  await clearSession();
+  await cacheDelByPattern("schedule:*");
+  return NextResponse.json({ ok: true });
 }
 
+export async function sanitizeAvatar(buffer: Buffer) {
+  const raster =
+    buffer.subarray(0, 3).equals(Buffer.from([255, 216, 255])) ||
+    buffer
+      .subarray(0, 8)
+      .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ||
+    ["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString("ascii")) ||
+    (buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      buffer.subarray(8, 12).toString("ascii") === "WEBP");
+  if (!raster) throw new HttpError(400, "Only valid raster images are allowed");
+  try {
+    const image = sharp(buffer, {
+      limitInputPixels: 16_000_000,
+      animated: false,
+      failOn: "warning",
+    });
+    const meta = await image.metadata();
+    if (!meta.format || !["jpeg", "png", "webp", "gif"].includes(meta.format))
+      throw new Error("Unsupported image");
+    return await image
+      .rotate()
+      .resize(512, 512, { fit: "cover", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+  } catch {
+    throw new HttpError(
+      400,
+      "Only valid JPEG, PNG, WebP, or GIF images are allowed",
+    );
+  }
+}
 export async function profileAvatarUpload(req: Request) {
-  const log = withRequestId(req.headers.get("x-request-id"));
+  const session = await requireSession();
+  const rate = await guardEntityRateLimit({
+    keyPrefix: "rate:avatar",
+    entity: session.userId,
+    limit: positiveInt(process.env.AVATAR_UPLOAD_RATE_LIMIT_USER_MAX, 10),
+    windowSeconds: 3600,
+  });
+  if (!rate.allowed)
+    throw new HttpError(429, "Too many uploads", rate.retryAfterSeconds);
+  const max =
+    positiveInt(process.env.MAX_PROFILE_IMAGE_MB, 2, 10) * 1024 * 1024;
+  if (Number(req.headers.get("content-length")) > max + 65536)
+    throw new HttpError(413, "File is too large");
+  const bytes = await readBytes(req, max + 65536);
+  let form: FormData;
   try {
-    const session = await requireSession();
-    const userRate = await guardEntityRateLimit({
-      keyPrefix: "rate:avatar-upload:user",
-      entity: session.userId,
-      limit: Number(process.env.AVATAR_UPLOAD_RATE_LIMIT_USER_MAX || "10"),
-      windowSeconds: Number(process.env.AVATAR_UPLOAD_RATE_LIMIT_USER_WINDOW_SECONDS || "3600"),
+    form = await new Request(req.url, {
+      method: "POST",
+      headers: req.headers,
+      body: bytes,
+    }).formData();
+  } catch {
+    throw new HttpError(400, "Invalid multipart upload");
+  }
+  const file = form.get("file");
+  if (!(file instanceof File) || !file.size)
+    throw new HttpError(400, "File is required");
+  if (file.size > max) throw new HttpError(413, "File is too large");
+  const buffer = await sanitizeAvatar(Buffer.from(await file.arrayBuffer()));
+  const fileName = `${session.userId}-${randomUUID()}.jpg`;
+  const fullPath = path.join(uploadsDir(), fileName);
+  await mkdir(uploadsDir(), { recursive: true });
+  await writeFile(fullPath, buffer, { flag: "wx" });
+  let previous: string | null = null;
+  try {
+    const user = await prisma.$transaction(async (tx) => {
+      await lockUsers(tx, [session.userId]);
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        select: { avatarUrl: true },
+      });
+      previous = current.avatarUrl;
+      return tx.user.update({
+        where: { id: session.userId },
+        data: { avatarUrl: `/api/profile/avatar/file/${fileName}` },
+        select: { avatarUrl: true },
+      });
     });
-    if (!userRate.allowed) {
-      return NextResponse.json({ error: "Too many uploads", details: `Try again in ${userRate.retryAfterSeconds} seconds` }, { status: 429 });
-    }
-
-    const form = await req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "File is required" }, { status: 400 });
-    if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
-    if (file.size > getMaxAvatarBytes()) {
-      return NextResponse.json({ error: "File is too large", details: `Max ${process.env.MAX_PROFILE_IMAGE_MB || "2"} MB` }, { status: 400 });
-    }
-
-    const ext = (file.type.split("/")[1] || "jpg").replace(/[^a-zA-Z0-9]/g, "");
-    const fileName = `${session.userId}-${randomUUID()}.${ext}`;
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
-    await mkdir(uploadsDir, { recursive: true });
-    const fullPath = path.join(uploadsDir, fileName);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(fullPath, buffer);
-
-    const avatarUrl = `/api/profile/avatar/file/${fileName}`;
-    const updated = await prisma.user.update({ where: { id: session.userId }, data: { avatarUrl }, select: { avatarUrl: true } });
-    log.info({ userId: session.userId, avatarUrl: updated.avatarUrl }, "avatar updated");
-    return NextResponse.json({ ok: true, avatarUrl: updated.avatarUrl });
-  } catch {
-    log.error("avatar update unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await removeAvatarFile(previous);
+    return NextResponse.json({ ok: true, avatarUrl: user.avatarUrl });
+  } catch (error) {
+    await unlink(fullPath).catch(() => {});
+    throw error;
   }
 }
-
-export async function profileAvatarDelete(req: Request) {
-  const log = withRequestId(req.headers.get("x-request-id"));
-  try {
-    const session = await requireSession();
-    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { avatarUrl: true } });
-    const avatarUrl = user?.avatarUrl || "";
-    if (avatarUrl) {
-      const fileName = avatarUrl.split("/").pop()?.split("?")[0];
-      if (fileName) {
-        const filePath = path.join(process.cwd(), "public", "uploads", "avatars", fileName);
-        await unlink(filePath).catch(() => {});
-      }
-    }
-
-    await prisma.user.update({ where: { id: session.userId }, data: { avatarUrl: null } });
-    log.info({ userId: session.userId }, "avatar removed");
-    return NextResponse.json({ ok: true, avatarUrl: null });
-  } catch {
-    log.error("avatar remove unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+async function removeAvatarFile(url: string | null) {
+  const name = url?.split("/").pop()?.split("?")[0];
+  if (name && /^[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|gif)$/.test(name))
+    await unlink(path.join(uploadsDir(), name)).catch(() => {});
 }
-
+export async function profileAvatarDelete(_req: Request) {
+  const session = await requireSession();
+  const previous = await prisma.$transaction(async (tx) => {
+    await lockUsers(tx, [session.userId]);
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: session.userId },
+      select: { avatarUrl: true },
+    });
+    await tx.user.update({
+      where: { id: session.userId },
+      data: { avatarUrl: null },
+    });
+    return user.avatarUrl;
+  });
+  await removeAvatarFile(previous);
+  return NextResponse.json({ ok: true, avatarUrl: null });
+}
 export async function profileAvatarFileGet(fileName: string) {
+  if (!/^[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|gif)$/.test(fileName))
+    throw new HttpError(404, "File not found");
   try {
-    const safeName = path.basename(fileName || "");
-    if (!safeName) return NextResponse.json({ error: "Invalid file name" }, { status: 400 });
-    const fullPath = path.join(process.cwd(), "public", "uploads", "avatars", safeName);
-    const file = await readFile(fullPath);
-    return new NextResponse(file, {
-      status: 200,
+    // Re-encode legacy uploads as well: stored files are never served as active SVG.
+    const image = await sanitizeAvatar(
+      await readFile(path.join(uploadsDir(), fileName)),
+    );
+    return new NextResponse(new Uint8Array(image), {
       headers: {
-        "Content-Type": contentTypeFromFileName(safeName),
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "image/jpeg",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "Cache-Control": "public, max-age=86400",
       },
     });
   } catch {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
+    throw new HttpError(404, "File not found");
   }
 }

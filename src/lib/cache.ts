@@ -1,50 +1,65 @@
-import { getRedis } from "@/lib/redis";
+import { getReadyRedis } from "@/lib/redis";
+import { logger } from "@/lib/logger";
+
+async function bestEffort<T>(
+  operation: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    logger.warn({ error: String(error) }, "cache unavailable");
+    return fallback;
+  }
+}
+const connection = getReadyRedis;
 
 export async function cacheGetJson<T>(key: string): Promise<T | null> {
-  const redis = getRedis();
-  if (!redis) return null;
-  const raw = await redis.get(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
+  return bestEffort(async () => {
+    const raw = await (await connection())?.get(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  }, null);
 }
-
-export async function cacheSetJson(key: string, value: unknown, ttlSeconds: number) {
-  const redis = getRedis();
-  if (!redis) return;
-  await redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
+export async function cacheSetJson(
+  key: string,
+  value: unknown,
+  ttlSeconds: number,
+) {
+  await bestEffort(async () => {
+    await (
+      await connection()
+    )?.set(key, JSON.stringify(value), "EX", ttlSeconds);
+  }, undefined);
 }
-
 export async function cacheDel(key: string) {
-  const redis = getRedis();
-  if (!redis) return;
-  await redis.del(key);
+  await bestEffort(async () => {
+    await (await connection())?.del(key);
+  }, undefined);
 }
-
 export async function cacheDelByPattern(pattern: string) {
-  const redis = getRedis();
-  if (!redis) return;
-  const stream = redis.scanStream({ match: pattern, count: 100 });
-  for await (const keys of stream) {
-    if (Array.isArray(keys) && keys.length > 0) {
-      await redis.del(...keys);
-    }
-  }
+  await bestEffort(async () => {
+    const redis = await connection();
+    if (!redis) return;
+    let cursor = "0";
+    do {
+      const [next, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        pattern,
+        "COUNT",
+        100,
+      );
+      if (keys.length) await redis.del(...keys);
+      cursor = next;
+    } while (cursor !== "0");
+  }, undefined);
 }
-
 export async function cacheSetCooldown(key: string, ttlSeconds: number) {
-  const redis = getRedis();
-  if (!redis) return;
-  await redis.set(key, "1", "EX", ttlSeconds);
+  await cacheSetJson(key, 1, ttlSeconds);
 }
-
 export async function cacheGetCooldownRemaining(key: string) {
-  const redis = getRedis();
-  if (!redis) return null;
-  const ttl = await redis.ttl(key);
-  if (ttl <= 0) return null;
-  return ttl;
+  return bestEffort(async () => {
+    const ttl = await (await connection())?.ttl(key);
+    return ttl && ttl > 0 ? ttl : null;
+  }, null);
 }

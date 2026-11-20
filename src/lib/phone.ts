@@ -5,18 +5,20 @@ export function normalizeDigits(value: string) {
 }
 
 export function normalizeOtpCode(value: string) {
-  return normalizeDigits(String(value ?? "")).replace(/[^\d]/g, "").trim();
+  return normalizeDigits(String(value ?? ""))
+    .replace(/[\s-]/g, "")
+    .trim();
 }
 
 export function normalizePhoneInput(value: string) {
-  const digits = normalizeDigits(String(value ?? "")).replace(/[^\d]/g, "");
-
-  if (digits.startsWith("09") && digits.length === 11) return digits;
-  if (digits.startsWith("9") && digits.length === 10) return `0${digits}`;
-  if (digits.startsWith("98") && digits.length === 12) return `0${digits.slice(2)}`;
-  if (digits.startsWith("0098") && digits.length === 14) return `0${digits.slice(4)}`;
-
-  return null;
+  const normalized = normalizeDigits(String(value ?? ""));
+  if (/[^+\d\s()-]/.test(normalized)) return null;
+  const digits = normalized.replace(/[^\d]/g, "");
+  let phone = digits;
+  if (digits.startsWith("0098")) phone = `0${digits.slice(4)}`;
+  else if (digits.startsWith("98")) phone = `0${digits.slice(2)}`;
+  else if (digits.startsWith("9") && digits.length === 10) phone = `0${digits}`;
+  return /^09\d{9}$/.test(phone) ? phone : null;
 }
 
 export function normalizeSmsIrMobile(value: string) {

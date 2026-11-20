@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useUIStore } from "@/shared/store/ui-store";
@@ -21,7 +21,10 @@ function normalizeAvatarSrc(src?: string | null) {
 
   try {
     const url = new URL(trimmed);
-    if (url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/api/profile/avatar")) {
+    if (
+      url.pathname.startsWith("/uploads/") ||
+      url.pathname.startsWith("/api/profile/avatar")
+    ) {
       return `${url.pathname}${url.search}`;
     }
     return trimmed;
@@ -42,10 +45,16 @@ export function UserAvatar({
   const avatarRefreshToken = useUIStore((s) => s.avatarRefreshToken);
   const theme = useUIStore((s) => s.theme);
   const normalizedSrc = useMemo(() => normalizeAvatarSrc(src), [src]);
-  const fallbackSrc = theme === "light" ? "/default-avatar-light.svg" : "/default-avatar-dark.svg";
+  const fallbackSrc =
+    theme === "light"
+      ? "/default-avatar-light.svg"
+      : "/default-avatar-dark.svg";
   const finalSrc = useMemo(() => {
     if (!normalizedSrc) return "";
-    if (normalizedSrc.startsWith("/api/profile/avatar/file/") || normalizedSrc.startsWith("/uploads/avatars/")) {
+    if (
+      normalizedSrc.startsWith("/api/profile/avatar/file/") ||
+      normalizedSrc.startsWith("/uploads/avatars/")
+    ) {
       const sep = normalizedSrc.includes("?") ? "&" : "?";
       return `${normalizedSrc}${sep}av=${avatarRefreshToken}`;
     }
@@ -59,8 +68,10 @@ export function UserAvatar({
 
   const displaySrc = !finalSrc || errored ? fallbackSrc : finalSrc;
 
+  const Tag = onClick ? "button" : "div";
   return (
-    <div
+    <Tag
+      {...(onClick ? { type: "button" as const, "aria-label": alt } : {})}
       className={`${sizeClassName} ${clickableClass} relative overflow-hidden rounded-full border border-slate-700 ${className}`.trim()}
       style={{ clipPath: "circle(50% at 50% 50%)" }}
       onClick={onClick}
@@ -74,7 +85,6 @@ export function UserAvatar({
         unoptimized={displaySrc !== fallbackSrc}
         onError={() => setErrored(true)}
       />
-    </div>
+    </Tag>
   );
 }
-

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { LogIn, MoonStar, Sun, User } from "lucide-react";
@@ -20,17 +20,32 @@ export function PublicHeader({ compact: _compact = false }: PublicHeaderProps) {
             <User size={18} />
           </div>
           <div className="min-w-0 overflow-hidden">
-            <h2 className="truncate text-base font-bold sm:text-lg">داشبورد رزرو</h2>
-            <p className="hidden truncate text-xs text-slate-400 sm:block">مدیریت زمان‌بندی و نوبت‌ها</p>
+            <h2 className="truncate text-base font-bold sm:text-lg">
+              داشبورد رزرو
+            </h2>
+            <p className="hidden truncate text-xs text-slate-400 sm:block">
+              مدیریت زمان‌بندی و نوبت‌ها
+            </p>
           </div>
         </div>
 
         <div className="ml-2 flex shrink-0 flex-nowrap items-center gap-3 sm:ml-3 sm:gap-4">
-          <Link href="/login" className="btn-ghost h-10 px-3 text-sm" aria-label="ورود" title="ورود">
+          <Link
+            prefetch={false}
+            href="/login"
+            className="btn-ghost h-10 px-3 text-sm"
+            aria-label="ورود"
+            title="ورود"
+          >
             <LogIn size={18} />
             <span className="hidden sm:inline">ورود</span>
           </Link>
-          <button type="button" className="btn-ghost theme-toggle header-action-btn w-10 p-0" onClick={toggleTheme} aria-label="تغییر تم">
+          <button
+            type="button"
+            className="btn-ghost theme-toggle header-action-btn w-10 p-0"
+            onClick={toggleTheme}
+            aria-label="تغییر تم"
+          >
             {theme === "dark" ? <Sun /> : <MoonStar />}
           </button>
         </div>
@@ -38,4 +53,3 @@ export function PublicHeader({ compact: _compact = false }: PublicHeaderProps) {
     </header>
   );
 }
-

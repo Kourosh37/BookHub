@@ -1,4 +1,4 @@
-﻿import "@fontsource/vazirmatn/400.css";
+import "@fontsource/vazirmatn/400.css";
 import "@fontsource/vazirmatn/500.css";
 import "@fontsource/vazirmatn/700.css";
 import { ReactNode } from "react";
@@ -14,8 +14,16 @@ export const metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/logo-light.svg", type: "image/svg+xml", media: "(prefers-color-scheme: light)" },
-      { url: "/logo-dark.svg", type: "image/svg+xml", media: "(prefers-color-scheme: dark)" },
+      {
+        url: "/logo-light.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/logo-dark.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
     ],
     shortcut: "/favicon.svg",
     apple: "/logo-light.svg",
@@ -36,4 +44,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
-
