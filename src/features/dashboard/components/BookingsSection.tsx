@@ -105,6 +105,7 @@ export function BookingsSection(props: Props) {
             <a
               className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
               href={`/api/bookings/my/export?format=csv${bookingFilters.scheduleIds.length > 0 ? `&scheduleId=${bookingFilters.scheduleIds.join(",")}` : ""}`}
+              download="bookings.csv"
               onClick={() => setIsExportMenuOpen(false)}
             >
               <FileText size={14} /> CSV
@@ -112,6 +113,7 @@ export function BookingsSection(props: Props) {
             <a
               className="dropdown-option flex w-full items-center gap-2 px-3 py-2 text-right text-sm transition"
               href={`/api/bookings/my/export?format=xls${bookingFilters.scheduleIds.length > 0 ? `&scheduleId=${bookingFilters.scheduleIds.join(",")}` : ""}`}
+              download="bookings.xls"
               onClick={() => setIsExportMenuOpen(false)}
             >
               <FileSpreadsheet size={14} /> Excel

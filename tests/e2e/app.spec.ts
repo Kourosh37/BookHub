@@ -309,7 +309,7 @@ test("creates a schedule from a saved draft, edits its title, shares QR and dele
     page.getByRole("heading", { name: "عنوان ویرایش شده", exact: true }),
   ).toHaveCount(0);
 });
-test("downloads real PDF, image and CSV reports from the dashboard", async ({
+test("downloads real PDF, image, CSV and Excel reports from the dashboard", async ({
   page,
   browser,
   context,
@@ -330,28 +330,80 @@ test("downloads real PDF, image and CSV reports from the dashboard", async ({
   await loginAs(context, seed.host);
   await page.goto("/dashboard");
   await openTab(page, "رزروهای من");
-  for (const format of ["PDF", "تصویر", "CSV"]) {
-    await page.getByRole("button", { name: "خروجی گرفتن" }).click();
-    const downloadPromise = page.waitForEvent("download");
-    await page.getByText(format, { exact: true }).click();
-    const download = await downloadPromise;
-    expect(await download.failure()).toBeNull();
-    const path = await download.path();
-    expect(path).toBeTruthy();
-    const { readFile } = await import("node:fs/promises");
-    const bytes = await readFile(path!);
-    await testInfo.attach(format, {
-      body: bytes,
-      contentType:
-        format === "PDF"
-          ? "application/pdf"
-          : format === "CSV"
-            ? "text/csv"
-            : "image/png",
+  for (const format of ["PDF", "تصویر", "CSV", "Excel"]) {
+    await test.step(`downloads ${format}`, async () => {
+      await page.getByRole("button", { name: "خروجی گرفتن" }).click();
+      if (format === "CSV" || format === "Excel") {
+        await expect(
+          page.getByRole("link", { name: format, exact: true }),
+        ).toHaveAttribute(
+          "download",
+          format === "CSV" ? "bookings.csv" : "bookings.xls",
+        );
+      }
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.getByText(format, { exact: true }).click(),
+      ]);
+      expect(await download.failure()).toBeNull();
+      const path = await download.path();
+      expect(path).toBeTruthy();
+      const { readFile } = await import("node:fs/promises");
+      const bytes = await readFile(path!);
+      await testInfo.attach(format, {
+        body: bytes,
+        contentType:
+          format === "PDF"
+            ? "application/pdf"
+            : format === "CSV"
+              ? "text/csv"
+              : format === "Excel"
+                ? "application/vnd.ms-excel"
+                : "image/png",
+      });
+      if (format === "PDF")
+        expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+      if (format === "تصویر")
+        expect(bytes.subarray(1, 4).toString()).toBe("PNG");
+      if (format === "CSV") expect(bytes.toString("utf8")).toContain("guest");
+      if (format === "Excel") {
+        expect(download.suggestedFilename()).toMatch(/\.xls$/);
+        expect(bytes.toString("utf8")).toContain("<table");
+        expect(bytes.toString("utf8")).toContain("guest");
+      }
+      await expect(page).toHaveURL(/\/dashboard$/);
     });
-    if (format === "PDF") expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
-    if (format === "تصویر") expect(bytes.subarray(1, 4).toString()).toBe("PNG");
-    if (format === "CSV") expect(bytes.toString("utf8")).toContain("guest");
+  }
+});
+
+test("downloads empty CSV and Excel reports without leaving the dashboard", async ({
+  page,
+  context,
+  seed,
+}) => {
+  await loginAs(context, seed.host);
+  await page.goto("/dashboard");
+  await openTab(page, "رزروهای من");
+  for (const [format, extension] of [
+    ["CSV", "csv"],
+    ["Excel", "xls"],
+  ]) {
+    await test.step(`downloads empty ${format}`, async () => {
+      await page.getByRole("button", { name: "خروجی گرفتن" }).click();
+      const link = page.getByRole("link", { name: format, exact: true });
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        link.click(),
+      ]);
+      expect(await download.failure()).toBeNull();
+      expect(download.suggestedFilename()).toMatch(
+        new RegExp(`\\.${extension}$`),
+      );
+      const { readFile } = await import("node:fs/promises");
+      const body = await readFile((await download.path())!, "utf8");
+      expect(body).toContain(format === "CSV" ? "Title,Booked By" : "<table");
+      await expect(page).toHaveURL(/\/dashboard$/);
+    });
   }
 });
 test("changes a password using OTP and keeps the current session usable", async ({

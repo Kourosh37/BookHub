@@ -284,6 +284,34 @@ it("retains completed bookings and removes only old unused slots", async () => {
     asUser(guest, () => bookings.cancelBooking(request({}), b.id)),
   ).rejects.toMatchObject({ status: 400 });
 });
+it.each([
+  ["", "csv", "text/csv"],
+  ["csv", "csv", "text/csv"],
+  ["xls", "xls", "application/vnd.ms-excel"],
+  ["excel", "xls", "application/vnd.ms-excel"],
+])(
+  "returns a valid attachment for export format '%s'",
+  async (format, extension, mime) => {
+    const response = await asUser(host, () =>
+      bookings.bookingsExport(
+        new Request(`http://localhost${format ? `?format=${format}` : ""}`),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(mime);
+    const disposition = response.headers.get("content-disposition");
+    expect(disposition).toMatch(
+      /^attachment; filename="bookings-\d{4}-\d{2}-\d{2}\.(csv|xls)"$/,
+    );
+    expect(disposition).toContain(`.${extension}"`);
+    if (extension === "xls") {
+      const html = await response.text();
+      expect(html).toContain('<meta charset="utf-8">');
+      expect(html).toContain('<table border="1">');
+    }
+  },
+);
+
 it("exports CSV/Excel safely and scopes results to the host", async () => {
   const s = await makeSchedule(host, { title: "=DANGEROUS()" });
   await book(s, guest);
