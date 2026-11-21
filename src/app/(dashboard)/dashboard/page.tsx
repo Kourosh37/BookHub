@@ -341,6 +341,8 @@ export default function DashboardPage() {
 
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status === 401) && failureCount < 1,
     queryFn: async () => {
       const me = await fetch("/api/auth/me", { cache: "no-store" });
       if (!me.ok)
@@ -349,9 +351,11 @@ export default function DashboardPage() {
       return meData.user;
     },
   });
+  const isAuthenticated = meQuery.isSuccess && Boolean(meQuery.data?.id);
 
   const smsPreferencesQuery = useQuery({
     queryKey: ["profile", "sms-preferences"],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch("/api/profile/sms-preferences", {
         cache: "no-store",
@@ -363,6 +367,7 @@ export default function DashboardPage() {
 
   const schedulesQuery = useQuery({
     queryKey: ["schedules", "my"],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch("/api/schedules/my", { cache: "no-store" });
       if (!res.ok) throw new Error("FAILED_SCHEDULES");
@@ -372,6 +377,7 @@ export default function DashboardPage() {
 
   const bookingsQuery = useQuery({
     queryKey: ["bookings", "my"],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch("/api/bookings/my", { cache: "no-store" });
       if (!res.ok) throw new Error("FAILED_BOOKINGS");
@@ -381,6 +387,7 @@ export default function DashboardPage() {
 
   const mySessionsQuery = useQuery({
     queryKey: ["bookings", "mine"],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch("/api/bookings/mine", { cache: "no-store" });
       if (!res.ok) throw new Error("FAILED_MINE");

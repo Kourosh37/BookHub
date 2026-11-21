@@ -25,8 +25,22 @@ test("protects dashboard and preserves booking destination through registration"
   page,
   seed,
 }) => {
+  const privateRequests: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      [
+        "/api/profile/sms-preferences",
+        "/api/schedules/my",
+        "/api/bookings/my",
+        "/api/bookings/mine",
+      ].includes(path)
+    )
+      privateRequests.push(path);
+  });
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login/);
+  expect(privateRequests).toEqual([]);
   await page.goto("/schedule/" + seed.shareId);
   await expect(page).toHaveURL(/login\?next=/);
   await page.getByRole("link", { name: "ثبت‌نام", exact: true }).click();
@@ -34,6 +48,7 @@ test("protects dashboard and preserves booking destination through registration"
   expect(new URL(page.url()).searchParams.get("next")).toBe(
     "/schedule/" + seed.shareId,
   );
+  expect(privateRequests).toEqual([]);
 });
 test("logs in with a real password and logs out", async ({ page }) => {
   await page.goto("/login");
