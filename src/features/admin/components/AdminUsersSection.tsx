@@ -64,7 +64,6 @@ export function AdminUsersSection(props: Props) {
                   src={user.avatarUrl}
                   alt="avatar"
                   sizeClassName="h-9 w-9"
-                  iconSize={16}
                   onClick={() =>
                     onAvatarClick(
                       user.avatarUrl,

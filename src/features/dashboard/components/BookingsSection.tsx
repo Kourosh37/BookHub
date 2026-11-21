@@ -393,7 +393,6 @@ export function BookingsSection(props: Props) {
                 src={b.bookedByUser?.avatarUrl}
                 alt="booker avatar"
                 sizeClassName="h-8 w-8"
-                iconSize={14}
                 onClick={() =>
                   openAvatarPreview(
                     b.bookedByUser?.avatarUrl,

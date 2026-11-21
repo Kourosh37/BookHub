@@ -11,19 +11,8 @@ import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
-import {
-  Clock3,
-  ListChecks,
-  Share2,
-  Settings,
-  UserCircle2,
-} from "lucide-react";
 import { useUIStore } from "@/shared/store/ui-store";
-import {
-  dashboardDefaultListFilters,
-  useDashboardPageStore,
-  type ListFilterState,
-} from "@/features/dashboard/store/dashboard-page-store";
+import { useDashboardPageStore } from "@/features/dashboard/store/dashboard-page-store";
 import { DashboardHeader } from "@/features/dashboard/components/DashboardHeader";
 import { BookingsSection } from "@/features/dashboard/components/BookingsSection";
 import {
@@ -37,7 +26,6 @@ import { SessionsSection } from "@/features/dashboard/components/SessionsSection
 import type {
   DayItem,
   ProfileSectionKey,
-  QrModalState,
   Question,
   Range,
   SettingsSectionKey,
@@ -53,10 +41,7 @@ import {
   normalizeSearchText,
   rangesOverlap,
   renderAnswers,
-  toEnglishDigits,
   toJalaliLabel,
-  toPersianDigits,
-  toMinutes,
   toYmd,
   ymdToPersianDateObject,
 } from "@/features/dashboard/utils/dashboard-utils";
@@ -234,8 +219,6 @@ export default function DashboardPage() {
   const setExportingImage = useDashboardPageStore((s) => s.setExportingImage);
   const exportingPdf = useDashboardPageStore((s) => s.exportingPdf);
   const setExportingPdf = useDashboardPageStore((s) => s.setExportingPdf);
-  const exportContext = useDashboardPageStore((s) => s.exportContext);
-  const setExportContext = useDashboardPageStore((s) => s.setExportContext);
   const profileSections = useDashboardPageStore((s) => s.profileSections);
   const setProfileSections = useDashboardPageStore((s) => s.setProfileSections);
   const settingsSections = useDashboardPageStore((s) => s.settingsSections);

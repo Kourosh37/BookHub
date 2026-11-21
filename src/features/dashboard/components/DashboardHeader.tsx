@@ -23,7 +23,6 @@ export function DashboardHeader({
           src={user?.avatarUrl}
           alt="avatar"
           sizeClassName="h-10 w-10"
-          iconSize={16}
           onClick={onOpenAvatar}
         />
         <div className="min-w-0">

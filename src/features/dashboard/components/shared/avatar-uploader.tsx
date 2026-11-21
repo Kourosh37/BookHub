@@ -376,7 +376,6 @@ export function AvatarUploader({
           src={currentAvatarUrl}
           alt="avatar preview"
           sizeClassName="h-12 w-12"
-          iconSize={16}
           onClick={onPreview}
         />
         <label className="btn-ghost cursor-pointer">

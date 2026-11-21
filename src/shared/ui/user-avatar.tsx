@@ -8,7 +8,6 @@ type Props = {
   src?: string | null;
   alt: string;
   sizeClassName?: string;
-  iconSize?: number;
   className?: string;
   onClick?: () => void;
 };
@@ -37,7 +36,6 @@ export function UserAvatar({
   src,
   alt,
   sizeClassName = "h-10 w-10",
-  iconSize = 16,
   className = "",
   onClick,
 }: Props) {

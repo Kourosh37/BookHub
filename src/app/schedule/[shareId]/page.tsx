@@ -253,7 +253,6 @@ export default function PublicSchedulePage({
             src={schedule?.user?.avatarUrl}
             alt="host avatar"
             sizeClassName="h-12 w-12"
-            iconSize={18}
             onClick={() => setAvatarPreviewOpen(true)}
           />
           <div className="text-sm text-slate-400">

@@ -315,7 +315,6 @@ export function SessionsSection(props: Props) {
                 src={s.schedule?.user?.avatarUrl}
                 alt="host avatar"
                 sizeClassName="h-8 w-8"
-                iconSize={14}
                 onClick={() =>
                   openAvatarPreview(
                     s.schedule?.user?.avatarUrl,

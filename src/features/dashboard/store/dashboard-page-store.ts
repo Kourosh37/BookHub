@@ -61,7 +61,6 @@ type DashboardPageState = {
   qrDataUrl: string;
   exportingImage: boolean;
   exportingPdf: boolean;
-  exportContext: { title: string; stamp: string; count: number };
   profileSections: Record<ProfileSectionKey, boolean>;
   settingsSections: Record<SettingsSectionKey, boolean>;
   bookingFilters: ListFilterState;
@@ -113,11 +112,6 @@ type DashboardPageActions = {
   setQrDataUrl: (v: string) => void;
   setExportingImage: (v: boolean) => void;
   setExportingPdf: (v: boolean) => void;
-  setExportContext: (v: {
-    title: string;
-    stamp: string;
-    count: number;
-  }) => void;
   setProfileSections: (
     v:
       | Record<ProfileSectionKey, boolean>
@@ -200,7 +194,6 @@ export const useDashboardPageStore = create<Store>((set) => ({
   qrDataUrl: "",
   exportingImage: false,
   exportingPdf: false,
-  exportContext: { title: "", stamp: "", count: 0 },
   profileSections: {
     username: false,
     avatar: false,
@@ -278,7 +271,6 @@ export const useDashboardPageStore = create<Store>((set) => ({
   setQrDataUrl: (v) => set({ qrDataUrl: v }),
   setExportingImage: (v) => set({ exportingImage: v }),
   setExportingPdf: (v) => set({ exportingPdf: v }),
-  setExportContext: (v) => set({ exportContext: v }),
   setProfileSections: (v) =>
     set((s) => ({
       profileSections: typeof v === "function" ? v(s.profileSections) : v,
