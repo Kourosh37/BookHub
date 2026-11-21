@@ -1,4 +1,4 @@
-import { beforeEach, afterAll, it, expect } from "vitest";
+import { beforeEach, afterAll, it, expect, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   resetDatabase,
@@ -253,23 +253,30 @@ it("rejects creating a schedule over confirmed sessions", async () => {
   expect(describeConflict(conflicts[0])).toContain("Test Schedule");
 });
 it("retains completed bookings and removes only old unused slots", async () => {
+  // Distinct slots must stay distinct even when the clock does not advance.
+  vi.spyOn(Date, "now").mockReturnValue(Date.now());
   const s = await makeSchedule(host),
     b = await (await book(s, guest)).json();
-  for (const [i, slot] of s.slots.slice(0, 2).entries())
+  const ageMs = 60 * 86400000;
+  for (const slot of s.slots.slice(0, 2))
     await prisma.timeSlot.update({
       where: { id: slot.id },
       data: {
-        startTime: new Date(Date.now() - 60 * 86400000),
-        endTime: new Date(Date.now() - 60 * 86400000 + (i + 1) * 60000),
+        startTime: new Date(slot.startTime.getTime() - ageMs),
+        endTime: new Date(slot.endTime.getTime() - ageMs),
       },
     });
-  await cleanupExpiredBookingsAndSlots();
+  const result = await cleanupExpiredBookingsAndSlots();
+  expect(result.slotsRemoved).toBe(1);
   expect(
     await prisma.booking.findUnique({ where: { id: b.id } }),
   ).not.toBeNull();
   expect(
     await prisma.timeSlot.findUnique({ where: { id: s.slots[1].id } }),
   ).toBeNull();
+  expect(
+    await prisma.timeSlot.findUnique({ where: { id: s.slots[2].id } }),
+  ).not.toBeNull();
   expect(
     await (
       await asUser(host, () =>
