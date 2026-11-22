@@ -1,0 +1,100 @@
+# Copy to /opt/bookhub/docker-compose.next.yml on the existing production server.
+name: bookhub
+
+x-bookhub-environment: &bookhub-environment
+  NODE_ENV: production
+  TZ: Asia/Tehran
+  DATABASE_URL: postgresql://${POSTGRES_USER:?Keep the existing POSTGRES_USER}:${POSTGRES_PASSWORD:?Keep the existing POSTGRES_PASSWORD}@bookhub-db:5432/${POSTGRES_DB:?Keep the existing POSTGRES_DB}?schema=public
+  REDIS_URL: redis://bookhub-redis:6379
+  PRISMA_MIGRATE_ON_START: "false"
+  PRISMA_DB_PUSH: "false"
+  DB_RESET_ON_SCHEMA_CHANGE: "false"
+  NEXTAUTH_URL: https://bookhub.dev37.ir
+  TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+
+services:
+  bookhub:
+    image: ${BOOKHUB_IMAGE:?Set BOOKHUB_IMAGE to the uploaded release tag}
+    container_name: bookhub
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    env_file: [.env]
+    environment:
+      <<: *bookhub-environment
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      AVATAR_UPLOAD_DIR: /app/public/uploads/avatars
+    volumes:
+      - /opt/bookhub/data/app:/app/data
+      - /opt/bookhub/data/runtime:/app/.runtime
+      - /opt/bookhub/data/uploads:/app/public/uploads
+      # Keep legacy /uploads/... avatar URLs working in the standalone server.
+      - /opt/bookhub/data/uploads:/app/.next/standalone/public/uploads:ro
+    networks: [proxy, bookhub_internal]
+    depends_on:
+      bookhub-db:
+        condition: service_healthy
+      bookhub-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+  bookhub-worker:
+    image: ${BOOKHUB_IMAGE:?Set BOOKHUB_IMAGE to the uploaded release tag}
+    container_name: bookhub-worker
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    env_file: [.env]
+    environment: *bookhub-environment
+    command: [node, --import, tsx, src/worker.ts]
+    networks: [bookhub_internal]
+    depends_on:
+      bookhub:
+        condition: service_healthy
+
+  bookhub-db:
+    image: postgres:16-alpine
+    container_name: bookhub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Keep the existing POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Keep the existing POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Keep the existing POSTGRES_PASSWORD}
+    volumes:
+      - /opt/bookhub/data/postgres:/var/lib/postgresql/data
+    networks: [bookhub_internal]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  bookhub-redis:
+    image: redis:7-alpine
+    container_name: bookhub-redis
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes"]
+    volumes:
+      - /opt/bookhub/data/redis:/data
+    networks: [bookhub_internal]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  proxy:
+    external: true
+  bookhub_internal:
+    driver: bridge
